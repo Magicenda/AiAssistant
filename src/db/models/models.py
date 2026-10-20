@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import ForeingKey, String
-from sqlalchemy import Enum
+from enum import Enum
+
+from sqlalchemy import ForeignKey, String
+from sqlalchemy import Enum as SqlEnum
 
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.orm import DeclarativeBase
@@ -18,11 +20,11 @@ class Meeting(BaseModel):
 
     id: Mapped[int] = mapped_column(primary_key=True)  
     description: Mapped[str] = mapped_column(String(255))
-    dateTime: Mapped[datetime] = mapped_column(datetime)
+    deadline: Mapped[datetime] = mapped_column(datetime)
     dateTime_created: Mapped[datetime] = mapped_column(datetime.now(timezone.utc))
 
     def __repr__(self):
-        return f"Meeting(id={self.id!r}, dateTime={self.dateTime!r}, description='{self.description!r}', dateTime_created={self.dateTime_created!r})"
+        return f"Meeting(id={self.id!r}, deadline={self.deadline!r}, description='{self.description!r}', dateTime_created={self.dateTime_created!r})"
 
 class Task(BaseModel):
     __tablename__ = "Task" 
@@ -32,7 +34,7 @@ class Task(BaseModel):
     dateTime_created: Mapped[datetime] = mapped_column(server_default=datetime.now(timezone.utc))
 
     status: Mapped[Type] = mapped_column(
-        Enum(
+        SqlEnum(
             Type,
             name="type",
             values_callable=lambda obj: [e.value for e in obj],
@@ -41,7 +43,7 @@ class Task(BaseModel):
 
         default=Type.TASK,
         server_default=Type.TASK.value,
-        nullable=False,
+        nullable=False
     )
 
     def __repr__(self):
