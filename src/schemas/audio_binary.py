@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from .job import JobStatus, JobCreatedResponse, JobBaseStatusResponse
 from .ticket_response import TaskResponse, MeetingResponse
-from .enums import AudioFormat
+from .enums import AudioFormat, IntentType
 
 import base64
 
@@ -27,5 +27,18 @@ class AudioFileMetadata(BaseModel):
 class AudioJobCreatedResponse(JobCreatedResponse):
     file_id: str = Field(..., description="ID сохраненного бинарника")
 
-class AsisstantVoiceJobResult()
+class AssiastantVoiceJobResult(JobBaseStatusResponse):
+    file_id: Optional[str] = None
+
+    transcribed_text: Optional[str] = Field(default=None, description="расшифрованный текст")
+    agent_reply_text: Optional[str] = Field(default=None, description="текстовый ответ от агента")
+    detected_intent: Optional[IntentType] = Field(default= None, description="Какой сценарий сработал")
+
+    audio_binary_url: Optional[str] = Field(default=None)
+    reply_audio_mime: AudioFormat = Field(default=AudioFormat.MP3)
+    reply_audio_base64: Optional[str] = Field(default=None)
+
+    created_task: Optional[TaskResponse] = None
+    created_meeting: Optional[MeetingResponse] = None
+
 
