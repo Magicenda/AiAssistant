@@ -17,7 +17,7 @@ class AudioFileMetadata(BaseModel):
     content_type: AudioFormat = Field(..., description="MIME_type файла")
     size_byte: int = Field(..., gt=0, le=25*1024*1024,description="Максимальный размер файла 25мб")
 
-    @field_validator
+    @field_validator("content_type", mode="before")
     @classmethod
     def clean_mime_type(cls, v: str) -> str:
         if isinstance(v, str):
@@ -27,7 +27,7 @@ class AudioFileMetadata(BaseModel):
 class AudioJobCreatedResponse(JobCreatedResponse):
     file_id: str = Field(..., description="ID сохраненного бинарника")
 
-class AssiastantVoiceJobResult(JobBaseStatusResponse):
+class AssistantVoiceJobResult(JobBaseStatusResponse):
     file_id: Optional[str] = None
 
     transcribed_text: Optional[str] = Field(default=None, description="расшифрованный текст")

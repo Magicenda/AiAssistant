@@ -6,10 +6,13 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "aiofiles>=25.1.0",
+    "aiosqlite>=0.22.1",
+    "alembic>=1.20.0",
     "asyncpg>=0.32.0",
+    "edge-tts>=7.3.1",
     "fastapi[standard]>=0.148.0",
     "pydantic>=2.14.1",
-    "sqlalchemy>=2.1.5",
+    "sqlalchemy[asyncio]>=2.1.5",
 ]
 
 [project.scripts]

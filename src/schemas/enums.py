@@ -3,7 +3,7 @@ from enum import Enum
 class JobStatus(str, Enum):
     PENDING = "pending"
     PROCESSING = "processing"
-    COMPLITED = "complited"
+    COMPLETED = "completed"
     FAILED = "failed"
 
 class RecordType(str,Enum):
