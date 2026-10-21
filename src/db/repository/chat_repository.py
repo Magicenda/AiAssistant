@@ -1,12 +1,12 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from db.models import Chat, Message 
 
 
 class ChatRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
-
 
     async def create_chat(self, name_chat: str) -> Chat:
         new_chat = Chat(name=name_chat, messages=[])
@@ -28,5 +28,10 @@ class ChatRepository:
         return result.scalars().first()
 
     async def get_all_chats(self) -> list[Chat]:
-        result = await self.session.execute(select(Chat))
+        result = await self.session.execute(select(Chat).options(selectinload(Chat.messages)))
         return result.scalars().all()
+
+    async def delete_chat(self, chat: Chat) -> bool:
+        await self.session.delete(chat)
+        await self.session.commit()
+        return True

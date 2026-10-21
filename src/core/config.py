@@ -12,7 +12,6 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # База данных
     database_url: str
     agent_max_steps: int = 5
 

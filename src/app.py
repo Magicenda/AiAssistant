@@ -6,6 +6,7 @@ from gigachat import GigaChat
 
 from api.llm_controller import router as llm_router
 from db.models import Base
+from api.chat_controller import router as chat_router
 from db.session import engine
 
 load_dotenv()
@@ -25,6 +26,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(llm_router)
+app.include_router(chat_router)
 
 
 @app.get("/")

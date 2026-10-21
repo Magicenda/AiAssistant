@@ -3,6 +3,6 @@ from pydantic import BaseModel
 
 
 class QueryRequest(BaseModel):
-    session_id: int
+    chat_id: int
     query: str
 
