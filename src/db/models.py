@@ -1,15 +1,13 @@
-from sqlalchemy import Integer, Enum
+from sqlalchemy import Integer
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from datetime import timezone
-import enum
-
+from enum import Enum
 
 class Base(DeclarativeBase):
     pass
-
-class Type(enum.Enum):
+class Type(Enum):
     NOTIFY = "notify"
     TASK = "task"
 
@@ -29,6 +27,16 @@ class Task(Base):
         ),
         default=Type.TASK,
         server_default=Type.TASK.value,
+        nullable=False
     ) 
+    created_at: Mapped[datetime] = mapped_column(server_default=datetime.now(timezone.utc), nullable=False)
+    dedline: Mapped[datetime] = mapped_column(server_default=datetime.now(timezone.utc), nullable=False)
+
+
+class Meetting(Base):
+    __tablename__ = "meetings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    description: Mapped[str] = mapped_column(nullable=False)
     created_at: Mapped[datetime] = mapped_column(server_default=datetime.now(timezone.utc), nullable=False)
     dedline: Mapped[datetime] = mapped_column(server_default=datetime.now(timezone.utc), nullable=False)
