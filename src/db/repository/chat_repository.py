@@ -1,0 +1,32 @@
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from db.models import Chat, Message 
+
+
+class ChatRepository:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+
+    async def create_chat(self, name_chat: str) -> Chat:
+        new_chat = Chat(name=name_chat, messages=[])
+        self.session.add(new_chat)
+        await self.session.commit()
+        await self.session.refresh(new_chat, attribute_names=["messages"])
+        return new_chat
+    
+
+    async def add_message_for_chat(self, chat: Chat, role: str, content: str) -> Chat:
+        new_message = Message(role=role, content=content, chat=chat)
+        self.session.add(new_message)
+        await self.session.commit()
+        await self.session.refresh(chat, attribute_names=["messages"])
+        return chat
+
+    async def get_chat_by_id(self, chat_id: int) -> Chat | None:
+        result = await self.session.execute(select(Chat).where(Chat.id == chat_id))
+        return result.scalars().first()
+
+    async def get_all_chats(self) -> list[Chat]:
+        result = await self.session.execute(select(Chat))
+        return result.scalars().all()

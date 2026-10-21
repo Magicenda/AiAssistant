@@ -1,12 +1,19 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import os
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(
+        env_file=ROOT_DIR / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
-    database_url: str = "postgresql+asyncpg://app:app@localhost:5432/tickets" # Изменить строку подключения к базе данных на асинхронную версию
-    anthropic_api_key: str
-    llm_model: str = "claude-sonnet-5-5" # Поменять на модель, которую вы хотите использовать
+    # База данных
+    database_url: str
     agent_max_steps: int = 5
 
 
