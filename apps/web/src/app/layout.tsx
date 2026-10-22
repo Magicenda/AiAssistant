@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import "./globals.css";
+import { ThemeInit } from "@/features/theme";
 
 export const metadata: Metadata = {
   title: {
@@ -15,7 +16,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
-      <body className="min-h-dvh antialiased">{children}</body>
+      <body className="min-h-dvh antialiased"><ThemeInit />{children}</body>
     </html>
   );
 }
