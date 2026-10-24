@@ -7,7 +7,7 @@ from fastapi import UploadFile, HTTPException, status
 
 import edge_tts
 
-from src.schemas import AudioFileMetadata
+from schemas import AudioFileMetadata
 
 STORAGE_DIR = "storage/audio"
 os.makedirs(STORAGE_DIR, exist_ok=True)

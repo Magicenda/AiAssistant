@@ -4,8 +4,8 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 
-from src.schemas import AssistantVoiceJobResult, JobStatus
-from src.services.orchestrator import voice_orchestrator
+from schemas import AssistantVoiceJobResult, JobStatus
+from services.orchestrator import voice_orchestrator
 
 router = APIRouter(prefix="/api/voice", tags=["Text to Voice Pipeline"])
 

@@ -2,8 +2,8 @@ import uuid
 from typing import Dict
 from uuid import UUID
 
-from src.schemas import JobStatus, AssistantVoiceJobResult
-from src.services.tts_services import TTSService, FileStorageService
+from schemas import JobStatus, AssistantVoiceJobResult
+from services.tts_services import TTSService, FileStorageService
 
 class VoiceGenerationOrchestrator:
     def __init__(self):

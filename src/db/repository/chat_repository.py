@@ -27,6 +27,21 @@ class ChatRepository:
         result = await self.session.execute(select(Chat).where(Chat.id == chat_id))
         return result.scalars().first()
 
+    async def get_chat_with_messages(self, chat_id: int) -> Chat | None:
+        result = await self.session.execute(
+            select(Chat).options(selectinload(Chat.messages)).where(Chat.id == chat_id)
+        )
+        return result.scalars().first()
+
+    async def get_messages(self, chat_id: int, limit: int) -> list[Message]:
+        result = await self.session.execute(
+            select(Message)
+            .where(Message.chat_id == chat_id)
+            .order_by(Message.id.desc())
+            .limit(limit)
+        )
+        return list(reversed(result.scalars().all()))   # снова в хронологическом порядке
+
     async def get_all_chats(self) -> list[Chat]:
         result = await self.session.execute(select(Chat).options(selectinload(Chat.messages)))
         return result.scalars().all()
