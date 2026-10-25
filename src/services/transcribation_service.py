@@ -9,7 +9,7 @@ class AudioService:
     def recognize_from_bytes(self, audio_bytes: bytes) -> str:
         try:
             audio_file = io.BytesIO(audio_bytes)
-            segments, info = self.model.transcribe(audio_file, language=self.language)
+            segments, _info = self.model.transcribe(audio_file, language=self.language)
 
             text_segments = [segment.text for segment in segments]
             text = "".join(text_segments).strip()
@@ -24,9 +24,3 @@ class AudioService:
     def change_language(self, new_language: str):
         if len(new_language) == 2:
             self.language = new_language.lower()
-
-# if __name__ == "__main__":
-#     audioService = AudioService(language="RU")
-
-#     mic_result = audioService.record()
-#     print(f"Результат: {mic_result}")
