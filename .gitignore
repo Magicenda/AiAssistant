@@ -220,6 +220,8 @@ __marimo__/
 .streamlit/secrets.toml
 
 # Node / Bun / Next.js
+# Python-секция выше игнорирует любые lib/ — возвращаем исходники фронтенда
+!apps/web/src/shared/lib/
 node_modules/
 .next/
 out/
