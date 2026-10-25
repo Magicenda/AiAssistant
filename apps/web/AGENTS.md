@@ -14,12 +14,12 @@
 ## Компоненты
 
 - Серверный компонент по умолчанию. `'use client'` — только когда компоненту нужны: state/refs, эффекты, браузерные события, `next/navigation` hooks (например, `usePathname`). Не вешать `'use client'` на layouts и на уровни выше необходимого.
-- UI-примитивы — только shadcn из `@/shared/ui/*`. Не писать свои Button/Input/Card/Dialog/Tabs. Не импортировать напрямую из `@/radix-ui/*` — только через shadcn-обёртку в `shared/ui`.
+- UI-примитивы — только shadcn из `@/shared/ui/*`. Импорт всегда прямой (`@/shared/ui/button`): `shared/ui` — набор примитивов, а не slice, баррела у него нет. Не писать свои Button/Input/Card/Dialog/Tabs. Не импортировать напрямую из `@/radix-ui/*` — только через shadcn-обёртку в `shared/ui`.
 - Добавление компонента shadcn: `bunx shadcn@latest add <name>` — он кладётся в `@/shared/ui`. Файлы, сгенерированные shadcn, можно править — это наш код.
 - Крупная композиция (секция страницы, header/sidebar) — `widgets/*`. Сценарий с логикой/эффектами — `features/*`. Типы сущностей — `entities/*/model/types.ts`.
 - Бизнес-логика, fetch, state-management **запрещены** внутри `shared/**` и `widgets/**`. В `shared` живут только dumb-компоненты, утилиты (`cn`, форматтеры), конфиги, константы, типы.
 - Стили — только utility-классы Tailwind. Не создавать свои CSS-файлы/модули; тёмная тема — через переменные `globals.css`, не через инлайн-стили.
-- Каждый slice обязан экспортировать свой public API через `index.ts`; при создании slice создавать и barrel.
+- Каждый slice обязан экспортировать свой public API через `index.ts`; при создании slice создавать и barrel. Исключение — `shared/ui`: примитивы подключаются напрямую, баррела нет.
 
 ## Иконки
 

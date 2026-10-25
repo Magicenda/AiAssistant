@@ -76,8 +76,8 @@ apps/web/src/
 │   └── (dashboard)/    # Чат + Профиль — владелец: dev #2
 ├── views/              # Экраны целиком: views/<screen>/{ui,index.ts}
 ├── widgets/            # Крупные блоки над страницей: header, sidebar
-├── features/           # Пользовательские сценарии: auth-form, chat-input
-├── entities/           # Домен и типы: user, message, chat
+├── features/           # Пользовательские сценарии: auth-form, conversations, planner, theme
+├── entities/           # Домен и типы: chat
 └── shared/             # shadcn (ui/), либы (lib/), конфиги, типы
 ```
 
