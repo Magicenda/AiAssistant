@@ -21,6 +21,7 @@ bun dev              # http://localhost:3000
 | `bun dev` | Next dev server (Turbopack) |
 | `bun build` | production build |
 | `bun typecheck` | `tsc --noEmit` |
+| `bun lint` | ESLint (`eslint-config-next`, flat config) |
 
 Добавление shadcn-компонента: `cd apps/web && bunx shadcn@latest add button`. Компонент упадёт в `src/shared/ui/`.
 

@@ -12,11 +12,13 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
   const [chat, setChat] = useState<Chat | null>(null);
   const [text, setText] = useState("");
   const [error, setError] = useState("");
-  const audio = useAudioRecording(sessionId);
+  const audio = useAudioRecording();
   const listening = audio.status === "recording";
   const bottom = useRef<HTMLDivElement>(null);
   const router = useRouter();
   useEffect(() => {
+    // localStorage недоступен на сервере, поэтому чат читается после гидрации
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setChat(sessionId ? readChats().find(item => item.id === sessionId) ?? null : null);
   }, [sessionId]);
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [chat]);

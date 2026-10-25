@@ -5,7 +5,7 @@ import { sendAudio } from "../api/send-audio";
 
 type Recording = { file: File; url: string };
 
-export function useAudioRecording(sessionId?: string) {
+export function useAudioRecording() {
   const [status, setStatus] = useState<"idle" | "starting" | "recording" | "stopping">("idle");
   const [recording, setRecording] = useState<Recording | null>(null);
   const [sending, setSending] = useState(false);
@@ -19,11 +19,6 @@ export function useAudioRecording(sessionId?: string) {
   const starting = useRef(false);
 
   useEffect(() => {
-    setRecording(null);
-    setStatus("idle");
-    setSending(false);
-    setError("");
-    setSent(false);
     return () => {
       generation.current += 1;
       const active = recorder.current;
@@ -41,7 +36,7 @@ export function useAudioRecording(sessionId?: string) {
       pendingUpload.current = false;
       starting.current = false;
     };
-  }, [sessionId]);
+  }, []);
 
   useEffect(() => () => {
     if (recording) URL.revokeObjectURL(recording.url);

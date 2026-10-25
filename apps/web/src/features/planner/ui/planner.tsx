@@ -49,6 +49,8 @@ export function Planner({ section }: { section: Section }) {
   const [voice, setVoice] = useState(false);
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect --
+       дата устройства и localStorage доступны только после гидрации */
     const today = new Date();
     setNow(today);
     setMonth(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -61,6 +63,7 @@ export function Planner({ section }: { section: Section }) {
     } catch { setError("Хранилище браузера недоступно или данные повреждены."); }
     setReady(true);
     const timer = window.setInterval(() => setNow(new Date()), 60000);
+    /* eslint-enable react-hooks/set-state-in-effect */
     return () => window.clearInterval(timer);
   }, []);
 
