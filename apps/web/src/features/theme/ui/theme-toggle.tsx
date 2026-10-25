@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/shared/ui/button";
+import { themeStorageKey } from "@/shared/config";
 
 type Theme = "light" | "dark";
 
@@ -10,28 +11,6 @@ function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === "dark");
   document.documentElement.style.colorScheme = theme;
   window.dispatchEvent(new Event("theme-change"));
-}
-
-export function ThemeInit() {
-  useEffect(() => {
-    const system = matchMedia("(prefers-color-scheme: dark)");
-    const sync = () => {
-      let theme: Theme = system.matches ? "dark" : "light";
-      try {
-        const saved = localStorage.getItem("assistant-theme");
-        if (saved === "light" || saved === "dark") theme = saved;
-      } catch { /* Fall back to the system theme. */ }
-      applyTheme(theme);
-    };
-    sync();
-    window.addEventListener("storage", sync);
-    system.addEventListener("change", sync);
-    return () => {
-      window.removeEventListener("storage", sync);
-      system.removeEventListener("change", sync);
-    };
-  }, []);
-  return null;
 }
 
 export function ThemeToggle() {
@@ -50,7 +29,7 @@ export function ThemeToggle() {
       aria-label={value === "light" ? "Светлая тема" : "Тёмная тема"}
       aria-pressed={theme === value} onClick={() => {
         applyTheme(value);
-        try { localStorage.setItem("assistant-theme", value); } catch {}
+        try { localStorage.setItem(themeStorageKey, value); } catch {}
       }}>
       {value === "light" ? <Sun className="size-4" /> : <Moon className="size-4" />}
       <span className="hidden sm:inline">{value === "light" ? "Светлая" : "Тёмная"}</span>
