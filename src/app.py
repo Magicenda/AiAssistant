@@ -9,9 +9,11 @@ from gigachat import GigaChat
 from core.exceptions import ChatNotFoundError
 from db.models import BaseModel
 from db.session import engine
-from routes import voice
+from routes.voice_controller import router as voice_router 
 from routes.chat_controller import router as chat_router
 from routes.llm_controller import router as llm_router
+from services.orchestrator import VoiceGenerationOrchestrator
+from services.tts_services import FileStorageService, TTSService
 
 load_dotenv()
 
@@ -20,7 +22,10 @@ load_dotenv()
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(BaseModel.metadata.create_all)
-    app.state.llm = GigaChat()    
+    app.state.llm = GigaChat()
+    app.state.file_storage = FileStorageService()
+    app.state.tts = TTSService()
+    app.state.voice = VoiceGenerationOrchestrator(app.state.file_storage, app.state.tts)
     try:
         yield
     finally:
@@ -44,8 +49,7 @@ async def chat_not_found_handler(request: Request, exc: ChatNotFoundError):
     return JSONResponse(status_code=404, content={"detail": str(exc)})
 
 
-app.include_router(voice.router)
-
+app.include_router(voice_router)
 app.include_router(llm_router)
 app.include_router(chat_router)
 

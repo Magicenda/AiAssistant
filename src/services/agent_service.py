@@ -85,3 +85,6 @@ class AgentService:
     @staticmethod
     def _text(msg) -> str:
         return "".join(p.text for p in (msg.content or []) if p.text)
+
+
+    

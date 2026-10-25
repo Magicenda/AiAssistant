@@ -40,7 +40,7 @@ class ChatRepository:
             .order_by(Message.id.desc())
             .limit(limit)
         )
-        return list(reversed(result.scalars().all()))   # снова в хронологическом порядке
+        return list(reversed(result.scalars().all()))   
 
     async def get_all_chats(self) -> list[Chat]:
         result = await self.session.execute(select(Chat).options(selectinload(Chat.messages)))
@@ -49,4 +49,3 @@ class ChatRepository:
     async def delete_chat(self, chat: Chat) -> bool:
         await self.session.delete(chat)
         await self.session.commit()
-        return True

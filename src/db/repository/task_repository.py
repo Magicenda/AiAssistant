@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from datetime import datetime, timezone
 from db.models import Task, Type
 
 
@@ -13,7 +13,7 @@ class TaskRepository:
     async def create_task(
         self, description: str, deadline: datetime | None, kind: Type = Type.TASK
     ) -> Task:
-        task = Task(description=description, deadline=deadline, type=kind)
+        task = Task(created_at=datetime.now(timezone.utc), description=description, deadline=deadline, type=kind)
         self.session.add(task)
         await self.session.flush()     
         return task

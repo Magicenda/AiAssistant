@@ -47,3 +47,16 @@ class TaskToolkit(Toolkit):
         kind = Type(args.kind) if args.kind else None
         tasks = await self.repository.list_tasks(args.limit, kind, args.only_upcoming)
         return {"count": len(tasks), "tasks": [_task_to_dict(t) for t in tasks]}
+    # обновление задачи
+    @tool(
+            "update_tasks",
+            "обновляет задачу. Вызывай, когда пользователь "
+            "просит, обновить конкретную задачу",
+            ListTasksArgs, # обновить список инструментов
+        )
+    async def list_tasks(self, args: ListTasksArgs) -> dict:
+        kind = Type(args.kind) if args.kind else None
+        tasks = await self.repository.list_tasks(args.limit, kind, args.only_upcoming)
+        return {"count": len(tasks), "tasks": [_task_to_dict(t) for t in tasks]}
+
+    # сделать поиск задачи

@@ -11,6 +11,8 @@ from db.repository.task_repository import TaskRepository
 from db.session import SessionLocal
 from services.agent_service import AgentService
 from services.chat_service import ChatService
+from services.orchestrator import VoiceGenerationOrchestrator
+from services.tts_services import FileStorageService, TTSService
 from tools.base import ToolRegistry
 from tools.meeting_tools import MeetingToolkit
 from tools.task_tools import TaskToolkit
@@ -81,3 +83,24 @@ def get_agent_service(llm: LLMDep, chat: ChatServiceDep, tools: ToolRegistryDep)
 
 
 AgentServiceDep = Annotated[AgentService, Depends(get_agent_service)]
+
+
+def get_file_storage(request: Request) -> FileStorageService:
+    return request.app.state.file_storage
+
+
+FileStorageDep = Annotated[FileStorageService, Depends(get_file_storage)]
+
+
+def get_tts_service(request: Request) -> TTSService:
+    return request.app.state.tts
+
+
+TTSServiceDep = Annotated[TTSService, Depends(get_tts_service)]
+
+
+def get_voice_orchestrator(request: Request) -> VoiceGenerationOrchestrator:
+    return request.app.state.voice
+
+
+VoiceOrchestratorDep = Annotated[VoiceGenerationOrchestrator, Depends(get_voice_orchestrator)]

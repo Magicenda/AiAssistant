@@ -5,8 +5,7 @@ from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 
 from schemas import AssistantVoiceJobResult, JobStatus
-from services.orchestrator import voice_orchestrator
-
+from deps import VoiceOrchestratorDep
 router = APIRouter(prefix="/api/voice", tags=["Text to Voice Pipeline"])
 
 
@@ -22,7 +21,8 @@ class VoiceJobCreatedResponse(BaseModel):
 @router.post("/generate", response_model=VoiceJobCreatedResponse, status_code=202)
 async def generate_voice_from_text(
     payload: TextToVoiceRequest,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    voice_orchestrator: VoiceOrchestratorDep
 ):
     job_id = voice_orchestrator.create_job(payload.text)
 
@@ -36,7 +36,7 @@ async def generate_voice_from_text(
 
 
 @router.get("/jobs/{job_id}", response_model=AssistantVoiceJobResult)
-async def get_voice_generation_status(job_id: UUID):
+async def get_voice_generation_status(job_id: UUID,  voice_orchestrator: VoiceOrchestratorDep):
     job = voice_orchestrator.get_job_status(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Задача не найдена")
@@ -44,7 +44,7 @@ async def get_voice_generation_status(job_id: UUID):
 
 
 @router.get("/jobs/{job_id}/audio")
-async def download_audio_binary(job_id: UUID):
+async def download_audio_binary(job_id: UUID, voice_orchestrator: VoiceOrchestratorDep):
     job = voice_orchestrator.get_job_status(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Задача не найдена")
@@ -55,7 +55,7 @@ async def download_audio_binary(job_id: UUID):
     if not file_path:
         raise HTTPException(status_code=404, detail="Файл озвучки не найден")
 
-    # Отдаем бинарник фронту, а после отправки фоном чистим файлы старше 15 минут
+    
     return FileResponse(
         path=file_path,
         media_type="audio/mpeg",
