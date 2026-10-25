@@ -5,7 +5,8 @@ import { Mic, Square, ArrowUp, Sparkles, LoaderCircle } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { useAudioRecording } from "../model/use-audio-recording";
-import { readChats, writeChats, type Chat } from "../model/store";
+import { readChats, writeChats } from "../model/store";
+import type { Chat } from "@/entities/chat";
 
 export function Conversation({ sessionId }: { sessionId?: string }) {
   const [chat, setChat] = useState<Chat | null>(null);
@@ -32,9 +33,9 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
         <h2 className="text-3xl font-medium tracking-tight md:text-4xl">С чего начнём?</h2>
         <p className="mt-4 text-sm text-muted-foreground">Напишите сообщение или продиктуйте его голосом.</p>
       </div>}
-      {chat?.messages.map((message, index) => <div key={index}
+      {chat?.messages.map(message => <div key={message.id}
         className="max-w-[85%] self-end whitespace-pre-wrap break-words rounded-3xl rounded-br-lg border bg-card/80 px-5 py-3 text-sm shadow-sm">
-        {message}
+        {message.text}
       </div>)}
       <div ref={bottom} />
     </div>
@@ -43,9 +44,10 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
         event.preventDefault();
         if (!text.trim() || audio.status !== "idle" || audio.sending) return;
         const chats = readChats();
-        const current = chat ?? { id: sessionId ?? crypto.randomUUID(), title: "", messages: [] };
-        const next = { ...current, title: current.messages.length ? current.title : text.trim().slice(0, 40),
-          messages: [...current.messages, text.trim()] };
+        const current: Chat = chat ?? { id: sessionId ?? crypto.randomUUID(), title: "", messages: [] };
+        const next: Chat = { ...current,
+          title: current.messages.length ? current.title : text.trim().slice(0, 40),
+          messages: [...current.messages, { id: crypto.randomUUID(), text: text.trim() }] };
         try {
           writeChats([next, ...chats.filter(item => item.id !== next.id)]);
           setChat(next); setText(""); setError("");

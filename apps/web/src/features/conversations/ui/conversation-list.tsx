@@ -6,7 +6,8 @@ import { MessageSquare, Plus } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { cn } from "@/shared/lib/cn";
-import { readChats, writeChats, type Chat } from "../model/store";
+import { readChats, writeChats } from "../model/store";
+import type { Chat } from "@/entities/chat";
 
 export function ConversationList() {
   const [chats, setChats] = useState<Chat[]>([]);
@@ -50,7 +51,7 @@ export function ConversationList() {
           path === `/chat/${chat.id}` && "bg-accent text-primary")}>
         <MessageSquare className="size-4 shrink-0" /><span className="min-w-0"><span className="block truncate">{chat.title}</span>
           <span className="block truncate text-xs text-muted-foreground">
-            {chat.messages.at(-1) ?? "Пока нет сообщений"}
+            {chat.messages.at(-1)?.text ?? "Пока нет сообщений"}
           </span></span>
       </Link>)}
       {!chats.length && <p className="px-2 text-xs text-muted-foreground">Нажмите «Новый чат», чтобы начать диалог.</p>}

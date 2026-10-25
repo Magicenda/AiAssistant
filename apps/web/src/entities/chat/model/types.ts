@@ -1,6 +1,10 @@
+export interface ChatMessage {
+  id: string;
+  text: string;
+}
+
 export interface Chat {
   id: string;
   title: string;
-  createdAt: string;
-  userId: string;
+  messages: ChatMessage[];
 }

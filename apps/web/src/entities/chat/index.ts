@@ -1,1 +1,1 @@
-export type { Chat } from "./model/types";
+export type { Chat, ChatMessage } from "./model/types";
