@@ -9,6 +9,7 @@ from db.repository.chat_repository import ChatRepository
 from db.session import SessionLocal
 from services.agent_service import AgentService
 from services.chat_service import ChatService
+from services.transcribation_service import AudioService
 
 
 
@@ -51,3 +52,8 @@ def get_agent_service(llm: LLMDep, history: ChatRepositoryDep) -> AgentService:
 
 
 AgentServiceDep = Annotated[AgentService, Depends(get_agent_service)]
+
+def get_audio_service() -> AudioService:
+    return Depends(audio_service_instance)
+
+audio_service_instance = AudioService(language="ru", model_size="base")
