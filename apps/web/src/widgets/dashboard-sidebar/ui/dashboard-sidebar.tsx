@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Bot, CalendarDays, CheckSquare, ListTodo, Search, Settings, User, Sparkles, Menu, X } from "lucide-react";
+import { Bell, Bot, CalendarDays, CheckSquare, ListTodo, Search, Settings, User, Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/shared/ui/button";
 import Link from "next/link";
@@ -40,13 +40,6 @@ export function DashboardSidebar() {
   }, [open]);
 
     const content = (<>
-      <Link href="/plans" className="mb-4 flex items-center gap-3 px-3 py-4">
-        <span className="flex size-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-          <Sparkles className="size-5" />
-        </span>
-        <span><span className="block text-xl font-semibold tracking-tight">Assistant</span>
-          <span className="text-xs text-muted-foreground">Ваш личный ассистент</span></span>
-      </Link>
       <ConversationList />
       <nav aria-label="Разделы" className="mt-4 flex flex-col gap-1">
         <Link
