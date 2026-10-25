@@ -78,4 +78,12 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Интерфейс крупнее на планшетах и десктопе: rem-утилиты Tailwind растут
+     вместе с корневым шрифтом. Брейкпоинты внутри media queries считаются
+     от начального 16px, поэтому сетка не сдвигается. */
+  @media (min-width: 48rem) {
+    html {
+      font-size: 150%;
+    }
+  }
 }
