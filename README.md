@@ -2,6 +2,8 @@
 
 Next.js 16 (App Router) + Tailwind CSS v4 + shadcn/ui + bun. Монорепо, фронтенд целиком живёт в `apps/web/` (свой `package.json`, `bun.lock`, `node_modules`).
 
+Требуется Bun 1.4.4+ (зафиксирован в `packageManager` и `engines` корневого `package.json`). Lockfile в формате `lockfileVersion: 2` старые версии bun не читают.
+
 > Фронтенд изолирован от остальных стеков монорепы: все JS-зависимости и `bun.lock` — внутри `apps/web`.
 
 ## Quick start
