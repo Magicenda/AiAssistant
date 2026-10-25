@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 
 import "./globals.css";
 import { ThemeInit } from "@/features/theme";
+import { siteConfig } from "@/shared/config";
 
 export const metadata: Metadata = {
   title: {
-    default: "AI Assistant",
-    template: "%s — AI Assistant",
+    default: siteConfig.name,
+    template: `%s — ${siteConfig.name}`,
   },
-  description: "AI-помощник",
+  description: siteConfig.description,
 };
 
 export default function RootLayout({
