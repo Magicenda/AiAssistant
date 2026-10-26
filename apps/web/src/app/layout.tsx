@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import "./globals.css";
-import { siteConfig, themeStorageKey } from "@/shared/config";
+import { siteConfig } from "@/shared/config";
 
 export const metadata: Metadata = {
   title: {
@@ -11,38 +11,20 @@ export const metadata: Metadata = {
   description: siteConfig.description,
 };
 
-// Тема применяется до первой отрисовки, чтобы не было вспышки светлой темы.
-const themeScript = `(function () {
-  var key = ${JSON.stringify(themeStorageKey)};
-  var media = matchMedia("(prefers-color-scheme: dark)");
-  function apply(theme) {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    document.documentElement.style.colorScheme = theme;
-    window.dispatchEvent(new Event("theme-change"));
-  }
-  function read() {
-    try {
-      var saved = localStorage.getItem(key);
-      if (saved === "light" || saved === "dark") return saved;
-    } catch (e) {}
-    return media.matches ? "dark" : "light";
-  }
-  apply(read());
-  media.addEventListener("change", function () { apply(read()); });
-  window.addEventListener("storage", function (event) {
-    if (event.key === key) apply(read());
-  });
-})();`;
-
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ru" suppressHydrationWarning>
+    <html lang="ru">
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Handjet:wght@400;700&display=swap"
+          rel="stylesheet"
+        />
       </head>
-      <body className="min-h-dvh antialiased">{children}</body>
+      <body className="min-h-dvh">{children}</body>
     </html>
   );
 }

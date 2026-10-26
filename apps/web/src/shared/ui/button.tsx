@@ -5,23 +5,21 @@ import * as React from "react";
 import { cn } from "@/shared/lib/cn";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "font-pixel inline-flex items-center justify-center gap-2 whitespace-nowrap uppercase tracking-wide text-[0.6rem] leading-none disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-md shadow-primary/15 hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-white hover:bg-destructive/90",
-        outline:
-          "border bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
+        default: "pixel-bevel bg-primary text-primary-foreground hover:brightness-110",
+        destructive: "pixel-bevel bg-destructive text-white hover:brightness-110",
+        outline: "border-2 border-border bg-transparent text-foreground hover:bg-white/5",
+        secondary: "pixel-bevel bg-secondary text-secondary-foreground hover:brightness-110",
+        ghost: "text-muted-foreground hover:bg-white/5 hover:text-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
         default: "h-10 px-4 py-2",
-        sm: "h-8 rounded-lg px-3 text-xs",
-        lg: "h-10 rounded-xl px-8",
+        sm: "h-8 px-3 text-[0.55rem]",
+        lg: "h-11 px-6 text-[0.7rem]",
         icon: "size-9",
       },
     },
