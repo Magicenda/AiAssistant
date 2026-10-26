@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { ThemeToggle } from "@/features/theme";
 import { useEffect, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, List, Plus, Search, Sparkles, ArrowUpRight, CheckCheck, Bell } from "lucide-react";
 import { Button } from "@/shared/ui/button";
@@ -177,8 +176,6 @@ export function Planner({ section }: { section: Section }) {
       {section === "settings" ? (
         <div className="space-y-5 rounded-3xl border border-border bg-card/70 p-6 shadow-sm">
           <div>
-            <div className="mb-5 max-w-xs"><p className="mb-2 font-medium">Оформление</p>
-              <ThemeToggle /></div>
             <p className="font-medium">Часовой пояс</p>
             <p className="text-sm text-muted-foreground">
               {Intl.DateTimeFormat().resolvedOptions().timeZone} · используется время устройства
