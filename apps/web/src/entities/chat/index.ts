@@ -1,1 +1,1 @@
-export type { Chat, ChatMessage } from "./model/types";
+export type { Chat, ChatAudio, ChatMessage, ChatRole } from "./model/types";

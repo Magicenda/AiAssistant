@@ -1,13 +1,26 @@
-import type { Chat, ChatMessage } from "@/entities/chat";
+import type { Chat, ChatAudio, ChatMessage, ChatRole } from "@/entities/chat";
 
 const key = "assistant-chats-v1";
 
+function toRole(value: unknown): ChatRole {
+  return value === "assistant" ? "assistant" : "user";
+}
+
+function toAudio(value: unknown): ChatAudio | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const item = value as Record<string, unknown>;
+  if (typeof item.dataUrl !== "string" || typeof item.type !== "string" ||
+    typeof item.duration !== "number") return undefined;
+  return { dataUrl: item.dataUrl, type: item.type, duration: item.duration };
+}
+
 function toMessage(value: unknown): ChatMessage | null {
-  if (typeof value === "string") return { id: crypto.randomUUID(), text: value };
+  if (typeof value === "string") return { id: crypto.randomUUID(), text: value, role: "user" };
   if (!value || typeof value !== "object") return null;
   const item = value as Partial<ChatMessage>;
   if (typeof item.id !== "string" || typeof item.text !== "string") return null;
-  return { id: item.id, text: item.text };
+  const audio = toAudio(item.audio);
+  return { id: item.id, text: item.text, role: toRole(item.role), audio };
 }
 
 export function readChats(): Chat[] {
