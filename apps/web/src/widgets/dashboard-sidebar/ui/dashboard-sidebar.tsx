@@ -1,29 +1,35 @@
 "use client";
 
-import { Bell, Bot, CalendarDays, CheckSquare, ListTodo, Search, Settings, User, Menu, X } from "lucide-react";
+import type { Route } from "next";
+import type { LucideIcon } from "lucide-react";
+import { Bell, CalendarDays, CheckSquare, ListTodo, Menu, Search, Settings, User, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/shared/ui/button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-import { ThemeToggle } from "@/features/theme";
-import { ConversationList } from "@/features/conversations";
+import { Button } from "@/shared/ui/button";
+import { PixelSun } from "@/shared/ui/pixel-sun";
 import { cn } from "@/shared/lib/cn";
 
-const NAV_ITEMS = [
-  { href: "/plans", label: "Мои планы", icon: CalendarDays },
+type NavItem = { href: Route; label: string; icon: LucideIcon };
+
+const NAV_ITEMS: NavItem[] = [
+  { href: "/plans", label: "Планы", icon: CalendarDays },
   { href: "/tasks", label: "Задачи", icon: CheckSquare },
   { href: "/meetings", label: "Встречи", icon: ListTodo },
   { href: "/reminders", label: "Напоминания", icon: Bell },
   { href: "/search", label: "Поиск", icon: Search },
+];
+
+const FOOTER_ITEMS: NavItem[] = [
   { href: "/profile", label: "Профиль", icon: User },
   { href: "/settings", label: "Настройки", icon: Settings },
-] as const;
+];
 
 export function DashboardSidebar() {
   const pathname = usePathname();
   const dialog = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
+
   function close() { dialog.current?.close(); }
   useEffect(() => { dialog.current?.close(); }, [pathname]);
   useEffect(() => {
@@ -36,29 +42,33 @@ export function DashboardSidebar() {
     if (!open) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-  return () => { document.body.style.overflow = previous; };
+    return () => { document.body.style.overflow = previous; };
   }, [open]);
 
-    const content = (<>
-      <ConversationList />
-      <nav aria-label="Разделы" className="mt-4 flex flex-col gap-1">
-        <Link
-          href="/chat"
-          className={cn(
-            "flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition-colors hover:bg-card/70",
-            pathname.startsWith("/chat") && "bg-primary/10 text-primary shadow-sm ring-1 ring-primary/10",
-          )}
-        >
-          <Bot className="size-4" />
-          Ассистент
-        </Link>
+  const content = (
+    <>
+      <Link
+        href="/chat"
+        className={cn(
+          "pixel-bevel flex items-center gap-3 px-3 py-3",
+          pathname.startsWith("/chat")
+            ? "bg-primary text-primary-foreground"
+            : "bg-secondary text-secondary-foreground",
+        )}
+      >
+        <PixelSun className="size-5" />
+        <span className="font-pixel text-sm">Ассистент</span>
+      </Link>
+      <nav aria-label="Разделы" className="mt-5 flex flex-col gap-1">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}
             className={cn(
-              "flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition-colors hover:bg-card/70",
-              pathname.startsWith(href) && "bg-primary/10 text-primary shadow-sm ring-1 ring-primary/10",
+              "flex items-center gap-3 border-2 border-transparent px-3 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-colors",
+              pathname.startsWith(href)
+                ? "border-[#05060f] bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
             )}
           >
             <Icon className="size-4" />
@@ -66,25 +76,46 @@ export function DashboardSidebar() {
           </Link>
         ))}
       </nav>
-      <div className="mt-4 border-t px-2 pt-4"><ThemeToggle /></div>
-  </>);
-
+      <div className="mt-auto flex flex-col gap-1 border-t-2 border-border pt-3">
+        {FOOTER_ITEMS.map(({ href, label, icon: Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            className={cn(
+              "flex items-center gap-3 border-2 border-transparent px-3 py-2 font-mono text-xs font-bold uppercase tracking-wider transition-colors",
+              pathname.startsWith(href)
+                ? "border-[#05060f] bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
+            )}
+          >
+            <Icon className="size-4" />
+            {label}
+          </Link>
+        ))}
+      </div>
+    </>
+  );
 
   return (
     <>
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 overflow-y-auto overscroll-contain bg-transparent p-4 lg:block">
+      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r-2 border-border p-4 lg:flex">
         {content}
       </aside>
-      <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-2 border-b bg-background/85 px-3 py-2 backdrop-blur-2xl sm:px-6 lg:hidden">
+
+      <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-2 border-b-2 border-border bg-background px-3 py-2 sm:px-6 lg:hidden">
         <Button variant="ghost" aria-label="Открыть меню"
           aria-expanded={open} aria-controls="app-navigation" onClick={() => {
             dialog.current?.showModal(); setOpen(true);
           }}>
           <Menu className="size-5" /><span className="hidden sm:inline">Меню</span>
         </Button>
-        <Link href="/chat" className="text-sm font-semibold tracking-tight sm:text-base">Assistant</Link>
-        <ThemeToggle />
+        <Link href="/chat" className="flex items-center gap-2">
+          <PixelSun className="size-5 text-secondary" />
+          <span className="font-pixel text-xs text-foreground">AI Assistant</span>
+        </Link>
+        <span className="size-9" aria-hidden="true" />
       </header>
+
       <dialog ref={dialog} id="app-navigation" aria-label="Меню приложения"
         onClose={() => { setOpen(false); }}
         onClick={event => {
@@ -95,14 +126,14 @@ export function DashboardSidebar() {
           }
           if ((event.target as HTMLElement).closest("a")) close();
         }}
-        className="fixed inset-y-0 left-0 right-auto m-0 h-dvh max-h-dvh w-80 max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain border-r bg-background/95 p-4 text-foreground shadow-2xl backdrop-blur-2xl backdrop:bg-black/45 backdrop:backdrop-blur-sm">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Навигация</p>
+        className="fixed inset-y-0 left-0 right-auto m-0 h-dvh max-h-dvh w-80 max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain border-r-2 border-border bg-background p-4 text-foreground backdrop:bg-black/60">
+        <div className="mb-5 flex items-center justify-between">
+          <p className="font-mono text-xs font-bold uppercase tracking-widest text-muted-foreground">Навигация</p>
           <Button autoFocus variant="ghost" size="icon" aria-label="Закрыть меню" onClick={close}>
             <X className="size-5" />
           </Button>
         </div>
-        {content}
+        <div className="flex min-h-[calc(100dvh-6rem)] flex-col">{content}</div>
       </dialog>
     </>
   );
