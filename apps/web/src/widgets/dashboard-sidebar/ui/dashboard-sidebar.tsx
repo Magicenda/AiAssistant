@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/shared/ui/button";
-import { PixelSun } from "@/shared/ui/pixel-sun";
+import { Logo } from "@/shared/ui/logo";
 import { cn } from "@/shared/lib/cn";
 
 type NavItem = { href: Route; label: string; icon: LucideIcon };
@@ -56,7 +56,7 @@ export function DashboardSidebar() {
             : "bg-secondary text-secondary-foreground",
         )}
       >
-        <PixelSun className="size-5" />
+        <Logo className="size-5" />
         <span className="font-pixel text-sm">Ассистент</span>
       </Link>
       <nav aria-label="Разделы" className="mt-5 flex flex-col gap-1">
@@ -110,7 +110,7 @@ export function DashboardSidebar() {
           <Menu className="size-5" /><span className="hidden sm:inline">Меню</span>
         </Button>
         <Link href="/chat" className="flex items-center gap-2">
-          <PixelSun className="size-5 text-secondary" />
+          <Logo className="size-5 text-secondary" />
           <span className="font-pixel text-xs text-foreground">AI Assistant</span>
         </Link>
         <span className="size-9" aria-hidden="true" />
