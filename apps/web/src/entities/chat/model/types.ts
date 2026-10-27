@@ -6,10 +6,18 @@ export interface ChatAudio {
   duration: number;
 }
 
+export interface ChatReply {
+  id: string;
+  role: ChatRole;
+  text: string;
+}
+
 export interface ChatMessage {
   id: string;
   text: string;
   role: ChatRole;
+  createdAt?: number;
+  replyTo?: ChatReply;
   audio?: ChatAudio;
 }
 

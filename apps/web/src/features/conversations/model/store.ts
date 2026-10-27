@@ -1,4 +1,4 @@
-import type { Chat, ChatAudio, ChatMessage, ChatRole } from "@/entities/chat";
+import type { Chat, ChatAudio, ChatMessage, ChatReply, ChatRole } from "@/entities/chat";
 
 const key = "assistant-chats-v1";
 
@@ -14,13 +14,26 @@ function toAudio(value: unknown): ChatAudio | undefined {
   return { dataUrl: item.dataUrl, type: item.type, duration: item.duration };
 }
 
+function toReply(value: unknown): ChatReply | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const item = value as Record<string, unknown>;
+  if (typeof item.id !== "string" || typeof item.text !== "string") return undefined;
+  return { id: item.id, role: toRole(item.role), text: item.text };
+}
+
 function toMessage(value: unknown): ChatMessage | null {
   if (typeof value === "string") return { id: crypto.randomUUID(), text: value, role: "user" };
   if (!value || typeof value !== "object") return null;
   const item = value as Partial<ChatMessage>;
   if (typeof item.id !== "string" || typeof item.text !== "string") return null;
-  const audio = toAudio(item.audio);
-  return { id: item.id, text: item.text, role: toRole(item.role), audio };
+  return {
+    id: item.id,
+    text: item.text,
+    role: toRole(item.role),
+    createdAt: typeof item.createdAt === "number" ? item.createdAt : undefined,
+    replyTo: toReply(item.replyTo),
+    audio: toAudio(item.audio),
+  };
 }
 
 export function readChats(): Chat[] {
@@ -45,4 +58,36 @@ export function readChats(): Chat[] {
 export function writeChats(chats: Chat[]) {
   localStorage.setItem(key, JSON.stringify(chats));
   window.dispatchEvent(new Event("chats-change"));
+}
+
+/** Сохраняет чат и поднимает его в начало списка (последний активный — сверху). */
+export function saveChat(next: Chat): Chat {
+  const all = [next, ...readChats().filter(chat => chat.id !== next.id)];
+  writeChats(all);
+  return next;
+}
+
+export function updateChat(chatId: string, patch: Partial<Omit<Chat, "id">>): Chat | null {
+  const chat = readChats().find(item => item.id === chatId);
+  if (!chat) return null;
+  return saveChat({ ...chat, ...patch });
+}
+
+export function removeChat(chatId: string) {
+  writeChats(readChats().filter(chat => chat.id !== chatId));
+}
+
+export function removeMessage(chatId: string, messageId: string): Chat | null {
+  const chat = readChats().find(item => item.id === chatId);
+  if (!chat) return null;
+  return saveChat({
+    ...chat,
+    messages: chat.messages.filter(message => message.id !== messageId),
+  });
+}
+
+export function appendMessage(chatId: string, message: ChatMessage): Chat | null {
+  const chat = readChats().find(item => item.id === chatId);
+  if (!chat) return null;
+  return saveChat({ ...chat, messages: [...chat.messages, message] });
 }
