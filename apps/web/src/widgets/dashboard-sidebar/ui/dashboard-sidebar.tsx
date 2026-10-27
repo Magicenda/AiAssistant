@@ -2,7 +2,7 @@
 
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
-import { Bell, CalendarDays, CheckSquare, ListTodo, Menu, Search, Settings, User, X } from "lucide-react";
+import { Bell, CalendarDays, CheckSquare, ListTodo, Menu, Search, Settings, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -21,7 +21,6 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const FOOTER_ITEMS: NavItem[] = [
-  { href: "/profile", label: "Профиль", icon: User },
   { href: "/settings", label: "Настройки", icon: Settings },
 ];
 
