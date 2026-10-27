@@ -18,7 +18,9 @@ function normalizeBaseUrl(value: string) {
     }
     return `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
   } catch {
-    throw new Error("Адрес API модели должен быть полной ссылкой, например https://api.openai.com/v1");
+    throw new Error(
+      "Адрес API модели должен быть полной ссылкой, например https://api.openai.com/v1",
+    );
   }
 }
 

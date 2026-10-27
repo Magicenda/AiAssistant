@@ -47,19 +47,19 @@ export function LandingView() {
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 md:py-16">
       <section className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
         <div>
-          <span className="inline-flex items-center gap-2 border-2 border-border bg-card px-3 py-1 font-mono text-[0.65rem] uppercase tracking-widest text-muted-foreground">
-            <Bot className="size-3.5 text-primary" />
+          <span className="border-border bg-card text-muted-foreground inline-flex items-center gap-2 border-2 px-3 py-1 font-mono text-[0.65rem] tracking-widest uppercase">
+            <Bot className="text-primary size-3.5" />
             Frontend для AI-сервиса
           </span>
-          <h1 className="mt-5 font-pixel text-3xl leading-tight text-foreground sm:text-4xl md:text-5xl">
+          <h1 className="font-pixel text-foreground mt-5 text-3xl leading-tight sm:text-4xl md:text-5xl">
             Ассистент,
             <br />
             <span className="text-primary">который живёт у вас</span>
           </h1>
-          <p className="mt-5 max-w-xl font-mono text-sm leading-relaxed text-muted-foreground">
-            Подключите свой backend с моделями — и общайтесь с настоящим AI.
-            Без аккаунтов и подписок: настройки модели — в вашем браузере,
-            стриминг и распознавание речи — на сервере.
+          <p className="text-muted-foreground mt-5 max-w-xl font-mono text-sm leading-relaxed">
+            Подключите свой backend с моделями — и общайтесь с настоящим AI. Без аккаунтов и
+            подписок: настройки модели — в вашем браузере, стриминг и распознавание речи — на
+            сервере.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Button asChild size="lg">
@@ -75,17 +75,17 @@ export function LandingView() {
               </Link>
             </Button>
           </div>
-          <p className="mt-4 font-mono text-[0.7rem] uppercase tracking-wider text-muted-foreground/80">
+          <p className="text-muted-foreground/80 mt-4 font-mono text-[0.7rem] tracking-wider uppercase">
             Bun 1.4+ · Next.js 16 · backend API
           </p>
         </div>
 
         <div className="pixel-panel overflow-hidden">
-          <div className="flex items-center gap-1.5 border-b-2 border-black/40 bg-muted px-3 py-2">
-            <span className="size-2.5 bg-destructive" />
-            <span className="size-2.5 bg-primary" />
-            <span className="size-2.5 bg-secondary" />
-            <span className="ml-2 font-mono text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+          <div className="bg-muted flex items-center gap-1.5 border-b-2 border-black/40 px-3 py-2">
+            <span className="bg-destructive size-2.5" />
+            <span className="bg-primary size-2.5" />
+            <span className="bg-secondary size-2.5" />
+            <span className="text-muted-foreground ml-2 font-mono text-[0.65rem] tracking-widest uppercase">
               quick start
             </span>
           </div>
@@ -93,7 +93,7 @@ export function LandingView() {
             <p className="text-muted-foreground">$ bun install</p>
             <p className="text-muted-foreground">$ bun dev</p>
             <p className="text-primary">→ http://localhost:3000</p>
-            <p className="pt-2 text-muted-foreground"># backend</p>
+            <p className="text-muted-foreground pt-2"># backend</p>
             <p className="text-foreground">NEXT_PUBLIC_API_URL=http://localhost:8000</p>
           </div>
         </div>
@@ -102,28 +102,28 @@ export function LandingView() {
       <section className="mt-14 grid gap-3 sm:grid-cols-2">
         {features.map(({ icon: Icon, title, text }) => (
           <article key={title} className="pixel-panel flex gap-3 p-4">
-            <span className="flex size-10 shrink-0 items-center justify-center bg-primary/15 text-primary">
+            <span className="bg-primary/15 text-primary flex size-10 shrink-0 items-center justify-center">
               <Icon className="size-5" />
             </span>
             <div>
-              <h2 className="font-pixel text-xs text-foreground">{title}</h2>
-              <p className="mt-1 font-mono text-xs leading-relaxed text-muted-foreground">{text}</p>
+              <h2 className="font-pixel text-foreground text-xs">{title}</h2>
+              <p className="text-muted-foreground mt-1 font-mono text-xs leading-relaxed">{text}</p>
             </div>
           </article>
         ))}
       </section>
 
       <section className="mt-14">
-        <h2 className="font-pixel text-xl text-foreground">Три шага до первого ответа</h2>
+        <h2 className="font-pixel text-foreground text-xl">Три шага до первого ответа</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           {steps.map((step, index) => (
             <div key={step} className="pixel-panel p-4">
-              <span className="flex size-8 items-center justify-center bg-secondary font-pixel text-sm text-secondary-foreground">
+              <span className="bg-secondary font-pixel text-secondary-foreground flex size-8 items-center justify-center text-sm">
                 {index + 1}
               </span>
-              <p className="mt-3 font-mono text-xs leading-relaxed text-muted-foreground">{step}</p>
+              <p className="text-muted-foreground mt-3 font-mono text-xs leading-relaxed">{step}</p>
               {index === 2 && (
-                <p className="mt-2 flex items-center gap-1 font-mono text-[0.65rem] uppercase tracking-wider text-primary">
+                <p className="text-primary mt-2 flex items-center gap-1 font-mono text-[0.65rem] tracking-wider uppercase">
                   <Check className="size-3.5" />
                   готово
                 </p>
@@ -133,9 +133,9 @@ export function LandingView() {
         </div>
       </section>
 
-      <section className="mt-14 flex flex-wrap items-center justify-between gap-4 border-t-2 border-border pt-6">
-        <p className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
-          <Server className="size-4 text-primary" />
+      <section className="border-border mt-14 flex flex-wrap items-center justify-between gap-4 border-t-2 pt-6">
+        <p className="text-muted-foreground flex items-center gap-2 font-mono text-xs">
+          <Server className="text-primary size-4" />
           Backend разворачивается отдельно от фронтенда
         </p>
         <Button asChild variant="outline" size="sm">

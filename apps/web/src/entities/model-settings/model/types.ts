@@ -1,10 +1,4 @@
-export type ProviderId =
-  | "openrouter"
-  | "openai"
-  | "deepseek"
-  | "mistral"
-  | "ollama"
-  | "custom";
+export type ProviderId = "openrouter" | "openai" | "deepseek" | "mistral" | "ollama" | "custom";
 
 export interface ProviderPreset {
   id: ProviderId;
@@ -96,8 +90,11 @@ export function providerFor(baseUrl: string): ProviderId {
 }
 
 export function isLocalAddress(value: string) {
-  return /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|host\.docker\.internal)(:|\/|$)/i
-    .test(value.trim()) || /\.local(?::|\/|$)/i.test(value.trim());
+  return (
+    /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|host\.docker\.internal)(:|\/|$)/i.test(
+      value.trim(),
+    ) || /\.local(?::|\/|$)/i.test(value.trim())
+  );
 }
 
 export function requiresApiKey(baseUrl: string) {

@@ -39,10 +39,12 @@ function drop(chatId: string, job: Job) {
 function lastUserText(chatId: string) {
   const chat = readChats().find(item => item.id === chatId);
   if (!chat) return "";
-  return [...chat.messages]
-    .reverse()
-    .find(message => message.role === "user" && message.text.trim())
-    ?.text.trim() ?? "";
+  return (
+    [...chat.messages]
+      .reverse()
+      .find(message => message.role === "user" && message.text.trim())
+      ?.text.trim() ?? ""
+  );
 }
 
 function savePartial(chatId: string, job: Job) {

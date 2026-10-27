@@ -9,8 +9,12 @@ function toRole(value: unknown): ChatRole {
 function toAudio(value: unknown): ChatAudio | undefined {
   if (!value || typeof value !== "object") return undefined;
   const item = value as Record<string, unknown>;
-  if (typeof item.dataUrl !== "string" || typeof item.type !== "string" ||
-    typeof item.duration !== "number") return undefined;
+  if (
+    typeof item.dataUrl !== "string" ||
+    typeof item.type !== "string" ||
+    typeof item.duration !== "number"
+  )
+    return undefined;
   return { dataUrl: item.dataUrl, type: item.type, duration: item.duration };
 }
 
@@ -43,22 +47,30 @@ export function readChats(): Chat[] {
     return value.flatMap(item => {
       if (!item || typeof item !== "object") return [];
       const chat = item as Partial<Chat>;
-      if (typeof chat.id !== "string" || typeof chat.title !== "string" ||
-        !Array.isArray(chat.messages)) return [];
-      const messages = chat.messages.map(toMessage)
+      if (
+        typeof chat.id !== "string" ||
+        typeof chat.title !== "string" ||
+        !Array.isArray(chat.messages)
+      )
+        return [];
+      const messages = chat.messages
+        .map(toMessage)
         .filter((message): message is ChatMessage => message !== null);
-      return [{
-        id: chat.id,
-        title: chat.title,
-        messages,
-        pinned: chat.pinned === true,
-        remoteId: typeof chat.remoteId === "number" ? chat.remoteId : undefined,
-        updatedAt: typeof chat.updatedAt === "number"
-          ? chat.updatedAt
-          : messages.at(-1)?.createdAt ?? 0,
-      }];
+      return [
+        {
+          id: chat.id,
+          title: chat.title,
+          messages,
+          pinned: chat.pinned === true,
+          remoteId: typeof chat.remoteId === "number" ? chat.remoteId : undefined,
+          updatedAt:
+            typeof chat.updatedAt === "number" ? chat.updatedAt : (messages.at(-1)?.createdAt ?? 0),
+        },
+      ];
     });
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 
 export function writeChats(chats: Chat[]) {

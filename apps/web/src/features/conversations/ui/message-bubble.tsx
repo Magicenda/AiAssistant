@@ -28,13 +28,15 @@ async function copyText(value: string) {
       const copied = document.execCommand("copy");
       area.remove();
       return copied;
-    } catch { return false; }
+    } catch {
+      return false;
+    }
   }
 }
 
 export function AssistantAvatar() {
   return (
-    <span className="pixel-bevel flex size-9 shrink-0 items-center justify-center bg-secondary text-secondary-foreground">
+    <span className="pixel-bevel bg-secondary text-secondary-foreground flex size-9 shrink-0 items-center justify-center">
       <Logo className="size-5" />
     </span>
   );
@@ -58,14 +60,14 @@ export function VoiceBubble({ audio }: { audio: ChatAudio }) {
           if (el.paused) void el.play();
           else el.pause();
         }}
-        className="pixel-bevel size-9 shrink-0 bg-primary-foreground text-primary hover:text-primary"
+        className="pixel-bevel bg-primary-foreground text-primary hover:text-primary size-9 shrink-0"
       >
         {playing ? <Pause className="size-4" /> : <Play className="size-4 fill-current" />}
       </Button>
-      <div className="h-2 min-w-0 flex-1 bg-primary-foreground/25">
-        <div className="h-full bg-primary-foreground" style={{ width: `${progress}%` }} />
+      <div className="bg-primary-foreground/25 h-2 min-w-0 flex-1">
+        <div className="bg-primary-foreground h-full" style={{ width: `${progress}%` }} />
       </div>
-      <span className="shrink-0 font-mono text-xs tabular-nums text-primary-foreground">
+      <span className="text-primary-foreground shrink-0 font-mono text-xs tabular-nums">
         {formatDuration(playing ? time : audio.duration)}
       </span>
       <audio
@@ -74,14 +76,22 @@ export function VoiceBubble({ audio }: { audio: ChatAudio }) {
         preload="metadata"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
-        onEnded={() => { setPlaying(false); setTime(0); }}
+        onEnded={() => {
+          setPlaying(false);
+          setTime(0);
+        }}
         onTimeUpdate={event => setTime(event.currentTarget.currentTime)}
       />
     </div>
   );
 }
 
-function ActionButton({ label, danger, onClick, children }: {
+function ActionButton({
+  label,
+  danger,
+  onClick,
+  children,
+}: {
   label: string;
   danger?: boolean;
   onClick: () => void;
@@ -122,14 +132,14 @@ export function MessageBubble({
   const isUser = message.role !== "assistant";
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
-  const isLong = !message.audio && (
-    message.text.length > collapseAfterChars ||
-    message.text.split("\n").length > collapseAfterLines
-  );
+  const isLong =
+    !message.audio &&
+    (message.text.length > collapseAfterChars ||
+      message.text.split("\n").length > collapseAfterLines);
   const collapsed = isLong && !expanded;
 
   async function copy() {
-    if (!await copyText(message.text || "Голосовое сообщение")) return;
+    if (!(await copyText(message.text || "Голосовое сообщение"))) return;
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1200);
   }
@@ -219,7 +229,7 @@ export function MessageBubble({
               type="button"
               onClick={() => setExpanded(value => !value)}
               className={cn(
-                "mt-2 font-pixel text-[0.7rem] underline-offset-4 hover:underline",
+                "font-pixel mt-2 text-[0.7rem] underline-offset-4 hover:underline",
                 isUser ? "text-primary-foreground/80" : "text-muted-foreground",
               )}
             >
@@ -235,7 +245,7 @@ export function MessageBubble({
     <div className="flex items-center gap-1">
       {actions}
       {lastInGroup && message.createdAt ? (
-        <span className="font-mono text-[0.7rem] tabular-nums tracking-wider text-muted-foreground/80">
+        <span className="text-muted-foreground/80 font-mono text-[0.7rem] tracking-wider tabular-nums">
           {timeFormat.format(message.createdAt)}
         </span>
       ) : null}
@@ -245,9 +255,7 @@ export function MessageBubble({
   if (isUser) {
     return (
       <div className={cn("group flex flex-col items-end gap-1", grouped ? "mt-1" : "mt-3")}>
-        <div className="flex w-fit max-w-[85%] flex-col items-end sm:max-w-[75%]">
-          {bubble}
-        </div>
+        <div className="flex w-fit max-w-[85%] flex-col items-end sm:max-w-[75%]">{bubble}</div>
         <div className="pr-1">{meta}</div>
       </div>
     );
@@ -256,7 +264,7 @@ export function MessageBubble({
   return (
     <div className={cn("group mt-3 flex items-end gap-2.5", grouped && "mt-1")}>
       {lastInGroup ? <AssistantAvatar /> : <span className="size-9 shrink-0" aria-hidden="true" />}
-      <div className="flex min-w-0 max-w-[85%] flex-col items-start gap-1 sm:max-w-[75%]">
+      <div className="flex max-w-[85%] min-w-0 flex-col items-start gap-1 sm:max-w-[75%]">
         {bubble}
         <div className="pl-1">{meta}</div>
       </div>
@@ -268,10 +276,10 @@ export function TypingBubble() {
   return (
     <div className="mt-3 flex items-end gap-2.5" role="status" aria-live="polite">
       <AssistantAvatar />
-      <div className="pixel-frame flex items-center gap-1.5 bg-card px-4 py-3">
-        <span className="pixel-blink size-2 bg-secondary" />
-        <span className="pixel-blink size-2 bg-secondary [animation-delay:150ms]" />
-        <span className="pixel-blink size-2 bg-secondary [animation-delay:300ms]" />
+      <div className="pixel-frame bg-card flex items-center gap-1.5 px-4 py-3">
+        <span className="pixel-blink bg-secondary size-2" />
+        <span className="pixel-blink bg-secondary size-2 [animation-delay:150ms]" />
+        <span className="pixel-blink bg-secondary size-2 [animation-delay:300ms]" />
       </div>
       <span className="sr-only">Ассистент печатает…</span>
     </div>

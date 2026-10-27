@@ -70,13 +70,13 @@ export function ModelForm() {
     model: saved.model,
     temperature: saved.temperature,
   };
-  const changed = Boolean(draft) && (
-    draft?.provider !== saved.provider ||
-    draft?.baseUrl !== saved.baseUrl ||
-    draft?.apiKey !== saved.apiKey ||
-    draft?.model !== saved.model ||
-    draft?.temperature !== saved.temperature
-  );
+  const changed =
+    Boolean(draft) &&
+    (draft?.provider !== saved.provider ||
+      draft?.baseUrl !== saved.baseUrl ||
+      draft?.apiKey !== saved.apiKey ||
+      draft?.model !== saved.model ||
+      draft?.temperature !== saved.temperature);
 
   function patch(value: Partial<Draft>) {
     setDraft({ ...settings, ...value });
@@ -133,16 +133,18 @@ export function ModelForm() {
               : "border-primary/60 bg-primary/10 text-foreground",
           )}
         >
-          {feedback.tone === "error"
-            ? <CircleAlert className="mt-0.5 size-4 shrink-0" />
-            : <CircleCheck className="mt-0.5 size-4 shrink-0 text-primary" />}
+          {feedback.tone === "error" ? (
+            <CircleAlert className="mt-0.5 size-4 shrink-0" />
+          ) : (
+            <CircleCheck className="text-primary mt-0.5 size-4 shrink-0" />
+          )}
           <span className="leading-relaxed">{feedback.text}</span>
         </div>
       )}
 
       <section className="pixel-panel space-y-4 p-5">
-        <h2 className="flex items-center gap-2 font-pixel text-sm text-foreground">
-          <Sparkles className="size-4 text-primary" />
+        <h2 className="font-pixel text-foreground flex items-center gap-2 text-sm">
+          <Sparkles className="text-primary size-4" />
           Модель
         </h2>
 
@@ -155,7 +157,9 @@ export function ModelForm() {
               onChange={event => applyProvider(event.target.value as ProviderId)}
             >
               {PROVIDER_PRESETS.map(preset => (
-                <option key={preset.id} value={preset.id}>{preset.label}</option>
+                <option key={preset.id} value={preset.id}>
+                  {preset.label}
+                </option>
               ))}
             </select>
           </label>
@@ -189,15 +193,15 @@ export function ModelForm() {
             inputMode="url"
           />
         </label>
-        <p className="font-mono text-[0.7rem] leading-relaxed text-muted-foreground">
-          {PROVIDER_PRESETS.find(item => item.id === settings.provider)?.note}
-          {" "}Укажите адрес без /chat/completions — backend добавит путь сам.
+        <p className="text-muted-foreground font-mono text-[0.7rem] leading-relaxed">
+          {PROVIDER_PRESETS.find(item => item.id === settings.provider)?.note} Укажите адрес без
+          /chat/completions — backend добавит путь сам.
         </p>
       </section>
 
       <section className="pixel-panel space-y-4 p-5">
-        <h2 className="flex items-center gap-2 font-pixel text-sm text-foreground">
-          <KeyRound className="size-4 text-primary" />
+        <h2 className="font-pixel text-foreground flex items-center gap-2 text-sm">
+          <KeyRound className="text-primary size-4" />
           Доступ
         </h2>
         <label className={labelClass}>
@@ -216,7 +220,7 @@ export function ModelForm() {
               type="button"
               size="icon"
               variant="ghost"
-              className="absolute right-0 top-0 size-10"
+              className="absolute top-0 right-0 size-10"
               aria-label={showKey ? "Скрыть ключ" : "Показать ключ"}
               onClick={() => setShowKey(value => !value)}
             >
@@ -224,15 +228,15 @@ export function ModelForm() {
             </Button>
           </div>
         </label>
-        <p className="font-mono text-[0.7rem] leading-relaxed text-muted-foreground">
-          Ключ хранится только в этом браузере и передаётся backend вместе с запросом.
-          Backend использует его для обращения к модели.
+        <p className="text-muted-foreground font-mono text-[0.7rem] leading-relaxed">
+          Ключ хранится только в этом браузере и передаётся backend вместе с запросом. Backend
+          использует его для обращения к модели.
         </p>
       </section>
 
       <section className="pixel-panel space-y-4 p-5">
-        <h2 className="flex items-center gap-2 font-pixel text-sm text-foreground">
-          <SlidersHorizontal className="size-4 text-primary" />
+        <h2 className="font-pixel text-foreground flex items-center gap-2 text-sm">
+          <SlidersHorizontal className="text-primary size-4" />
           Параметры ответа
         </h2>
         <label className={labelClass}>
@@ -247,34 +251,35 @@ export function ModelForm() {
             step={0.05}
             value={settings.temperature}
             onChange={event => patch({ temperature: Number(event.target.value) })}
-            className="w-full accent-primary"
+            className="accent-primary w-full"
           />
         </label>
-        <p className="font-mono text-[0.7rem] leading-relaxed text-muted-foreground">
-          Меньше — точнее и стабильнее, больше — свободнее и креативнее.
-          Рекомендуется 0.6–0.8.
+        <p className="text-muted-foreground font-mono text-[0.7rem] leading-relaxed">
+          Меньше — точнее и стабильнее, больше — свободнее и креативнее. Рекомендуется 0.6–0.8.
         </p>
       </section>
 
       <section className="pixel-panel space-y-3 p-5">
-        <h2 className="flex items-center gap-2 font-pixel text-sm text-foreground">
-          <Server className="size-4 text-primary" />
+        <h2 className="font-pixel text-foreground flex items-center gap-2 text-sm">
+          <Server className="text-primary size-4" />
           Сервер
         </h2>
-        <p className="font-mono text-xs leading-relaxed text-muted-foreground">
+        <p className="text-muted-foreground font-mono text-xs leading-relaxed">
           Backend задаётся переменной окружения{" "}
-          <code className="bg-white/10 px-1 py-0.5">NEXT_PUBLIC_API_URL</code>{" "}
-          и сейчас равен{" "}
-          <code className="bg-white/10 px-1 py-0.5">{getApiUrl()}</code>.
-          Стриминг ответов и распознавание речи выполняет сервер.
+          <code className="bg-white/10 px-1 py-0.5">NEXT_PUBLIC_API_URL</code> и сейчас равен{" "}
+          <code className="bg-white/10 px-1 py-0.5">{getApiUrl()}</code>. Стриминг ответов и
+          распознавание речи выполняет сервер.
         </p>
-        <p className="font-mono text-[0.7rem] leading-relaxed text-muted-foreground">
+        <p className="text-muted-foreground font-mono text-[0.7rem] leading-relaxed">
           Если модель не заполнена, backend использует свою конфигурацию по умолчанию.
         </p>
       </section>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" disabled={saving || !settings.baseUrl.trim() || !settings.model.trim()}>
+        <Button
+          type="submit"
+          disabled={saving || !settings.baseUrl.trim() || !settings.model.trim()}
+        >
           {saving ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
           Сохранить
         </Button>
@@ -283,12 +288,12 @@ export function ModelForm() {
           По умолчанию
         </Button>
         {changed && (
-          <span className="font-mono text-[0.7rem] uppercase tracking-wider text-secondary">
+          <span className="text-secondary font-mono text-[0.7rem] tracking-wider uppercase">
             Есть несохранённые изменения
           </span>
         )}
         {!requiresApiKey(settings.baseUrl) && settings.provider !== "custom" && (
-          <span className="font-mono text-[0.7rem] uppercase tracking-wider text-muted-foreground">
+          <span className="text-muted-foreground font-mono text-[0.7rem] tracking-wider uppercase">
             Ключ для этого сервиса не нужен
           </span>
         )}

@@ -25,9 +25,11 @@ export function sortChats(chats: Chat[]) {
 export function filterChats(chats: Chat[], query: string) {
   const value = query.trim().toLowerCase();
   if (!value) return chats;
-  return chats.filter(chat =>
-    chat.title.toLowerCase().includes(value) ||
-    chat.messages.some(message => message.text.toLowerCase().includes(value)));
+  return chats.filter(
+    chat =>
+      chat.title.toLowerCase().includes(value) ||
+      chat.messages.some(message => message.text.toLowerCase().includes(value)),
+  );
 }
 
 export function chatDateLabel(value: number, now = Date.now()) {

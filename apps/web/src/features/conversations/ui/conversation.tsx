@@ -36,13 +36,7 @@ import { PixelMic } from "@/shared/ui/pixel-mic";
 import { cn } from "@/shared/lib/cn";
 import { formatDuration } from "@/shared/lib/format-duration";
 import { useAudioRecording } from "../model/use-audio-recording";
-import {
-  readChats,
-  removeChat,
-  removeMessage,
-  saveChat,
-  updateChat,
-} from "../model/store";
+import { readChats, removeChat, removeMessage, saveChat, updateChat } from "../model/store";
 import { readDraft, removeDraft, writeDraft } from "../model/drafts";
 import { downloadChat } from "../model/export-chat";
 import {
@@ -64,7 +58,11 @@ const maxLength = 4000;
 const maxComposerHeight = 176;
 
 function titleFrom(value: string) {
-  const line = value.split("\n").map(item => item.trim()).find(Boolean) ?? value.trim();
+  const line =
+    value
+      .split("\n")
+      .map(item => item.trim())
+      .find(Boolean) ?? value.trim();
   const clean = plainText(line);
   return clean.length > 48 ? `${clean.slice(0, 48)}…` : clean;
 }
@@ -74,7 +72,11 @@ function replySnippet(value: string) {
   return text.length > 140 ? `${text.slice(0, 140)}…` : text;
 }
 
-function MenuItem({ onClick, danger, children }: {
+function MenuItem({
+  onClick,
+  danger,
+  children,
+}: {
   onClick: () => void;
   danger?: boolean;
   children: React.ReactNode;
@@ -84,7 +86,7 @@ function MenuItem({ onClick, danger, children }: {
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2 px-2 py-2 text-left font-mono text-xs uppercase tracking-wider hover:bg-white/5",
+        "flex w-full items-center gap-2 px-2 py-2 text-left font-mono text-xs tracking-wider uppercase hover:bg-white/5",
         danger ? "text-destructive" : "text-foreground",
       )}
     >
@@ -96,11 +98,11 @@ function MenuItem({ onClick, danger, children }: {
 function DateSeparator({ label }: { label: string }) {
   return (
     <div className="mt-4 flex items-center gap-3" role="separator" aria-label={label}>
-      <span className="h-px flex-1 bg-border" />
-      <span className="font-mono text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+      <span className="bg-border h-px flex-1" />
+      <span className="text-muted-foreground font-mono text-[0.65rem] tracking-widest uppercase">
         {label}
       </span>
-      <span className="h-px flex-1 bg-border" />
+      <span className="bg-border h-px flex-1" />
     </div>
   );
 }
@@ -161,7 +163,7 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
     return () => window.clearTimeout(timer);
   }, [draftId, text]);
 
-  const chat = sessionId ? chats.find(item => item.id === sessionId) ?? null : null;
+  const chat = sessionId ? (chats.find(item => item.id === sessionId) ?? null) : null;
   const messages = chat?.messages ?? [];
   const items = buildMessageItems(messages);
   const hasMessages = messages.length > 0;
@@ -196,11 +198,7 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
   }
 
   /** Сохраняет исходящее сообщение; возвращает id чата или null при ошибке. */
-  function saveOutgoing(
-    message: ChatMessage,
-    title: string,
-    targetId?: string,
-  ) {
+  function saveOutgoing(message: ChatMessage, title: string, targetId?: string) {
     const chatId = targetId ?? sessionId ?? crypto.randomUUID();
     const existing = readChats().find(item => item.id === chatId) ?? null;
     try {
@@ -374,18 +372,14 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
       createdAt: Date.now(),
       replyTo: replySnapshot
         ? {
-          id: replySnapshot.id,
-          role: replySnapshot.role,
-          text: replySnippet(replySnapshot.text),
-        }
+            id: replySnapshot.id,
+            role: replySnapshot.role,
+            text: replySnippet(replySnapshot.text),
+          }
         : undefined,
       audio: clip,
     };
-    const chatId = saveOutgoing(
-      message,
-      transcript ? titleFrom(transcript) : "Голос",
-      targetId,
-    );
+    const chatId = saveOutgoing(message, transcript ? titleFrom(transcript) : "Голос", targetId);
     if (chatId && transcript) requestReply(chatId);
   }
 
@@ -420,23 +414,27 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
                   setRenaming(false);
                 }
               }}
-              className="h-9 max-w-xs border-2 border-border bg-input px-2 font-pixel text-sm"
+              className="border-border bg-input font-pixel h-9 max-w-xs border-2 px-2 text-sm"
             />
           ) : (
-            <p className="flex items-center gap-1.5 font-pixel text-sm text-foreground">
+            <p className="font-pixel text-foreground flex items-center gap-1.5 text-sm">
               {chat?.pinned && (
-                <Pin aria-label="Закреплён" className="size-4 shrink-0 text-primary" />
+                <Pin aria-label="Закреплён" className="text-primary size-4 shrink-0" />
               )}
               <span className="truncate">{chat?.title || "Ассистент"}</span>
             </p>
           )}
         </div>
         <div className="relative flex shrink-0 items-center gap-2">
-          <Button variant="ghost" size="icon" aria-label="Список чатов"
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Список чатов"
             onClick={() => {
               setHistoryOpen(open => !open);
               closeMenu();
-            }}>
+            }}
+          >
             <Clock className="size-5" />
           </Button>
           {chat && (
@@ -456,17 +454,24 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
               </Button>
               {menuOpen && (
                 <>
-                  <button type="button" aria-label="Закрыть меню"
-                    className="fixed inset-0 z-10 cursor-default" onClick={closeMenu} />
-                  <div className="pixel-panel absolute right-0 top-full z-20 mt-2 w-60 p-1">
+                  <button
+                    type="button"
+                    aria-label="Закрыть меню"
+                    className="fixed inset-0 z-10 cursor-default"
+                    onClick={closeMenu}
+                  />
+                  <div className="pixel-panel absolute top-full right-0 z-20 mt-2 w-60 p-1">
                     <MenuItem onClick={startRename}>
-                      <Pencil className="size-4" />Переименовать
+                      <Pencil className="size-4" />
+                      Переименовать
                     </MenuItem>
                     <MenuItem onClick={handlePin}>
-                      <Pin className="size-4" />{chat.pinned ? "Открепить" : "Закрепить"}
+                      <Pin className="size-4" />
+                      {chat.pinned ? "Открепить" : "Закрепить"}
                     </MenuItem>
                     <MenuItem onClick={handleExport}>
-                      <Download className="size-4" />Экспорт .md
+                      <Download className="size-4" />
+                      Экспорт .md
                     </MenuItem>
                     <MenuItem onClick={handleClear} danger={confirmAction === "clear"}>
                       <Eraser className="size-4" />
@@ -482,7 +487,8 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
             </div>
           )}
           <Button variant="outline" size="sm" onClick={newChat}>
-            <Plus className="size-4" />Новый
+            <Plus className="size-4" />
+            Новый
           </Button>
           {historyOpen && (
             <ChatList
@@ -501,13 +507,13 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex h-full flex-col overflow-y-auto overscroll-contain pb-4 pr-1"
+          className="flex h-full flex-col overflow-y-auto overscroll-contain pr-1 pb-4"
         >
           {hydrated && !hasMessages && (
             <div className="flex flex-1 flex-col items-center justify-center text-center">
-              <Logo className="mb-6 size-12 text-primary" />
-              <h2 className="font-pixel text-2xl text-foreground">Чем помочь?</h2>
-              <p className="mt-3 max-w-sm font-mono text-xs uppercase tracking-wider text-muted-foreground">
+              <Logo className="text-primary mb-6 size-12" />
+              <h2 className="font-pixel text-foreground text-2xl">Чем помочь?</h2>
+              <p className="text-muted-foreground mt-3 max-w-sm font-mono text-xs tracking-wider uppercase">
                 Напишите или надиктуйте задачу, встречу или напоминание.
               </p>
             </div>
@@ -530,16 +536,15 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
               />
             </Fragment>
           ))}
-          {reply?.status === "streaming" && (
-            reply.text
-              ? (
-                <MessageBubble
-                  message={{ id: "live-reply", role: "assistant", text: reply.text }}
-                  lastInGroup
-                />
-              )
-              : <TypingBubble />
-          )}
+          {reply?.status === "streaming" &&
+            (reply.text ? (
+              <MessageBubble
+                message={{ id: "live-reply", role: "assistant", text: reply.text }}
+                lastInGroup
+              />
+            ) : (
+              <TypingBubble />
+            ))}
           {reply?.status === "error" && (
             <>
               {reply.text && (
@@ -549,10 +554,10 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
                 />
               )}
               <div className="pixel-panel mt-3 flex flex-wrap items-start gap-3 p-3" role="alert">
-                <CircleAlert className="mt-0.5 size-5 shrink-0 text-destructive" />
+                <CircleAlert className="text-destructive mt-0.5 size-5 shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="font-pixel text-xs text-destructive">Не удалось получить ответ</p>
-                  <p className="mt-1 font-mono text-xs leading-relaxed text-muted-foreground">
+                  <p className="font-pixel text-destructive text-xs">Не удалось получить ответ</p>
+                  <p className="text-muted-foreground mt-1 font-mono text-xs leading-relaxed">
                     {reply.error}
                   </p>
                 </div>
@@ -591,7 +596,7 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
             variant="secondary"
             aria-label="К последнему сообщению"
             title="К последнему сообщению"
-            className="pixel-bevel absolute bottom-4 right-2 z-10"
+            className="pixel-bevel absolute right-2 bottom-4 z-10"
             onClick={() => {
               setAtBottom(true);
               const el = scrollRef.current;
@@ -605,13 +610,16 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
 
       <div className="mt-3 shrink-0">
         {(error || audio.error) && (
-          <p role="alert" className="mb-2 px-2 font-mono text-xs text-destructive">
+          <p role="alert" className="text-destructive mb-2 px-2 font-mono text-xs">
             {error || audio.error}
           </p>
         )}
         {notice && (
-          <p role="status" className="mb-2 flex items-start gap-2 px-2 font-mono text-xs text-muted-foreground">
-            <CircleAlert className="mt-0.5 size-4 shrink-0 text-secondary" />
+          <p
+            role="status"
+            className="text-muted-foreground mb-2 flex items-start gap-2 px-2 font-mono text-xs"
+          >
+            <CircleAlert className="text-secondary mt-0.5 size-4 shrink-0" />
             <span>
               {notice}{" "}
               <Link href="/settings" className="text-primary underline underline-offset-4">
@@ -622,17 +630,23 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
         )}
         <div className="pixel-panel p-2">
           {replyTo && (
-            <div className="mb-2 flex items-start gap-2 border-l-2 border-primary px-2 py-1">
+            <div className="border-primary mb-2 flex items-start gap-2 border-l-2 px-2 py-1">
               <div className="min-w-0 flex-1">
-                <span className="font-pixel text-[0.65rem] text-primary">
+                <span className="font-pixel text-primary text-[0.65rem]">
                   {replyTo.role === "assistant" ? "Ассистент" : "Вы"}
                 </span>
-                <p className="line-clamp-2 font-mono text-xs text-muted-foreground">
+                <p className="text-muted-foreground line-clamp-2 font-mono text-xs">
                   {replyTo.text || "Голосовое сообщение"}
                 </p>
               </div>
-              <Button type="button" size="icon" variant="ghost" className="size-6"
-                aria-label="Отменить ответ" onClick={() => setReplyTo(null)}>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-6"
+                aria-label="Отменить ответ"
+                onClick={() => setReplyTo(null)}
+              >
                 <X className="size-4" />
               </Button>
             </div>
@@ -641,24 +655,34 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
             <div className="flex items-center gap-3 px-2 py-1">
               <span
                 className={cn(
-                  "size-3 shrink-0 bg-secondary",
+                  "bg-secondary size-3 shrink-0",
                   recording || transcribing ? "pixel-blink" : "opacity-50",
                 )}
               />
               {!transcribing && (
-                <span className="font-mono text-sm font-bold tabular-nums text-foreground">
+                <span className="text-foreground font-mono text-sm font-bold tabular-nums">
                   {formatDuration(audio.elapsed)}
                 </span>
               )}
-              <AudioLines className="size-5 text-secondary" />
-              <span className="ml-auto font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                {transcribing ? "Распознаю речь…"
-                  : audio.status === "starting" ? "Включаю микрофон…"
-                    : audio.status === "stopping" ? "Сохраняю…" : "Говорите"}
+              <AudioLines className="text-secondary size-5" />
+              <span className="text-muted-foreground ml-auto font-mono text-xs tracking-wider uppercase">
+                {transcribing
+                  ? "Распознаю речь…"
+                  : audio.status === "starting"
+                    ? "Включаю микрофон…"
+                    : audio.status === "stopping"
+                      ? "Сохраняю…"
+                      : "Говорите"}
               </span>
               {!transcribing && (
-                <Button type="button" size="icon" variant="secondary" aria-label="Остановить запись"
-                  disabled={busy} onClick={() => void handleStop()}>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="secondary"
+                  aria-label="Остановить запись"
+                  disabled={busy}
+                  onClick={() => void handleStop()}
+                >
                   <Square className="size-4" />
                 </Button>
               )}
@@ -678,10 +702,14 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
                   className="max-h-44 min-h-9 flex-1 resize-none border-0 bg-transparent px-2 py-2 leading-relaxed shadow-none focus-visible:ring-0"
                 />
                 <div className="flex shrink-0 items-center gap-1">
-                  <Button type="button" size="icon" variant="ghost"
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
                     aria-label="Записать голосовое сообщение"
                     disabled={replyPending}
-                    onClick={() => void audio.start()}>
+                    onClick={() => void audio.start()}
+                  >
                     <PixelMic className="size-5" />
                   </Button>
                   {replyPending ? (
@@ -690,20 +718,28 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
                       size="icon"
                       variant="secondary"
                       aria-label="Остановить ответ"
-                      onClick={() => { if (sessionId) stopReply(sessionId); }}
+                      onClick={() => {
+                        if (sessionId) stopReply(sessionId);
+                      }}
                     >
                       <Square className="size-4" />
                     </Button>
                   ) : (
-                    <Button type="submit" size="icon" aria-label="Отправить"
-                      disabled={!text.trim()}>
+                    <Button
+                      type="submit"
+                      size="icon"
+                      aria-label="Отправить"
+                      disabled={!text.trim()}
+                    >
                       <ArrowUp className="size-5" />
                     </Button>
                   )}
                 </div>
               </div>
-              <div className="mt-1 flex min-h-4 items-center justify-between gap-3 px-2 font-mono text-[0.7rem] uppercase tracking-wider text-muted-foreground">
-                <span className="hidden sm:group-focus-within:inline">Enter — отправить · Shift+Enter — новая строка</span>
+              <div className="text-muted-foreground mt-1 flex min-h-4 items-center justify-between gap-3 px-2 font-mono text-[0.7rem] tracking-wider uppercase">
+                <span className="hidden sm:group-focus-within:inline">
+                  Enter — отправить · Shift+Enter — новая строка
+                </span>
                 {text.length > 0 && (
                   <span className={cn("ml-auto tabular-nums", nearLimit && "text-destructive")}>
                     {text.length} / {maxLength}

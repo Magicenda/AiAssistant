@@ -55,21 +55,31 @@ function renderInline(text: string, tone: Tone, prefix: string): ReactNode[] {
             "px-1 py-0.5 font-mono text-[0.9em]",
             tone === "user"
               ? "bg-primary-foreground/15 text-primary-foreground"
-              : "bg-white/10 text-foreground",
+              : "text-foreground bg-white/10",
           )}
         >
           {raw.slice(1, -1)}
         </code>,
       );
     } else if (match[2]) {
-      nodes.push(<strong key={key} className="font-bold">{raw.slice(2, -2)}</strong>);
+      nodes.push(
+        <strong key={key} className="font-bold">
+          {raw.slice(2, -2)}
+        </strong>,
+      );
     } else if (match[3]) {
       nodes.push(<em key={key}>{raw.slice(1, -1)}</em>);
     } else if (match[4]) {
       const link = raw.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
       if (link) {
         nodes.push(
-          <a key={key} href={link[2]} target="_blank" rel="noopener noreferrer" className={linkClass(tone)}>
+          <a
+            key={key}
+            href={link[2]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={linkClass(tone)}
+          >
             {link[1]}
           </a>,
         );
@@ -79,7 +89,13 @@ function renderInline(text: string, tone: Tone, prefix: string): ReactNode[] {
     } else if (match[5]) {
       const { href, tail } = splitTrailing(raw);
       nodes.push(
-        <a key={key} href={href} target="_blank" rel="noopener noreferrer" className={linkClass(tone)}>
+        <a
+          key={key}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={linkClass(tone)}
+        >
           {href}
         </a>,
       );
@@ -179,7 +195,11 @@ function parseBlocks(text: string): Block[] {
   return blocks;
 }
 
-export function Markdown({ text, tone = "assistant", className }: {
+export function Markdown({
+  text,
+  tone = "assistant",
+  className,
+}: {
   text: string;
   tone?: Tone;
   className?: string;
@@ -216,9 +236,13 @@ export function Markdown({ text, tone = "assistant", className }: {
             <li key={itemIndex}>{renderInline(item, tone, `l${index}-${itemIndex}`)}</li>
           ));
           return block.ordered ? (
-            <ol key={index} className="list-decimal space-y-1 pl-5">{items}</ol>
+            <ol key={index} className="list-decimal space-y-1 pl-5">
+              {items}
+            </ol>
           ) : (
-            <ul key={index} className="list-disc space-y-1 pl-5">{items}</ul>
+            <ul key={index} className="list-disc space-y-1 pl-5">
+              {items}
+            </ul>
           );
         }
         return (
@@ -228,7 +252,7 @@ export function Markdown({ text, tone = "assistant", className }: {
               "overflow-x-auto p-2 font-mono text-xs leading-relaxed",
               tone === "user"
                 ? "bg-primary-foreground/15 text-primary-foreground"
-                : "bg-black/40 text-foreground",
+                : "text-foreground bg-black/40",
             )}
           >
             <code>{block.lines.join("\n")}</code>

@@ -9,7 +9,9 @@ function readAll(): Record<string, string> {
       if (typeof text === "string") result[id] = text;
     }
     return result;
-  } catch { return {}; }
+  } catch {
+    return {};
+  }
 }
 
 export function readDraft(id: string): string {
@@ -22,7 +24,9 @@ export function writeDraft(id: string, text: string) {
   else delete all[id];
   try {
     localStorage.setItem(key, JSON.stringify(all));
-  } catch { /* квота не критична: черновик не должен ломать ввод */ }
+  } catch {
+    /* квота не критична: черновик не должен ломать ввод */
+  }
 }
 
 export function removeDraft(id: string) {
@@ -31,5 +35,7 @@ export function removeDraft(id: string) {
   delete all[id];
   try {
     localStorage.setItem(key, JSON.stringify(all));
-  } catch { /* см. writeDraft */ }
+  } catch {
+    /* см. writeDraft */
+  }
 }

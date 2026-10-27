@@ -81,10 +81,7 @@
         transparent 1px,
         transparent 3px
       ),
-      repeating-conic-gradient(
-        rgba(255, 255, 255, 0.02) 0% 25%,
-        transparent 0% 50%
-      ),
+      repeating-conic-gradient(rgba(255, 255, 255, 0.02) 0% 25%, transparent 0% 50%),
       linear-gradient(
         180deg,
         #1c1536 0%,
@@ -104,7 +101,10 @@
         #0a0714 87.5%,
         #0a0714 100%
       );
-    background-size: 100% 100%, 4px 4px, 100% 100%;
+    background-size:
+      100% 100%,
+      4px 4px,
+      100% 100%;
     background-attachment: fixed;
   }
 }
@@ -146,8 +146,14 @@
 }
 
 @keyframes pixel-blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 .pixel-blink {
   animation: pixel-blink 1s steps(1, end) infinite;

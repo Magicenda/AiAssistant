@@ -44,9 +44,10 @@ export function buildMessageItems(messages: ChatMessage[]): MessageItem[] {
       message,
       grouped: sameGroup(previous, message),
       lastInGroup: !sameGroup(message, next),
-      separator: message.createdAt && key !== dayKey(previous?.createdAt)
-        ? dayLabel(message.createdAt)
-        : undefined,
+      separator:
+        message.createdAt && key !== dayKey(previous?.createdAt)
+          ? dayLabel(message.createdAt)
+          : undefined,
     };
   });
 }

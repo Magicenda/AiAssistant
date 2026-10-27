@@ -6,11 +6,11 @@ import { Logo } from "@/shared/ui/logo";
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-30 border-b-2 border-border bg-background/95 backdrop-blur">
+    <header className="border-border bg-background/95 sticky top-0 z-30 border-b-2 backdrop-blur">
       <div className="mx-auto flex min-h-14 max-w-5xl items-center justify-between gap-3 px-4">
         <Link href="/" className="flex items-center gap-2">
-          <Logo className="size-5 text-primary" />
-          <span className="font-pixel text-xs text-foreground">AI Assistant</span>
+          <Logo className="text-primary size-5" />
+          <span className="font-pixel text-foreground text-xs">AI Assistant</span>
         </Link>
         <nav className="flex items-center gap-2">
           <Button asChild variant="ghost" size="sm">

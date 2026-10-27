@@ -41,21 +41,24 @@ export function useAudioRecording() {
     stream.current = null;
   }, []);
 
-  useEffect(() => () => {
-    generation.current += 1;
-    clearTimer();
-    const active = recorder.current;
-    if (active) {
-      active.onstart = null;
-      active.ondataavailable = null;
-      active.onstop = null;
-      active.onerror = null;
-      if (active.state !== "inactive") active.stop();
-    }
-    releaseStream();
-    recorder.current = null;
-    resolveStop.current = null;
-  }, [clearTimer, releaseStream]);
+  useEffect(
+    () => () => {
+      generation.current += 1;
+      clearTimer();
+      const active = recorder.current;
+      if (active) {
+        active.onstart = null;
+        active.ondataavailable = null;
+        active.onstop = null;
+        active.onerror = null;
+        if (active.state !== "inactive") active.stop();
+      }
+      releaseStream();
+      recorder.current = null;
+      resolveStop.current = null;
+    },
+    [clearTimer, releaseStream],
+  );
 
   async function start() {
     if (status !== "idle" || starting.current || stream.current) return;
@@ -75,8 +78,9 @@ export function useAudioRecording() {
         return;
       }
       stream.current = source;
-      const mimeType = ["audio/webm;codecs=opus", "audio/mp4", "audio/ogg;codecs=opus"]
-        .find(type => MediaRecorder.isTypeSupported(type));
+      const mimeType = ["audio/webm;codecs=opus", "audio/mp4", "audio/ogg;codecs=opus"].find(type =>
+        MediaRecorder.isTypeSupported(type),
+      );
       const active = new MediaRecorder(source, mimeType ? { mimeType } : undefined);
       recorder.current = active;
       chunks.current = [];
@@ -133,9 +137,11 @@ export function useAudioRecording() {
       releaseStream();
       recorder.current = null;
       setStatus("idle");
-      setError(cause instanceof DOMException && cause.name === "NotAllowedError"
-        ? "Разрешите доступ к микрофону в настройках браузера."
-        : "Не удалось включить микрофон. Проверьте его подключение и доступ к нему.");
+      setError(
+        cause instanceof DOMException && cause.name === "NotAllowedError"
+          ? "Разрешите доступ к микрофону в настройках браузера."
+          : "Не удалось включить микрофон. Проверьте его подключение и доступ к нему.",
+      );
     } finally {
       if (current === generation.current) starting.current = false;
     }

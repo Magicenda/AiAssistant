@@ -43,36 +43,39 @@ function ChatRow({ chat, ...props }: RowProps & { chat: Chat }) {
         href={`/chat/${chat.id}`}
         onClick={onClose}
         aria-current={active ? "page" : undefined}
-        className={cn(
-          "flex flex-col gap-0.5 px-3 py-2 hover:bg-white/5",
-          active && "bg-white/5",
-        )}
+        className={cn("flex flex-col gap-0.5 px-3 py-2 hover:bg-white/5", active && "bg-white/5")}
       >
-        <span className="flex items-center gap-1.5 truncate pr-16 font-pixel text-xs text-foreground">
-          {chat.pinned ? <Pin className="size-3 shrink-0 text-primary" aria-label="Закреплён" /> : null}
+        <span className="font-pixel text-foreground flex items-center gap-1.5 truncate pr-16 text-xs">
+          {chat.pinned ? (
+            <Pin className="text-primary size-3 shrink-0" aria-label="Закреплён" />
+          ) : null}
           <span className="truncate">{chat.title || "Новый чат"}</span>
         </span>
-        <span className="truncate pr-14 font-mono text-[0.7rem] text-muted-foreground">
+        <span className="text-muted-foreground truncate pr-14 font-mono text-[0.7rem]">
           {preview(chat)}
         </span>
       </Link>
 
       {confirming ? (
-        <div className="absolute inset-0 flex items-center justify-between gap-2 bg-card px-3">
-          <span className="font-mono text-[0.7rem] uppercase tracking-wider text-destructive">
+        <div className="bg-card absolute inset-0 flex items-center justify-between gap-2 px-3">
+          <span className="text-destructive font-mono text-[0.7rem] tracking-wider uppercase">
             Удалить чат?
           </span>
           <div className="flex gap-1">
-            <Button size="sm" variant="destructive" onClick={() => onDelete(chat)}>Да</Button>
-            <Button size="sm" variant="ghost" onClick={() => onConfirm(null)}>Нет</Button>
+            <Button size="sm" variant="destructive" onClick={() => onDelete(chat)}>
+              Да
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => onConfirm(null)}>
+              Нет
+            </Button>
           </div>
         </div>
       ) : (
         <>
-          <span className="pointer-events-none absolute bottom-2 right-2 font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground/70">
+          <span className="text-muted-foreground/70 pointer-events-none absolute right-2 bottom-2 font-mono text-[0.6rem] tracking-wider uppercase">
             {chatDateLabel(chatTimestamp(chat))}
           </span>
-          <div className="absolute right-1 top-1 flex items-center gap-0.5 opacity-80 transition-opacity sm:opacity-0 sm:group-hover/row:opacity-100 sm:focus-within:opacity-100">
+          <div className="absolute top-1 right-1 flex items-center gap-0.5 opacity-80 transition-opacity sm:opacity-0 sm:group-hover/row:opacity-100 sm:focus-within:opacity-100">
             <Button
               size="icon"
               variant="ghost"
@@ -81,12 +84,12 @@ function ChatRow({ chat, ...props }: RowProps & { chat: Chat }) {
               title={chat.pinned ? "Открепить" : "Закрепить"}
               onClick={() => onTogglePin(chat)}
             >
-              <Pin className={cn("size-3.5", chat.pinned && "fill-current text-primary")} />
+              <Pin className={cn("size-3.5", chat.pinned && "text-primary fill-current")} />
             </Button>
             <Button
               size="icon"
               variant="ghost"
-              className="size-6 hover:text-destructive"
+              className="hover:text-destructive size-6"
               aria-label="Удалить чат"
               title="Удалить чат"
               onClick={() => onConfirm(chat.id)}
@@ -104,15 +107,24 @@ function Section({ label, chats, ...rowProps }: RowProps & { label: string; chat
   if (!chats.length) return null;
   return (
     <div>
-      <p className="px-2 pb-1 pt-2 font-mono text-[0.6rem] uppercase tracking-widest text-muted-foreground">
+      <p className="text-muted-foreground px-2 pt-2 pb-1 font-mono text-[0.6rem] tracking-widest uppercase">
         {label}
       </p>
-      {chats.map(chat => <ChatRow key={chat.id} chat={chat} {...rowProps} />)}
+      {chats.map(chat => (
+        <ChatRow key={chat.id} chat={chat} {...rowProps} />
+      ))}
     </div>
   );
 }
 
-export function ChatList({ chats, currentId, onNew, onClose, onDelete, onTogglePin }: {
+export function ChatList({
+  chats,
+  currentId,
+  onNew,
+  onClose,
+  onDelete,
+  onTogglePin,
+}: {
   chats: Chat[];
   currentId?: string;
   onNew: () => void;
@@ -171,18 +183,24 @@ export function ChatList({ chats, currentId, onNew, onClose, onDelete, onToggleP
       onClick={event => {
         if (event.target !== event.currentTarget) return;
         const rect = event.currentTarget.getBoundingClientRect();
-        if (event.clientX < rect.left || event.clientX > rect.right ||
-          event.clientY < rect.top || event.clientY > rect.bottom) onClose();
+        if (
+          event.clientX < rect.left ||
+          event.clientX > rect.right ||
+          event.clientY < rect.top ||
+          event.clientY > rect.bottom
+        )
+          onClose();
       }}
-      className="pixel-panel m-auto max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-lg overflow-hidden p-0 text-foreground backdrop:bg-black/70"
+      className="pixel-panel text-foreground m-auto max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-lg overflow-hidden p-0 backdrop:bg-black/70"
     >
-      <div className="flex items-center justify-between gap-2 border-b-2 border-border px-3 py-2">
-        <span className="font-pixel text-xs text-foreground">
+      <div className="border-border flex items-center justify-between gap-2 border-b-2 px-3 py-2">
+        <span className="font-pixel text-foreground text-xs">
           Чаты <span className="text-muted-foreground">{chats.length}</span>
         </span>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="sm" onClick={onNew}>
-            <Plus className="size-4" />Новый
+            <Plus className="size-4" />
+            Новый
           </Button>
           <Button variant="ghost" size="icon" aria-label="Закрыть список чатов" onClick={onClose}>
             <X className="size-5" />
@@ -190,22 +208,22 @@ export function ChatList({ chats, currentId, onNew, onClose, onDelete, onToggleP
         </div>
       </div>
 
-      <div className="relative border-b-2 border-border px-2 py-2">
-        <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <div className="border-border relative border-b-2 px-2 py-2">
+        <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2" />
         <Input
           ref={searchRef}
           value={query}
           onChange={event => setQuery(event.target.value)}
           placeholder="Поиск по чатам"
           aria-label="Поиск по чатам"
-          className="h-9 border-2 border-border bg-input pl-8 pr-8 text-xs"
+          className="border-border bg-input h-9 border-2 pr-8 pl-8 text-xs"
         />
         {query && (
           <button
             type="button"
             aria-label="Очистить поиск"
             onClick={() => setQuery("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
           >
             <X className="size-4" />
           </button>
@@ -214,12 +232,12 @@ export function ChatList({ chats, currentId, onNew, onClose, onDelete, onToggleP
 
       <div className="max-h-[60vh] overflow-y-auto overscroll-contain p-1">
         {!chats.length && (
-          <p className="px-3 py-8 text-center font-mono text-xs text-muted-foreground">
+          <p className="text-muted-foreground px-3 py-8 text-center font-mono text-xs">
             Пока нет диалогов
           </p>
         )}
         {chats.length > 0 && !sorted.length && (
-          <p className="px-3 py-8 text-center font-mono text-xs text-muted-foreground">
+          <p className="text-muted-foreground px-3 py-8 text-center font-mono text-xs">
             Ничего не найдено
           </p>
         )}
