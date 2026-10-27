@@ -20,6 +20,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --font-sans: var(--font-pixel-family);
+  --font-mono: var(--font-pixel-family);
   --radius-sm: 0;
   --radius-md: 0;
   --radius-lg: 0;
@@ -30,7 +32,7 @@
 
 :root {
   color-scheme: dark;
-  --font-pixel-family: "Handjet", "Courier New", monospace;
+  --font-pixel-family: var(--font-pixel), "Courier New", monospace;
   --background: #0b0d20;
   --foreground: #f3e9d6;
   --card: #151a33;
@@ -69,7 +71,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: ui-monospace, "Cascadia Mono", "Segoe UI Mono", "Courier New", monospace;
+    font-family: var(--font-pixel-family);
     background-color: #0b0d20;
     background-image:
       repeating-linear-gradient(
