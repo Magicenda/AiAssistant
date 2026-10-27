@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   useEffect,
   useRef,
   useState,
@@ -42,6 +43,7 @@ import {
 import { readDraft, removeDraft, writeDraft } from "../model/drafts";
 import { downloadChat } from "../model/export-chat";
 import { isReplyPending, requestReply, subscribeReplies } from "../model/replies";
+import { buildMessageItems } from "../model/chat-view";
 import { plainText } from "../model/plain-text";
 import { MessageBubble, TypingBubble } from "./message-bubble";
 import { ChatList } from "./chat-list";
@@ -77,6 +79,18 @@ function MenuItem({ onClick, danger, children }: {
     >
       {children}
     </button>
+  );
+}
+
+function DateSeparator({ label }: { label: string }) {
+  return (
+    <div className="mt-4 flex items-center gap-3" role="separator" aria-label={label}>
+      <span className="h-px flex-1 bg-border" />
+      <span className="font-mono text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+        {label}
+      </span>
+      <span className="h-px flex-1 bg-border" />
+    </div>
   );
 }
 
@@ -135,6 +149,7 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
 
   const chat = sessionId ? chats.find(item => item.id === sessionId) ?? null : null;
   const messages = chat?.messages ?? [];
+  const items = buildMessageItems(messages);
   const hasMessages = messages.length > 0;
 
   useEffect(() => {
@@ -424,7 +439,7 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex h-full flex-col gap-3 overflow-y-auto overscroll-contain pb-4 pr-1"
+          className="flex h-full flex-col overflow-y-auto overscroll-contain pb-4 pr-1"
         >
           {hydrated && !hasMessages && (
             <div className="flex flex-1 flex-col items-center justify-center text-center">
@@ -439,18 +454,22 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
             </div>
           )}
 
-          {messages.map((message, index) => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              onReply={setReplyTo}
-              onDelete={deleteMessage}
-              onRegenerate={
-                message.role === "assistant" && index === messages.length - 1
-                  ? regenerateMessage
-                  : undefined
-              }
-            />
+          {items.map((item, index) => (
+            <Fragment key={item.message.id}>
+              {item.separator && <DateSeparator label={item.separator} />}
+              <MessageBubble
+                message={item.message}
+                grouped={item.grouped}
+                lastInGroup={item.lastInGroup}
+                onReply={setReplyTo}
+                onDelete={deleteMessage}
+                onRegenerate={
+                  item.message.role === "assistant" && index === items.length - 1
+                    ? regenerateMessage
+                    : undefined
+                }
+              />
+            </Fragment>
           ))}
           {replyPending && <TypingBubble />}
         </div>

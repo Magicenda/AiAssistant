@@ -104,12 +104,21 @@ function ActionButton({ label, danger, onClick, children }: {
 
 export interface MessageBubbleProps {
   message: ChatMessage;
+  grouped?: boolean;
+  lastInGroup?: boolean;
   onReply?: (message: ChatMessage) => void;
   onDelete?: (message: ChatMessage) => void;
   onRegenerate?: (message: ChatMessage) => void;
 }
 
-export function MessageBubble({ message, onReply, onDelete, onRegenerate }: MessageBubbleProps) {
+export function MessageBubble({
+  message,
+  grouped = false,
+  lastInGroup = true,
+  onReply,
+  onDelete,
+  onRegenerate,
+}: MessageBubbleProps) {
   const isUser = message.role !== "assistant";
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -213,7 +222,7 @@ export function MessageBubble({ message, onReply, onDelete, onRegenerate }: Mess
   const meta = (
     <div className="flex items-center gap-1">
       {actions}
-      {message.createdAt ? (
+      {lastInGroup && message.createdAt ? (
         <span className="font-mono text-[0.7rem] tabular-nums tracking-wider text-muted-foreground/80">
           {timeFormat.format(message.createdAt)}
         </span>
@@ -223,7 +232,7 @@ export function MessageBubble({ message, onReply, onDelete, onRegenerate }: Mess
 
   if (isUser) {
     return (
-      <div className="group flex flex-col items-end gap-1">
+      <div className={cn("group flex flex-col items-end gap-1", grouped ? "mt-1" : "mt-3")}>
         <div className="flex w-fit max-w-[85%] flex-col items-end sm:max-w-[75%]">
           {bubble}
         </div>
@@ -233,8 +242,8 @@ export function MessageBubble({ message, onReply, onDelete, onRegenerate }: Mess
   }
 
   return (
-    <div className="group flex items-end gap-2.5">
-      <AssistantAvatar />
+    <div className={cn("group mt-3 flex items-end gap-2.5", grouped && "mt-1")}>
+      {lastInGroup ? <AssistantAvatar /> : <span className="size-9 shrink-0" aria-hidden="true" />}
       <div className="flex min-w-0 max-w-[85%] flex-col items-start gap-1 sm:max-w-[75%]">
         {bubble}
         <div className="pl-1">{meta}</div>
@@ -245,7 +254,7 @@ export function MessageBubble({ message, onReply, onDelete, onRegenerate }: Mess
 
 export function TypingBubble() {
   return (
-    <div className="flex items-end gap-2.5" role="status" aria-live="polite">
+    <div className="mt-3 flex items-end gap-2.5" role="status" aria-live="polite">
       <AssistantAvatar />
       <div className="pixel-frame flex items-center gap-1.5 bg-card px-4 py-3">
         <span className="pixel-blink size-2 bg-secondary" />
