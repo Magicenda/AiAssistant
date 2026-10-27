@@ -4,11 +4,14 @@ import { useRef, useState } from "react";
 import { Check, Copy, Pause, Play, RefreshCw, Reply, Trash2 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Logo } from "@/shared/ui/logo";
+import { Markdown } from "@/shared/ui/markdown";
 import { cn } from "@/shared/lib/cn";
 import { formatDuration } from "@/shared/lib/format-duration";
 import type { ChatAudio, ChatMessage } from "@/entities/chat";
 
 const timeFormat = new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" });
+const collapseAfterChars = 480;
+const collapseAfterLines = 8;
 
 async function copyText(value: string) {
   try {
@@ -28,8 +31,6 @@ async function copyText(value: string) {
     } catch { return false; }
   }
 }
-const collapseAfterChars = 480;
-const collapseAfterLines = 8;
 
 export function AssistantAvatar() {
   return (
@@ -179,16 +180,19 @@ export function MessageBubble({ message, onReply, onDelete, onRegenerate }: Mess
           </p>
         </div>
       )}
+
       {message.audio ? (
         <VoiceBubble audio={message.audio} />
       ) : (
         <>
-          <p className={cn(
-            "whitespace-pre-wrap text-sm leading-relaxed [overflow-wrap:anywhere]",
-            collapsed && "line-clamp-[8]",
-          )}>
-            {message.text}
-          </p>
+          <div
+            className={cn(
+              collapsed &&
+                "max-h-56 overflow-hidden [mask-image:linear-gradient(to_bottom,black_70%,transparent)]",
+            )}
+          >
+            <Markdown text={message.text} tone={isUser ? "user" : "assistant"} />
+          </div>
           {isLong && (
             <button
               type="button"
@@ -220,7 +224,9 @@ export function MessageBubble({ message, onReply, onDelete, onRegenerate }: Mess
   if (isUser) {
     return (
       <div className="group flex flex-col items-end gap-1">
-        <div className="flex max-w-[85%] flex-col items-end sm:max-w-[75%]">{bubble}</div>
+        <div className="flex w-fit max-w-[85%] flex-col items-end sm:max-w-[75%]">
+          {bubble}
+        </div>
         <div className="pr-1">{meta}</div>
       </div>
     );

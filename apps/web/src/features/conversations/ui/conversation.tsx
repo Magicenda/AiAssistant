@@ -42,6 +42,7 @@ import {
 import { readDraft, removeDraft, writeDraft } from "../model/drafts";
 import { downloadChat } from "../model/export-chat";
 import { isReplyPending, requestReply, subscribeReplies } from "../model/replies";
+import { plainText } from "../model/plain-text";
 import { MessageBubble, TypingBubble } from "./message-bubble";
 import type { Chat, ChatMessage } from "@/entities/chat";
 
@@ -50,11 +51,12 @@ const maxComposerHeight = 176;
 
 function titleFrom(value: string) {
   const line = value.split("\n").map(item => item.trim()).find(Boolean) ?? value.trim();
-  return line.length > 48 ? `${line.slice(0, 48)}…` : line;
+  const clean = plainText(line);
+  return clean.length > 48 ? `${clean.slice(0, 48)}…` : clean;
 }
 
 function replySnippet(value: string) {
-  const text = value.trim() || "Голосовое сообщение";
+  const text = plainText(value) || "Голосовое сообщение";
   return text.length > 140 ? `${text.slice(0, 140)}…` : text;
 }
 
