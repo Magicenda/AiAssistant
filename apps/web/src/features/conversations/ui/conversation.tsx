@@ -8,7 +8,6 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowDown,
@@ -19,6 +18,7 @@ import {
   Eraser,
   MoreHorizontal,
   Pencil,
+  Pin,
   Plus,
   Square,
   Trash2,
@@ -44,6 +44,7 @@ import { downloadChat } from "../model/export-chat";
 import { isReplyPending, requestReply, subscribeReplies } from "../model/replies";
 import { plainText } from "../model/plain-text";
 import { MessageBubble, TypingBubble } from "./message-bubble";
+import { ChatList } from "./chat-list";
 import type { Chat, ChatMessage } from "@/entities/chat";
 
 const maxLength = 4000;
@@ -76,55 +77,6 @@ function MenuItem({ onClick, danger, children }: {
     >
       {children}
     </button>
-  );
-}
-
-function ChatHistory({ chats, currentId, onNew, onClose }: {
-  chats: Chat[];
-  currentId?: string;
-  onNew: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <>
-      <button type="button" aria-label="Закрыть историю"
-        className="fixed inset-0 z-10 cursor-default" onClick={onClose} />
-      <div className="pixel-panel absolute right-0 top-full z-20 mt-2 w-72">
-        <div className="flex items-center justify-between gap-2 border-b-2 border-border px-3 py-2">
-          <span className="font-pixel text-xs text-foreground">История</span>
-          <Button variant="ghost" size="sm" onClick={onNew}>
-            <Plus className="size-4" />Новый
-          </Button>
-        </div>
-        <div className="max-h-72 overflow-y-auto p-2">
-          {chats.length === 0 && (
-            <p className="px-3 py-8 text-center font-mono text-xs text-muted-foreground">Пока нет диалогов</p>
-          )}
-          {chats.map(chat => (
-            <Link
-              key={chat.id}
-              href={`/chat/${chat.id}`}
-              onClick={onClose}
-              aria-current={chat.id === currentId ? "page" : undefined}
-              className={cn(
-                "flex flex-col gap-0.5 px-3 py-2 hover:bg-white/5",
-                chat.id === currentId && "bg-white/5",
-              )}
-            >
-              <span className="truncate font-pixel text-xs text-foreground">{chat.title || "Новый чат"}</span>
-              <span className="truncate font-mono text-xs text-muted-foreground">
-                {(() => {
-                  const last = chat.messages.at(-1);
-                  if (!last) return "Пока нет сообщений";
-                  if (last.audio) return "Голосовое сообщение";
-                  return last.text;
-                })()}
-              </span>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </>
   );
 }
 
@@ -285,6 +237,22 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
     requestReply(sessionId, source?.text || message.text);
   }
 
+  function deleteChatById(id: string) {
+    removeChat(id);
+    removeDraft(id);
+    if (id === sessionId) router.push("/chat");
+  }
+
+  function togglePin(target: Chat) {
+    updateChat(target.id, { pinned: !target.pinned }, { touch: false });
+  }
+
+  function handlePin() {
+    if (!chat) return;
+    updateChat(chat.id, { pinned: !chat.pinned }, { touch: false });
+    closeMenu();
+  }
+
   function startRename() {
     if (!chat) return;
     setRenameValue(chat.title || "");
@@ -295,7 +263,7 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
   function commitRename() {
     if (!sessionId) return;
     const value = renameValue.trim();
-    if (value) updateChat(sessionId, { title: value });
+    if (value) updateChat(sessionId, { title: value }, { touch: false });
     setRenaming(false);
   }
 
@@ -324,10 +292,8 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
       setConfirmAction("delete");
       return;
     }
-    removeChat(sessionId);
-    removeDraft(sessionId);
     closeMenu();
-    router.push("/chat");
+    deleteChatById(sessionId);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -380,11 +346,16 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
               className="h-9 max-w-xs border-2 border-border bg-input px-2 font-pixel text-sm"
             />
           ) : (
-            <p className="truncate font-pixel text-sm text-foreground">{chat?.title || "Ассистент"}</p>
+            <p className="flex items-center gap-1.5 font-pixel text-sm text-foreground">
+              {chat?.pinned && (
+                <Pin aria-label="Закреплён" className="size-4 shrink-0 text-primary" />
+              )}
+              <span className="truncate">{chat?.title || "Ассистент"}</span>
+            </p>
           )}
         </div>
         <div className="relative flex shrink-0 items-center gap-2">
-          <Button variant="ghost" size="icon" aria-label="История чатов"
+          <Button variant="ghost" size="icon" aria-label="Список чатов"
             onClick={() => {
               setHistoryOpen(open => !open);
               closeMenu();
@@ -414,6 +385,9 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
                     <MenuItem onClick={startRename}>
                       <Pencil className="size-4" />Переименовать
                     </MenuItem>
+                    <MenuItem onClick={handlePin}>
+                      <Pin className="size-4" />{chat.pinned ? "Открепить" : "Закрепить"}
+                    </MenuItem>
                     <MenuItem onClick={handleExport}>
                       <Download className="size-4" />Экспорт .md
                     </MenuItem>
@@ -434,8 +408,14 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
             <Plus className="size-4" />Новый
           </Button>
           {historyOpen && (
-            <ChatHistory chats={chats} currentId={sessionId}
-              onNew={newChat} onClose={() => setHistoryOpen(false)} />
+            <ChatList
+              chats={chats}
+              currentId={sessionId}
+              onNew={newChat}
+              onClose={() => setHistoryOpen(false)}
+              onDelete={target => deleteChatById(target.id)}
+              onTogglePin={togglePin}
+            />
           )}
         </div>
       </header>

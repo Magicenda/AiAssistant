@@ -45,11 +45,16 @@ export function readChats(): Chat[] {
       const chat = item as Partial<Chat>;
       if (typeof chat.id !== "string" || typeof chat.title !== "string" ||
         !Array.isArray(chat.messages)) return [];
+      const messages = chat.messages.map(toMessage)
+        .filter((message): message is ChatMessage => message !== null);
       return [{
         id: chat.id,
         title: chat.title,
-        messages: chat.messages.map(toMessage)
-          .filter((message): message is ChatMessage => message !== null),
+        messages,
+        pinned: chat.pinned === true,
+        updatedAt: typeof chat.updatedAt === "number"
+          ? chat.updatedAt
+          : messages.at(-1)?.createdAt ?? 0,
       }];
     });
   } catch { return []; }
@@ -60,17 +65,26 @@ export function writeChats(chats: Chat[]) {
   window.dispatchEvent(new Event("chats-change"));
 }
 
-/** Сохраняет чат и поднимает его в начало списка (последний активный — сверху). */
-export function saveChat(next: Chat): Chat {
-  const all = [next, ...readChats().filter(chat => chat.id !== next.id)];
-  writeChats(all);
-  return next;
+interface SaveOptions {
+  /** Обновлять ли дату активности. Для переименования и закрепления — false. */
+  touch?: boolean;
 }
 
-export function updateChat(chatId: string, patch: Partial<Omit<Chat, "id">>): Chat | null {
+/** Сохраняет чат и поднимает его в начало списка (последний активный — сверху). */
+export function saveChat(next: Chat, options: SaveOptions = {}): Chat {
+  const stamped = options.touch === false ? next : { ...next, updatedAt: Date.now() };
+  writeChats([stamped, ...readChats().filter(chat => chat.id !== stamped.id)]);
+  return stamped;
+}
+
+export function updateChat(
+  chatId: string,
+  patch: Partial<Omit<Chat, "id">>,
+  options: SaveOptions = {},
+): Chat | null {
   const chat = readChats().find(item => item.id === chatId);
   if (!chat) return null;
-  return saveChat({ ...chat, ...patch });
+  return saveChat({ ...chat, ...patch }, options);
 }
 
 export function removeChat(chatId: string) {
