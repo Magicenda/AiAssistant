@@ -3,7 +3,7 @@ from deps import AgentServiceDep
 from schemas.llm_request import QueryRequest
 from schemas.voice import VoiceJobCreatedResponse
 from schemas.llm_responce import QueryResponse
-from deps import VoiceOrchestratorDep
+from deps import VoiceOrchestratorDep, AgentServiceDep
 from starlette.background import BackgroundTasks
 from schemas.enums import JobStatus
 

@@ -4,18 +4,13 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 
-from schemas import AssistantVoiceJobResult, JobStatus
+from schemas import AssistantVoiceJobResult, JobStatus, VoiceJobCreatedResponse
 from deps import VoiceOrchestratorDep
-router = APIRouter(prefix="/api/voice", tags=["Text to Voice Pipeline"])
+router = APIRouter(prefix="/voice", tags=["Text to Voice Pipeline"])
 
 
 class TextToVoiceRequest(BaseModel):
     text: str = Field(..., min_length=1, description="Готовый текст от LLM для озвучки")
-
-
-class VoiceJobCreatedResponse(BaseModel):
-    job_id: UUID
-    status: JobStatus
 
 
 @router.post("/generate", response_model=VoiceJobCreatedResponse, status_code=202)

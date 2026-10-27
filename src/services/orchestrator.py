@@ -17,7 +17,7 @@ class VoiceGenerationOrchestrator:
         self._job[job_id] = AssistantVoiceJobResult(
             job_id=job_id,
             status=JobStatus.PENDING,
-            agent_reply=text_to_convert
+            agent_reply_text=text_to_convert
         )
         return job_id
 

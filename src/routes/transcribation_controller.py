@@ -1,7 +1,6 @@
-from services.transcribation_service import AudioService
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status, Depends
-from pydantic import BaseModel, Field, field_validatorl
-from deps import get_audio_service
+from pydantic import BaseModel
+from deps import AudioServiceDep
 
 class UserSpeechInputDTO:
     MAX_FILE_SIZE = 25 * 1024 * 1024  # 25 МБ
@@ -25,14 +24,14 @@ class UserSpeechInputDTO:
             )
 
 
-router = APIRouter(prefix="/chat", tags=["audio"])
+router = APIRouter(prefix="/audio", tags=["audio"])
 
 class TranscriptionResponse(BaseModel):
     text: str
 
 @router.post("/transcribe", response_model=TranscriptionResponse)
 async def transcribe_audio(
-    service: AudioService = get_audio_service,
+    service: AudioServiceDep,
     payload: UserSpeechInputDTO = Depends(),
 ) -> TranscriptionResponse:
     audio_bytes = await payload.file.read()

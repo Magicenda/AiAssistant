@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field, model_validator
 
 
 def _ensure_utc(value: datetime) -> datetime:
@@ -44,3 +44,30 @@ class CreateMeetingArgs(BaseModel):
     appointment: AwareDatetime = Field(
         description="Дата и время встречи в формате ISO 8601, например 2026-10-25T15:00:00",
     )
+
+
+class UpdateTaskArgs(BaseModel):
+    task_id: int = Field(
+        description="Номер задачи или напоминания. Если пользователь его не назвал, сначала вызови list_tasks и найди id",
+    )
+    description: str | None = Field(
+        default=None,
+        description="Новый текст задачи. Не указывай, если текст менять не нужно",
+    )
+    deadline: AwareDatetime | None = Field(
+        default=None,
+        description="Новый срок в формате ISO 8601, например 2026-10-24T18:00:00. Не указывай, если срок менять не нужно",
+    )
+    clear_deadline: bool = Field(
+        default=False,
+        description="true, если пользователь просит убрать срок у задачи",
+    )
+
+    @model_validator(mode="after")
+    def _require_change(self):
+        if self.description is None and self.deadline is None and not self.clear_deadline:
+            raise ValueError("Укажи хотя бы одно поле для изменения: description, deadline или clear_deadline")
+        if self.deadline is not None and self.clear_deadline:
+            raise ValueError("Нельзя одновременно задать новый срок и убрать срок")
+        return self
+

@@ -1,4 +1,3 @@
-from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends, Request
@@ -8,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.repository.chat_repository import ChatRepository
 from db.repository.meeting_repository import MeetingRepository
 from db.repository.task_repository import TaskRepository
-from db.session import SessionLocal
+from db.session import get_session
 from services.agent_service import AgentService
 from services.chat_service import ChatService
 from services.transcribation_service import AudioService
@@ -25,16 +24,6 @@ def get_llm(request: Request) -> GigaChat:
 
 
 LLMDep = Annotated[GigaChat, Depends(get_llm)]
-
-
-async def get_session() -> AsyncIterator[AsyncSession]:
-    async with SessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
 
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -110,3 +99,10 @@ def get_voice_orchestrator(request: Request) -> VoiceGenerationOrchestrator:
 
 
 VoiceOrchestratorDep = Annotated[VoiceGenerationOrchestrator, Depends(get_voice_orchestrator)]
+
+
+def get_audio_service(request: Request) -> AudioService:
+    return request.app.state.audio
+
+
+AudioServiceDep = Annotated[AudioService, Depends(get_audio_service)]

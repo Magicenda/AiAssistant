@@ -11,7 +11,7 @@ class ChatRepository:
     async def create_chat(self, name_chat: str) -> Chat:
         new_chat = Chat(name=name_chat, messages=[])
         self.session.add(new_chat)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(new_chat, attribute_names=["messages"])
         return new_chat
     
@@ -19,7 +19,7 @@ class ChatRepository:
     async def add_message_for_chat(self, chat: Chat, role: str, content: str) -> Chat:
         new_message = Message(role=role, content=content, chat=chat)
         self.session.add(new_message)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(chat, attribute_names=["messages"])
         return chat
 
@@ -48,4 +48,5 @@ class ChatRepository:
 
     async def delete_chat(self, chat: Chat) -> bool:
         await self.session.delete(chat)
-        await self.session.commit()
+        await self.session.flush()
+        return True
