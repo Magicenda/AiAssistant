@@ -1,7 +1,7 @@
-import { PlannerView } from "@/views/planner";
+import { SettingsView } from "@/views/settings";
 
 export const metadata = { title: "Настройки" };
 
 export default function Page() {
-  return <PlannerView section="settings" />;
+  return <SettingsView />;
 }

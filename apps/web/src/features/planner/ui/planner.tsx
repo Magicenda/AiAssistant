@@ -9,10 +9,10 @@ import { cn } from "@/shared/lib/cn";
 
 type Kind = "task" | "meeting" | "reminder";
 type Entry = { id: string; title: string; kind: Kind; date: string; done: boolean };
-type Section = "plans" | "tasks" | "meetings" | "reminders" | "search" | "settings";
+type Section = "plans" | "tasks" | "meetings" | "reminders" | "search";
 const titles = {
   plans: "Мои планы", tasks: "Задачи", meetings: "Встречи", reminders: "Напоминания",
-  search: "Поиск", settings: "Настройки",
+  search: "Поиск",
 };
 const kinds = { task: "Задача", meeting: "Встреча", reminder: "Напоминание" };
 const storageKey = "ai-assistant-planner-v1";
@@ -45,7 +45,6 @@ export function Planner({ section }: { section: Section }) {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [kind, setKind] = useState<Kind>("task");
-  const [voice, setVoice] = useState(false);
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect --
@@ -58,7 +57,6 @@ export function Planner({ section }: { section: Section }) {
       const saved: unknown = JSON.parse(localStorage.getItem(storageKey) ?? "[]");
       if (Array.isArray(saved) && saved.every(isEntry)) setEntries(saved);
       else setError("Не удалось прочитать сохранённые записи.");
-      setVoice(localStorage.getItem("ai-assistant-voice") === "true");
     } catch { setError("Хранилище браузера недоступно или данные повреждены."); }
     setReady(true);
     const timer = window.setInterval(() => setNow(new Date()), 60000);
@@ -128,11 +126,10 @@ export function Planner({ section }: { section: Section }) {
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary">Личное пространство</p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{titles[section]}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {section === "settings" ? "Параметры ассистента" :
-              "Задачи, встречи и напоминания в одном месте"}
+            Задачи, встречи и напоминания в одном месте
           </p>
         </div>
-        {section !== "settings" && section !== "search" && (
+        {section !== "search" && (
           <Button onClick={() => { setKind(type ?? "task"); setAdding(!adding); }}>
             <Plus className="size-4" />Добавить запись
           </Button>
@@ -173,30 +170,9 @@ export function Planner({ section }: { section: Section }) {
         </div>
       </>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      {section === "settings" ? (
-        <div className="space-y-5 rounded-3xl border border-border bg-card/70 p-6 shadow-sm">
-          <div>
-            <p className="font-medium">Часовой пояс</p>
-            <p className="text-sm text-muted-foreground">
-              {Intl.DateTimeFormat().resolvedOptions().timeZone} · используется время устройства
-            </p>
-          </div>
-          <label className="flex items-center gap-3">
-            <input type="checkbox" checked={voice} onChange={(event) => {
-              try {
-                localStorage.setItem("ai-assistant-voice", String(event.target.checked));
-                setVoice(event.target.checked);
-              } catch { setError("Не удалось сохранить настройку."); }
-            }} />
-            Голосовые ответы
-          </label>
-          <p className="text-sm text-muted-foreground">
-            Предпочтение сохраняется. Озвучивание станет доступно после подключения ассистента.
-          </p>
-        </div>
-      ) : <>
+      <>
         <p className="rounded-2xl border border-border bg-card/70 px-4 py-3 text-xs text-muted-foreground">
-          Записи сохраняются в этом браузере. Голосовой ассистент и уведомления пока не подключены.
+          Записи сохраняются в этом браузере. Ассистента можно подключить в настройках.
         </p>
         {adding && <form className="space-y-4 rounded-3xl border bg-card/70 p-6 shadow-lg shadow-primary/5" onSubmit={(event) => {
           event.preventDefault();
@@ -331,7 +307,7 @@ export function Planner({ section }: { section: Section }) {
             </Button>}
           </article>)}
         </div>
-      </>}
+      </>
     </section>
   );
 }
