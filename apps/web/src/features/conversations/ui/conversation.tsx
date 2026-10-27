@@ -42,7 +42,7 @@ import {
 } from "../model/store";
 import { readDraft, removeDraft, writeDraft } from "../model/drafts";
 import { downloadChat } from "../model/export-chat";
-import { isReplyPending, requestReply, subscribeReplies } from "../model/replies";
+import { cancelReplies, isReplyPending, requestReply, subscribeReplies } from "../model/replies";
 import { buildMessageItems } from "../model/chat-view";
 import { plainText } from "../model/plain-text";
 import { MessageBubble, TypingBubble } from "./message-bubble";
@@ -236,6 +236,7 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
 
   function deleteMessage(message: ChatMessage) {
     if (!sessionId) return;
+    cancelReplies(sessionId);
     removeMessage(sessionId, message.id);
     if (replyTo?.id === message.id) setReplyTo(null);
   }
@@ -248,11 +249,13 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
     if (index < 0) return;
     const source = latest.messages.slice(0, index).reverse()
       .find(item => item.role === "user");
+    cancelReplies(sessionId);
     removeMessage(sessionId, message.id);
     requestReply(sessionId, source?.text || message.text);
   }
 
   function deleteChatById(id: string) {
+    cancelReplies(id);
     removeChat(id);
     removeDraft(id);
     if (id === sessionId) router.push("/chat");
