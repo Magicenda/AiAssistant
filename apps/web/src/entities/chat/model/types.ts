@@ -27,4 +27,6 @@ export interface Chat {
   messages: ChatMessage[];
   pinned?: boolean;
   updatedAt?: number;
+  /** id чата на backend; создаётся при первом запросе к серверу. */
+  remoteId?: number;
 }

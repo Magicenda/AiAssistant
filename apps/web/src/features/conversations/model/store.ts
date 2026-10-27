@@ -52,6 +52,7 @@ export function readChats(): Chat[] {
         title: chat.title,
         messages,
         pinned: chat.pinned === true,
+        remoteId: typeof chat.remoteId === "number" ? chat.remoteId : undefined,
         updatedAt: typeof chat.updatedAt === "number"
           ? chat.updatedAt
           : messages.at(-1)?.createdAt ?? 0,

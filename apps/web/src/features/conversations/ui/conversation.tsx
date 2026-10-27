@@ -14,6 +14,7 @@ import {
   ArrowDown,
   ArrowUp,
   AudioLines,
+  CircleAlert,
   Clock,
   Download,
   Eraser,
@@ -21,10 +22,12 @@ import {
   Pencil,
   Pin,
   Plus,
+  Settings2,
   Square,
   Trash2,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
@@ -32,7 +35,7 @@ import { Logo } from "@/shared/ui/logo";
 import { PixelMic } from "@/shared/ui/pixel-mic";
 import { cn } from "@/shared/lib/cn";
 import { formatDuration } from "@/shared/lib/format-duration";
-import { useAudioRecording, type VoiceClip } from "../model/use-audio-recording";
+import { useAudioRecording } from "../model/use-audio-recording";
 import {
   readChats,
   removeChat,
@@ -42,11 +45,19 @@ import {
 } from "../model/store";
 import { readDraft, removeDraft, writeDraft } from "../model/drafts";
 import { downloadChat } from "../model/export-chat";
-import { cancelReplies, isReplyPending, requestReply, subscribeReplies } from "../model/replies";
+import {
+  cancelReplies,
+  getReply,
+  requestReply,
+  stopReply,
+  subscribeReplies,
+} from "../model/replies";
 import { buildMessageItems } from "../model/chat-view";
 import { plainText } from "../model/plain-text";
 import { MessageBubble, TypingBubble } from "./message-bubble";
 import { ChatList } from "./chat-list";
+import { ensureRemoteChat, removeRemoteChat, resetRemoteChat } from "../model/remote";
+import { transcribeVoice } from "@/features/assistant";
 import type { Chat, ChatMessage } from "@/entities/chat";
 
 const maxLength = 4000;
@@ -100,6 +111,8 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
   const [hydrated, setHydrated] = useState(false);
   const [text, setText] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [transcribing, setTranscribing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
@@ -114,11 +127,12 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
   const draftReady = useRef(false);
 
   const draftId = sessionId ?? "new";
-  const replyPending = useSyncExternalStore(
+  const reply = useSyncExternalStore(
     subscribeReplies,
-    () => (sessionId ? isReplyPending(sessionId) : false),
-    () => false,
+    () => (sessionId ? getReply(sessionId) : null),
+    () => null,
   );
+  const replyPending = reply?.status === "streaming";
 
   useEffect(() => {
     const sync = () => {
@@ -163,9 +177,12 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
     if (!atBottom) return;
     const el = scrollRef.current;
     if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: firstScroll.current ? "auto" : "smooth" });
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: firstScroll.current || replyPending ? "auto" : "smooth",
+    });
     firstScroll.current = false;
-  }, [messages.length, replyPending, atBottom]);
+  }, [messages.length, replyPending, reply?.text, atBottom]);
 
   function handleScroll() {
     const el = scrollRef.current;
@@ -179,14 +196,19 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
   }
 
   /** Сохраняет исходящее сообщение; возвращает id чата или null при ошибке. */
-  function saveOutgoing(message: ChatMessage, title: string) {
-    const chatId = sessionId ?? crypto.randomUUID();
+  function saveOutgoing(
+    message: ChatMessage,
+    title: string,
+    targetId?: string,
+  ) {
+    const chatId = targetId ?? sessionId ?? crypto.randomUUID();
     const existing = readChats().find(item => item.id === chatId) ?? null;
     try {
+      const base: Chat = existing ?? { id: chatId, title, messages: [] };
       saveChat({
-        id: chatId,
-        title: existing?.title || title,
-        messages: [...(existing?.messages ?? []), message],
+        ...base,
+        title: base.title || title,
+        messages: [...base.messages, message],
       });
     } catch {
       setError("Не удалось сохранить сообщение. Хранилище браузера недоступно.");
@@ -195,13 +217,13 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
     setError("");
     setAtBottom(true);
     setReplyTo(null);
-    if (!sessionId) router.push(`/chat/${chatId}`);
+    if (chatId !== sessionId) router.push(`/chat/${chatId}`);
     return chatId;
   }
 
   function sendText(raw: string) {
     const value = raw.trim();
-    if (!value) return;
+    if (!value || replyPending) return;
     const message: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
@@ -216,22 +238,7 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
     setText("");
     writeDraft(draftId, "");
     textareaRef.current?.focus();
-    requestReply(chatId, value);
-  }
-
-  function appendVoice(clip: VoiceClip) {
-    const message: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      text: "",
-      createdAt: Date.now(),
-      replyTo: replyTo
-        ? { id: replyTo.id, role: replyTo.role, text: replySnippet(replyTo.text) }
-        : undefined,
-      audio: clip,
-    };
-    const chatId = saveOutgoing(message, "Голос");
-    if (chatId) requestReply(chatId, "Голосовое сообщение");
+    requestReply(chatId);
   }
 
   function deleteMessage(message: ChatMessage) {
@@ -247,15 +254,14 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
     if (!latest) return;
     const index = latest.messages.findIndex(item => item.id === message.id);
     if (index < 0) return;
-    const source = latest.messages.slice(0, index).reverse()
-      .find(item => item.role === "user");
     cancelReplies(sessionId);
     removeMessage(sessionId, message.id);
-    requestReply(sessionId, source?.text || message.text);
+    requestReply(sessionId);
   }
 
   function deleteChatById(id: string) {
     cancelReplies(id);
+    removeRemoteChat(id);
     removeChat(id);
     removeDraft(id);
     if (id === sessionId) router.push("/chat");
@@ -297,10 +303,13 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
       setConfirmAction("clear");
       return;
     }
-    updateChat(sessionId, { messages: [], title: "" });
+    void resetRemoteChat(sessionId);
+    updateChat(sessionId, { messages: [], title: "", remoteId: undefined });
     writeDraft(draftId, "");
     setReplyTo(null);
     setText("");
+    setNotice("");
+    cancelReplies(sessionId);
     closeMenu();
   }
 
@@ -327,7 +336,57 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
 
   async function handleStop() {
     const clip = await audio.stop();
-    if (clip) appendVoice(clip);
+    if (!clip) return;
+
+    const targetId = sessionId ?? crypto.randomUUID();
+    const replySnapshot = replyTo;
+    const existing = readChats().find(item => item.id === targetId);
+    if (!existing) {
+      try {
+        saveChat({ id: targetId, title: "", messages: [] });
+      } catch {
+        setError("Не удалось создать чат. Хранилище браузера недоступно.");
+        return;
+      }
+    }
+
+    setNotice("");
+    setTranscribing(true);
+    let transcript = "";
+    try {
+      const remoteId = await ensureRemoteChat(targetId);
+      const blob = await (await fetch(clip.dataUrl)).blob();
+      transcript = await transcribeVoice(remoteId, blob);
+    } catch (cause) {
+      setNotice(
+        cause instanceof Error
+          ? `Аудио сохранено, но расшифровать не удалось: ${cause.message}`
+          : "Аудио сохранено, но сервер распознавания недоступен.",
+      );
+    } finally {
+      setTranscribing(false);
+    }
+
+    const message: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      text: transcript,
+      createdAt: Date.now(),
+      replyTo: replySnapshot
+        ? {
+          id: replySnapshot.id,
+          role: replySnapshot.role,
+          text: replySnippet(replySnapshot.text),
+        }
+        : undefined,
+      audio: clip,
+    };
+    const chatId = saveOutgoing(
+      message,
+      transcript ? titleFrom(transcript) : "Голос",
+      targetId,
+    );
+    if (chatId && transcript) requestReply(chatId);
   }
 
   function newChat() {
@@ -451,9 +510,6 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
               <p className="mt-3 max-w-sm font-mono text-xs uppercase tracking-wider text-muted-foreground">
                 Напишите или надиктуйте задачу, встречу или напоминание.
               </p>
-              <p className="mt-4 font-mono text-[0.7rem] uppercase tracking-wider text-muted-foreground/70">
-                Демо-режим: ассистент повторяет ваши сообщения
-              </p>
             </div>
           )}
 
@@ -474,7 +530,58 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
               />
             </Fragment>
           ))}
-          {replyPending && <TypingBubble />}
+          {reply?.status === "streaming" && (
+            reply.text
+              ? (
+                <MessageBubble
+                  message={{ id: "live-reply", role: "assistant", text: reply.text }}
+                  lastInGroup
+                />
+              )
+              : <TypingBubble />
+          )}
+          {reply?.status === "error" && (
+            <>
+              {reply.text && (
+                <MessageBubble
+                  message={{ id: "live-reply", role: "assistant", text: reply.text }}
+                  lastInGroup
+                />
+              )}
+              <div className="pixel-panel mt-3 flex flex-wrap items-start gap-3 p-3" role="alert">
+                <CircleAlert className="mt-0.5 size-5 shrink-0 text-destructive" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-pixel text-xs text-destructive">Не удалось получить ответ</p>
+                  <p className="mt-1 font-mono text-xs leading-relaxed text-muted-foreground">
+                    {reply.error}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  {sessionId && (
+                    <Button size="sm" variant="outline" onClick={() => requestReply(sessionId)}>
+                      Повторить
+                    </Button>
+                  )}
+                  <Button asChild size="sm" variant="ghost">
+                    <Link href="/settings">
+                      <Settings2 className="size-4" />
+                      Настройки
+                    </Link>
+                  </Button>
+                  {sessionId && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label="Скрыть ошибку"
+                      onClick={() => cancelReplies(sessionId)}
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {!atBottom && (
@@ -498,7 +605,20 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
 
       <div className="mt-3 shrink-0">
         {(error || audio.error) && (
-          <p role="alert" className="mb-2 px-2 font-mono text-xs text-destructive">{error || audio.error}</p>
+          <p role="alert" className="mb-2 px-2 font-mono text-xs text-destructive">
+            {error || audio.error}
+          </p>
+        )}
+        {notice && (
+          <p role="status" className="mb-2 flex items-start gap-2 px-2 font-mono text-xs text-muted-foreground">
+            <CircleAlert className="mt-0.5 size-4 shrink-0 text-secondary" />
+            <span>
+              {notice}{" "}
+              <Link href="/settings" className="text-primary underline underline-offset-4">
+                Открыть настройки
+              </Link>
+            </span>
+          </p>
         )}
         <div className="pixel-panel p-2">
           {replyTo && (
@@ -517,21 +637,31 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
               </Button>
             </div>
           )}
-          {recording || busy ? (
+          {recording || busy || transcribing ? (
             <div className="flex items-center gap-3 px-2 py-1">
-              <span className={cn("size-3 shrink-0 bg-secondary", recording ? "pixel-blink" : "opacity-50")} />
-              <span className="font-mono text-sm font-bold tabular-nums text-foreground">
-                {formatDuration(audio.elapsed)}
-              </span>
+              <span
+                className={cn(
+                  "size-3 shrink-0 bg-secondary",
+                  recording || transcribing ? "pixel-blink" : "opacity-50",
+                )}
+              />
+              {!transcribing && (
+                <span className="font-mono text-sm font-bold tabular-nums text-foreground">
+                  {formatDuration(audio.elapsed)}
+                </span>
+              )}
               <AudioLines className="size-5 text-secondary" />
               <span className="ml-auto font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                {audio.status === "starting" ? "Включаю микрофон…"
-                  : audio.status === "stopping" ? "Сохраняю…" : "Говорите"}
+                {transcribing ? "Распознаю речь…"
+                  : audio.status === "starting" ? "Включаю микрофон…"
+                    : audio.status === "stopping" ? "Сохраняю…" : "Говорите"}
               </span>
-              <Button type="button" size="icon" variant="secondary" aria-label="Остановить запись"
-                disabled={busy} onClick={() => void handleStop()}>
-                <Square className="size-4" />
-              </Button>
+              {!transcribing && (
+                <Button type="button" size="icon" variant="secondary" aria-label="Остановить запись"
+                  disabled={busy} onClick={() => void handleStop()}>
+                  <Square className="size-4" />
+                </Button>
+              )}
             </div>
           ) : (
             <form className="group" onSubmit={handleSubmit}>
@@ -549,12 +679,27 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
                 />
                 <div className="flex shrink-0 items-center gap-1">
                   <Button type="button" size="icon" variant="ghost"
-                    aria-label="Записать голосовое сообщение" onClick={() => void audio.start()}>
+                    aria-label="Записать голосовое сообщение"
+                    disabled={replyPending}
+                    onClick={() => void audio.start()}>
                     <PixelMic className="size-5" />
                   </Button>
-                  <Button type="submit" size="icon" aria-label="Отправить" disabled={!text.trim()}>
-                    <ArrowUp className="size-5" />
-                  </Button>
+                  {replyPending ? (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="secondary"
+                      aria-label="Остановить ответ"
+                      onClick={() => { if (sessionId) stopReply(sessionId); }}
+                    >
+                      <Square className="size-4" />
+                    </Button>
+                  ) : (
+                    <Button type="submit" size="icon" aria-label="Отправить"
+                      disabled={!text.trim()}>
+                      <ArrowUp className="size-5" />
+                    </Button>
+                  )}
                 </div>
               </div>
               <div className="mt-1 flex min-h-4 items-center justify-between gap-3 px-2 font-mono text-[0.7rem] uppercase tracking-wider text-muted-foreground">

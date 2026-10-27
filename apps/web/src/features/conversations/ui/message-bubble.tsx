@@ -191,7 +191,19 @@ export function MessageBubble({
       )}
 
       {message.audio ? (
-        <VoiceBubble audio={message.audio} />
+        <div className="space-y-2">
+          <VoiceBubble audio={message.audio} />
+          {message.text && (
+            <div
+              className={cn(
+                "border-t pt-2",
+                isUser ? "border-primary-foreground/30" : "border-border",
+              )}
+            >
+              <Markdown text={message.text} tone={isUser ? "user" : "assistant"} />
+            </div>
+          )}
+        </div>
       ) : (
         <>
           <div
