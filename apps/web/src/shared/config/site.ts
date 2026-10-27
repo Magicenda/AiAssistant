@@ -1,4 +1,4 @@
 export const siteConfig = {
   name: "AI Assistant",
-  description: "AI-помощник",
+  description: "Локальный AI-ассистент с вашим ключом модели",
 } as const;
