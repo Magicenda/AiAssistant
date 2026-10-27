@@ -33,7 +33,7 @@ class TranscriptionResponse(BaseModel):
 @router.post("/transcribe", response_model=TranscriptionResponse)
 async def transcribe_audio(
     service: AudioService = get_audio_service,
-    payload: UserSpeechAudioDTO = Depends(),
+    payload: UserSpeechInputDTO = Depends(),
 ) -> TranscriptionResponse:
     audio_bytes = await payload.file.read()
 

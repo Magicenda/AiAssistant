@@ -11,7 +11,7 @@ from src.routes.chat_controller import router as chat_router
 from db.session import engine
 
 from src.db.models import BaseModel
-from src.routes import voice
+from src.routes import voice_controller
 
 load_dotenv()
 
@@ -37,7 +37,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(voice.router)
+app.include_router(voice_controller.router)
 
 app.include_router(llm_router)
 app.include_router(chat_router)
