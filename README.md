@@ -1,7 +1,7 @@
 # AiAssistant — Frontend
 
 Frontend локального AI-ассистента: чат, голосовые сообщения и планировщик.
-Next.js 16 (App Router) + Tailwind CSS v4 + shadcn/ui + Bun.
+Next.js 16 (App Router) + Tailwind CSS v4 + shadcn/ui + Prettier + Bun.
 
 **Это только фронтенд.** Запросы к модели, стриминг ответов и распознавание
 речи выполняет внешний backend. Фронтенд не вызывает LLM-провайдеров
@@ -45,26 +45,26 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 в поле `model_settings`. Backend использует их для вызова модели;
 если настройки не заполнены — применяет свою конфигурацию по умолчанию.
 
-| Поле | Описание |
-| --- | --- |
-| Сервис | Пресет провайдера: OpenRouter, OpenAI, DeepSeek, Mistral, Ollama, другой |
-| Адрес API | Base URL без `/chat/completions` |
-| API-ключ | Ключ провайдера; для локального Ollama не нужен |
-| Модель | Идентификатор модели провайдера |
-| Температура | 0–1.5, по умолчанию 0.7 |
+| Поле        | Описание                                                                 |
+| ----------- | ------------------------------------------------------------------------ |
+| Сервис      | Пресет провайдера: OpenRouter, OpenAI, DeepSeek, Mistral, Ollama, другой |
+| Адрес API   | Base URL без `/chat/completions`                                         |
+| API-ключ    | Ключ провайдера; для локального Ollama не нужен                          |
+| Модель      | Идентификатор модели провайдера                                          |
+| Температура | 0–1.5, по умолчанию 0.7                                                  |
 
 Ключ передаётся только вашему backend, чтобы тот обращался к провайдеру.
 Не используйте фронтенд с недоверенным backend: ключ увидит сервер.
 
 ## Контракт backend API
 
-| Метод | Путь | Тело / ответ |
-| --- | --- | --- |
-| `GET` | `/` | health-check, любой `2xx` |
-| `POST` | `/chat/create_chat` | `{ name_chat }` → `{ chat_id: number }` |
-| `POST` | `/llm/query` | `{ chat_id, query, model_settings? }` → JSON или поток |
-| `POST` | `/chat/transcribe` | multipart `chat_id`, `file`, `model_settings?` → `{ text }` |
-| `DELETE` | `/chat/delete_chat/{chat_id}` | удаление чата на сервере |
+| Метод    | Путь                          | Тело / ответ                                                |
+| -------- | ----------------------------- | ----------------------------------------------------------- |
+| `GET`    | `/`                           | health-check, любой `2xx`                                   |
+| `POST`   | `/chat/create_chat`           | `{ name_chat }` → `{ chat_id: number }`                     |
+| `POST`   | `/llm/query`                  | `{ chat_id, query, model_settings? }` → JSON или поток      |
+| `POST`   | `/chat/transcribe`            | multipart `chat_id`, `file`, `model_settings?` → `{ text }` |
+| `DELETE` | `/chat/delete_chat/{chat_id}` | удаление чата на сервере                                    |
 
 `model_settings` — необязательный JSON-объект:
 
@@ -117,15 +117,31 @@ Backend должен разрешать origin фронтенда (`http://local
 
 Запускать из корня монорепы:
 
-| Команда | Что делает |
-| --- | --- |
-| `bun dev` | Next dev server (Turbopack) |
-| `bun build` | production build |
-| `bun start` | production server |
-| `bun typecheck` | `tsc --noEmit` |
-| `bun lint` | ESLint |
+| Команда            | Что делает                          |
+| ------------------ | ----------------------------------- |
+| `bun dev`          | Next dev server (Turbopack)         |
+| `bun build`        | production build                    |
+| `bun start`        | production server                   |
+| `bun typecheck`    | `tsc --noEmit`                      |
+| `bun lint`         | ESLint                              |
+| `bun format`       | форматирование всех файлов Prettier |
+| `bun format:check` | проверка форматирования без записи  |
 
-Перед коммитом должны проходить `bun typecheck` и `bun lint`.
+Перед коммитом: `bun format`, затем `bun typecheck` и `bun lint` — типы и
+линтер должны проходить чисто, проверка форматирования — зелёная.
+
+## Стиль кода
+
+Форматирование — Prettier, конфиг в `apps/web/.prettierrc.json`: ширина
+строки 100, стрелочные функции с одним аргументом — без скобок, плагин
+`prettier-plugin-tailwindcss` сортирует Tailwind-классы. Стилистические
+правила ESLint, конфликтующие с Prettier, отключены через
+`eslint-config-prettier`.
+
+Комментарии и JSDoc — на русском в едином стиле: комментарий объясняет
+«зачем», а не «что»; полные предложения, без закомментированного кода и шума.
+Полные правила — в скилле
+[`.opencode/skills/russian-comments/SKILL.md`](.opencode/skills/russian-comments/SKILL.md).
 
 ## Структура
 
@@ -152,12 +168,12 @@ apps/web/src/
 
 ## Данные и приватность
 
-| Что | Где |
-| --- | --- |
-| Провайдер, модель, API-ключ | localStorage браузера |
-| Чаты, черновики, планировщик | localStorage браузера |
-| История диалога для LLM | на backend |
-| Аудиозаписи | localStorage браузера + отправка на `/chat/transcribe` |
+| Что                          | Где                                                    |
+| ---------------------------- | ------------------------------------------------------ |
+| Провайдер, модель, API-ключ  | localStorage браузера                                  |
+| Чаты, черновики, планировщик | localStorage браузера                                  |
+| История диалога для LLM      | на backend                                             |
+| Аудиозаписи                  | localStorage браузера + отправка на `/chat/transcribe` |
 
 Backend получает настройки модели с каждым запросом и использует их для
 обращения к провайдеру. Никаких секретов в самом фронтенде нет.
