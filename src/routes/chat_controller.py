@@ -31,7 +31,8 @@ async def create_chat(request: ChatRequest, service: ChatServiceDep) -> ChatResp
 
 @router.get("/get_chat/{chat_id}", response_model=ChatResponse)
 async def get_chat(chat_id: int, service: ChatServiceDep) -> ChatResponse:
-    return await service.get_chat_by_id(chat_id)
+    chat = await service.get_chat_by_id(chat_id)
+    return ChatResponse(chat_id=chat.id, name_chat=chat.name, messages=chat.messages)
 
 @router.get("/get_all_chats", response_model=list[ChatResponse])
 async def get_all_chats(service: ChatServiceDep) -> list[ChatResponse]:
@@ -45,4 +46,4 @@ async def add_message(chat_id: int, role: MessageRole, content: str, service: Ch
 
 @router.delete("/delete_chat/{chat_id}")
 async def delete_chat(chat_id: int, service: ChatServiceDep) -> bool:
-    await service.delete_chat(chat_id)
+    return await service.delete_chat(chat_id)

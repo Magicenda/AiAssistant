@@ -7,10 +7,9 @@ from fastapi import UploadFile, HTTPException, status
 
 import edge_tts
 
-from src.schemas import AudioFileMetadata
+from schemas import AudioFileMetadata
 
 STORAGE_DIR = "storage/audio"
-os.makedirs(STORAGE_DIR, exist_ok=True)
 
 CHUNK_SIZE = 64 * 1024  # 64KB
 MAX_FILE_SIZE = 25 * 1024 * 1024  # 25MB
@@ -18,6 +17,8 @@ MAX_FILE_SIZE = 25 * 1024 * 1024  # 25MB
 
 
 class FileStorageService:
+    def __init__(self):
+        os.makedirs(STORAGE_DIR, exist_ok=True)
 
     async def save_incoming_audio(self, upload_file: UploadFile) -> AudioFileMetadata:
         ext = os.path.splitext(upload_file.filename or "voice.webm")[1] or ".webm"

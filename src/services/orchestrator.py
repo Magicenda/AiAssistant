@@ -2,13 +2,13 @@ import uuid
 from typing import Dict
 from uuid import UUID
 
-from src.schemas import JobStatus, AssistantVoiceJobResult
-from src.services.tts_services import TTSService, FileStorageService
+from schemas import JobStatus, AssistantVoiceJobResult
+from services.tts_services import TTSService, FileStorageService
 
 class VoiceGenerationOrchestrator:
-    def __init__(self):
-        self.storage = FileStorageService()
-        self.tts_service = TTSService()
+    def __init__(self, storage: FileStorageService, tts_service: TTSService):
+        self.storage = storage
+        self.tts_service = tts_service
         self._job: Dict[UUID, AssistantVoiceJobResult] = {}
         self._output_files: Dict[UUID, str] = {}
 
@@ -46,4 +46,3 @@ class VoiceGenerationOrchestrator:
             job.status = JobStatus.FAILED
             job.error = str(e)
 
-voice_orchestrator = VoiceGenerationOrchestrator()

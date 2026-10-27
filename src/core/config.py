@@ -14,6 +14,7 @@ class Settings(BaseSettings):
 
     database_url: str
     agent_max_steps: int = 5
+    history_limit: int = 20
 
 
 settings = Settings()
