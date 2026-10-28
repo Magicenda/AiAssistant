@@ -8,8 +8,8 @@ class ChatRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def create_chat(self, name_chat: str) -> Chat:
-        new_chat = Chat(name=name_chat, messages=[])
+    async def create_chat(self, user_id: int, name_chat: str) -> Chat:
+        new_chat = Chat(user_id=user_id, name=name_chat, messages=[])
         self.session.add(new_chat)
         await self.session.flush()
         await self.session.refresh(new_chat, attribute_names=["messages"])
@@ -42,8 +42,10 @@ class ChatRepository:
         )
         return list(reversed(result.scalars().all()))   
 
-    async def get_all_chats(self) -> list[Chat]:
-        result = await self.session.execute(select(Chat).options(selectinload(Chat.messages)))
+    async def get_all_chats(self, user_id: int) -> list[Chat]:
+        result = await self.session.execute(
+            select(Chat).where(Chat.user_id == user_id).options(selectinload(Chat.messages))
+        )
         return result.scalars().all()
 
     async def delete_chat(self, chat: Chat) -> bool:

@@ -1,6 +1,6 @@
 from db.models import Task, Type
 from db.repository.task_repository import TaskRepository
-from schemas.tool import CreateReminderArgs, CreateTaskArgs, ListTasksArgs
+from schemas.tool import CreateReminderArgs, CreateTaskArgs, ListTasksArgs, UpdateTaskArgs
 from tools.base import Toolkit, tool
 
 
@@ -14,8 +14,9 @@ def _task_to_dict(task: Task) -> dict:
 
 
 class TaskToolkit(Toolkit):
-    def __init__(self, repository: TaskRepository):
+    def __init__(self, repository: TaskRepository, user_id: int):
         self.repository = repository
+        self.user_id = user_id
 
     @tool(
         "create_task",
@@ -24,7 +25,7 @@ class TaskToolkit(Toolkit):
         CreateTaskArgs,
     )
     async def create_task(self, args: CreateTaskArgs) -> dict:
-        task = await self.repository.create_task(args.description, args.deadline, Type.TASK)
+        task = await self.repository.create_task(self.user_id, args.description, args.deadline, Type.TASK)
         return _task_to_dict(task)
 
     @tool(
@@ -34,7 +35,7 @@ class TaskToolkit(Toolkit):
         CreateReminderArgs,
     )
     async def create_reminder(self, args: CreateReminderArgs) -> dict:
-        task = await self.repository.create_task(args.description, args.remind_at, Type.NOTIFY)
+        task = await self.repository.create_task(self.user_id, args.description, args.remind_at, Type.NOTIFY)
         return _task_to_dict(task)
 
     @tool(
@@ -45,18 +46,21 @@ class TaskToolkit(Toolkit):
     )
     async def list_tasks(self, args: ListTasksArgs) -> dict:
         kind = Type(args.kind) if args.kind else None
-        tasks = await self.repository.list_tasks(args.limit, kind, args.only_upcoming)
-        return {"count": len(tasks), "tasks": [_task_to_dict(t) for t in tasks]}
-    # обновление задачи
-    @tool(
-            "update_tasks",
-            "обновляет задачу. Вызывай, когда пользователь "
-            "просит, обновить конкретную задачу",
-            ListTasksArgs, # обновить список инструментов
-        )
-    async def list_tasks(self, args: ListTasksArgs) -> dict:
-        kind = Type(args.kind) if args.kind else None
-        tasks = await self.repository.list_tasks(args.limit, kind, args.only_upcoming)
+        tasks = await self.repository.list_tasks(self.user_id, args.limit, kind, args.only_upcoming)
         return {"count": len(tasks), "tasks": [_task_to_dict(t) for t in tasks]}
 
-    # сделать поиск задачи
+    @tool(
+        "update_task",
+        "Изменяет существующую задачу или напоминание: текст и/или срок. Вызывай, когда "
+        "пользователь просит изменить, перенести или переименовать запись. Если id неизвестен, "
+        "сначала вызови list_tasks.",
+        UpdateTaskArgs,
+    )
+    async def update_task(self, args: UpdateTaskArgs) -> dict:
+        task = await self.repository.get_task(self.user_id, args.task_id)
+        if task is None:
+            return {"error": f"Задача с id {args.task_id} не найдена"}
+        task = await self.repository.update_task(
+            task, args.description, args.deadline, args.clear_deadline
+        )
+        return _task_to_dict(task)

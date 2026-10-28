@@ -4,7 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import FileResponse
 
 from schemas import AssistantVoiceJobResult, JobStatus, VoiceJobCreatedResponse
-from deps import ChatServiceDep, SpeechInputDep, VoiceOrchestratorDep
+from deps import ChatServiceDep, CurrentUserIdDep, SpeechInputDep, VoiceOrchestratorDep
 router = APIRouter(prefix="/voice", tags=["Text to Voice Pipeline"])
 
 
@@ -35,12 +35,15 @@ async def ask_by_voice(
     background_tasks: BackgroundTasks,
     chat_service: ChatServiceDep,
     voice_orchestrator: VoiceOrchestratorDep,
+    user_id: CurrentUserIdDep,
 ):
     audio_bytes = await payload.read_audio()
     await chat_service.get_history(payload.chat_id, limit=1)    # 404, если чата нет
 
     job_id = voice_orchestrator.create_job()
-    background_tasks.add_task(voice_orchestrator.run_pipeline, job_id, audio_bytes, payload.chat_id)
+    background_tasks.add_task(
+        voice_orchestrator.run_pipeline, job_id, audio_bytes, payload.chat_id, user_id
+    )
 
     return VoiceJobCreatedResponse(job_id=job_id, status=JobStatus.PENDING)
 

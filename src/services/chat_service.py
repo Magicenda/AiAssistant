@@ -6,8 +6,8 @@ class ChatService:
     def __init__(self, repository: ChatRepository):
         self.repository = repository
 
-    async def create_chat(self, name_chat: str) -> Chat:
-        return await self.repository.create_chat(name_chat)
+    async def create_chat(self, user_id: int, name_chat: str) -> Chat:
+        return await self.repository.create_chat(user_id, name_chat)
 
     async def get_chat_by_id(self, chat_id: int) -> Chat:
         chat = await self.repository.get_chat_with_messages(chat_id)
@@ -21,8 +21,8 @@ class ChatService:
             raise ChatNotFoundError(chat_id)
         return await self.repository.get_messages(chat_id, limit)
 
-    async def get_all_chats(self) -> list[Chat]:
-        return await self.repository.get_all_chats()
+    async def get_all_chats(self, user_id: int) -> list[Chat]:
+        return await self.repository.get_all_chats(user_id)
 
     async def delete_chat(self, chat_id: int) -> bool:
         chat = await self.repository.get_chat_by_id(chat_id)

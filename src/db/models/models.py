@@ -20,10 +20,26 @@ class MessageRole(str, PyEnum):
     TOOL = "tool"
 
 
+class User(BaseModel):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=func.now()
+    )
+
+    def __repr__(self):
+        return f"User(id={self.id!r}, username={self.username!r})"
+
+
 class Meeting(BaseModel):
     __tablename__ = "meetings"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     description: Mapped[str] = mapped_column(String(255))
     appointment: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
@@ -43,6 +59,7 @@ class Task(BaseModel):
     __tablename__ = "tasks"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     description: Mapped[str] = mapped_column(String(255))
     deadline: Mapped[datetime | None] = mapped_column( 
             DateTime(timezone=True))
@@ -76,6 +93,7 @@ class Chat(BaseModel):
     __tablename__ = "chats"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

@@ -10,6 +10,7 @@ from db.repository.task_repository import TaskRepository
 from db.session import get_session
 from services.agent_service import AgentService
 from services.chat_service import ChatService
+from services.profile_service import ProfileService
 from services.transcribation_service import AudioService
 from services.orchestrator import VoiceGenerationOrchestrator
 from services.tts_services import FileStorageService, TTSService
@@ -24,6 +25,15 @@ def get_llm(request: Request) -> GigaChat:
 
 
 LLMDep = Annotated[GigaChat, Depends(get_llm)]
+
+
+def get_current_user_id(request: Request) -> int:
+    # пока авторизации нет: все запросы идут от пользователя по умолчанию.
+    # Когда появится авторизация, достаточно заменить только эту функцию.
+    return request.app.state.default_user_id
+
+
+CurrentUserIdDep = Annotated[int, Depends(get_current_user_id)]
 
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -61,12 +71,21 @@ def get_meeting_repository(session: SessionDep) -> MeetingRepository:
 MeetingRepositoryDep = Annotated[MeetingRepository, Depends(get_meeting_repository)]
 
 
+def get_profile_service(
+    task_repo: TaskRepositoryDep, meeting_repo: MeetingRepositoryDep, user_id: CurrentUserIdDep
+) -> ProfileService:
+    return ProfileService(task_repo, meeting_repo, user_id)
+
+
+ProfileServiceDep = Annotated[ProfileService, Depends(get_profile_service)]
+
+
 def get_tool_registry(
-    task_repo: TaskRepositoryDep, meeting_repo: MeetingRepositoryDep
+    task_repo: TaskRepositoryDep, meeting_repo: MeetingRepositoryDep, user_id: CurrentUserIdDep
 ) -> ToolRegistry:
     return ToolRegistry([
-        TaskToolkit(task_repo),
-        MeetingToolkit(meeting_repo),
+        TaskToolkit(task_repo, user_id),
+        MeetingToolkit(meeting_repo, user_id),
     ])
 
 

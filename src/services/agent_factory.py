@@ -11,10 +11,10 @@ from tools.meeting_tools import MeetingToolkit
 from tools.task_tools import TaskToolkit
 
 
-def build_agent_service(llm: GigaChat, session: AsyncSession) -> AgentService:
+def build_agent_service(llm: GigaChat, session: AsyncSession, user_id: int) -> AgentService:
     """Собирает агента вне запроса FastAPI (например, в фоновом воркере) на переданной сессии."""
     tools = ToolRegistry([
-        TaskToolkit(TaskRepository(session)),
-        MeetingToolkit(MeetingRepository(session)),
+        TaskToolkit(TaskRepository(session), user_id),
+        MeetingToolkit(MeetingRepository(session), user_id),
     ])
     return AgentService(llm=llm, chat=ChatService(ChatRepository(session)), tools=tools)
