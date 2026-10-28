@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from deps import AudioServiceDep, SpeechInputDep
+from deps import AudioServiceDep, CurrentUserIdDep, SpeechInputDep
 
 
 router = APIRouter(prefix="/audio", tags=["audio"])
@@ -12,6 +12,7 @@ class TranscriptionResponse(BaseModel):
 async def transcribe_audio(
     service: AudioServiceDep,
     payload: SpeechInputDep,
+    user_id: CurrentUserIdDep,
 ) -> TranscriptionResponse:
     audio_bytes = await payload.read_audio()
 

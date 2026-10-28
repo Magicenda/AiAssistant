@@ -3,7 +3,7 @@ from deps import AgentServiceDep
 from schemas.llm_request import QueryRequest
 from schemas.voice import VoiceJobCreatedResponse
 from schemas.llm_responce import QueryResponse
-from deps import VoiceOrchestratorDep, AgentServiceDep
+from deps import VoiceOrchestratorDep, AgentServiceDep, CurrentUserIdDep
 from starlette.background import BackgroundTasks
 from schemas.enums import JobStatus
 
@@ -23,8 +23,9 @@ async def query_and_voice(
     agent: AgentServiceDep,
     orchestrator: VoiceOrchestratorDep,
     background_tasks: BackgroundTasks,
+    user_id: CurrentUserIdDep,
 ):
     answer = await agent.generate_response(request.chat_id, request.query)
-    job_id = orchestrator.create_job(answer)
+    job_id = orchestrator.create_job(user_id, answer)
     background_tasks.add_task(orchestrator.run_tts_worker, job_id, answer)
     return VoiceJobCreatedResponse(job_id=job_id, status=JobStatus.PENDING)

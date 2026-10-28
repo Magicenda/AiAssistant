@@ -23,13 +23,17 @@ class ChatRepository:
         await self.session.refresh(chat, attribute_names=["messages"])
         return chat
 
-    async def get_chat_by_id(self, chat_id: int) -> Chat | None:
-        result = await self.session.execute(select(Chat).where(Chat.id == chat_id))
+    async def get_chat_by_id(self, chat_id: int, user_id: int) -> Chat | None:
+        result = await self.session.execute(
+            select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id)
+        )
         return result.scalars().first()
 
-    async def get_chat_with_messages(self, chat_id: int) -> Chat | None:
+    async def get_chat_with_messages(self, chat_id: int, user_id: int) -> Chat | None:
         result = await self.session.execute(
-            select(Chat).options(selectinload(Chat.messages)).where(Chat.id == chat_id)
+            select(Chat)
+            .options(selectinload(Chat.messages))
+            .where(Chat.id == chat_id, Chat.user_id == user_id)
         )
         return result.scalars().first()
 

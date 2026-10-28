@@ -25,6 +25,7 @@ class PipelineError(Exception):
 
 @dataclass
 class _JobEntry:
+    user_id: int
     result: AssistantVoiceJobResult
     created_at: float = field(default_factory=time.monotonic)
     file_id: str | None = None
@@ -46,9 +47,10 @@ class VoiceGenerationOrchestrator:
         self.session_factory = session_factory
         self._jobs: dict[UUID, _JobEntry] = {}
 
-    def create_job(self, text_to_convert: str | None = None) -> UUID:
+    def create_job(self, user_id: int, text_to_convert: str | None = None) -> UUID:
         job_id = uuid.uuid4()
         self._jobs[job_id] = _JobEntry(
+            user_id,
             AssistantVoiceJobResult(
                 job_id=job_id,
                 status=JobStatus.PENDING,
@@ -57,9 +59,9 @@ class VoiceGenerationOrchestrator:
         )
         return job_id
 
-    def get_job_status(self, job_id: UUID) -> AssistantVoiceJobResult | None:
+    def get_job_status(self, job_id: UUID, user_id: int) -> AssistantVoiceJobResult | None:
         entry = self._jobs.get(job_id)
-        if entry is None:
+        if entry is None or entry.user_id != user_id:     # чужая задача выглядит как несуществующая
             return None
         if self._is_expired(entry):
             self._remove(job_id)

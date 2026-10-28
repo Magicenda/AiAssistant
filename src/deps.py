@@ -1,14 +1,20 @@
 from typing import Annotated
 
+import jwt
 from fastapi import Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi.security import OAuth2PasswordBearer
 from gigachat import GigaChat
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.security import decode_access_token
+from db.models import User
 from db.repository.chat_repository import ChatRepository
 from db.repository.meeting_repository import MeetingRepository
 from db.repository.task_repository import TaskRepository
+from db.repository.user_repository import UserRepository
 from db.session import get_session
 from services.agent_service import AgentService
+from services.auth_service import AuthService
 from services.chat_service import ChatService
 from services.profile_service import ProfileService
 from services.transcribation_service import AudioService
@@ -27,16 +33,51 @@ def get_llm(request: Request) -> GigaChat:
 LLMDep = Annotated[GigaChat, Depends(get_llm)]
 
 
-def get_current_user_id(request: Request) -> int:
-    # пока авторизации нет: все запросы идут от пользователя по умолчанию.
-    # Когда появится авторизация, достаточно заменить только эту функцию.
-    return request.app.state.default_user_id
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
+
+
+def get_user_repository(session: SessionDep) -> UserRepository:
+    return UserRepository(session)
+
+
+UserRepositoryDep = Annotated[UserRepository, Depends(get_user_repository)]
+
+
+def get_auth_service(users: UserRepositoryDep) -> AuthService:
+    return AuthService(users)
+
+
+AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+TokenDep = Annotated[str, Depends(oauth2_scheme)]
+
+
+async def get_current_user(token: TokenDep, users: UserRepositoryDep) -> User:
+    unauthorized = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Не удалось проверить токен",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        user_id = decode_access_token(token)
+    except jwt.InvalidTokenError:      # подделка, неверная подпись, истёкший срок
+        raise unauthorized
+    user = await users.get_by_id(user_id)
+    if user is None:                   # токен выдан, но пользователя уже удалили
+        raise unauthorized
+    return user
+
+
+CurrentUserDep = Annotated[User, Depends(get_current_user)]
+
+
+def get_current_user_id(user: CurrentUserDep) -> int:
+    return user.id
 
 
 CurrentUserIdDep = Annotated[int, Depends(get_current_user_id)]
-
-
-SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
 def get_chat_repository(session: SessionDep) -> ChatRepository:
@@ -46,8 +87,8 @@ def get_chat_repository(session: SessionDep) -> ChatRepository:
 ChatRepositoryDep = Annotated[ChatRepository, Depends(get_chat_repository)]
 
 
-def get_chat_service(repo: ChatRepositoryDep) -> ChatService:
-    return ChatService(repo)
+def get_chat_service(repo: ChatRepositoryDep, user_id: CurrentUserIdDep) -> ChatService:
+    return ChatService(repo, user_id)
 
 
 ChatServiceDep = Annotated[ChatService, Depends(get_chat_service)]
@@ -56,10 +97,6 @@ ChatServiceDep = Annotated[ChatService, Depends(get_chat_service)]
 def get_task_repository(session: SessionDep) -> TaskRepository:
     return TaskRepository(session)
 
-def get_audio_service() -> AudioService:
-    return Depends(audio_service_instance)
-
-audio_service_instance = AudioService(language="ru", model_size="base")
 
 TaskRepositoryDep = Annotated[TaskRepository, Depends(get_task_repository)]
 

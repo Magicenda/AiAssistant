@@ -17,4 +17,4 @@ def build_agent_service(llm: GigaChat, session: AsyncSession, user_id: int) -> A
         TaskToolkit(TaskRepository(session), user_id),
         MeetingToolkit(MeetingRepository(session), user_id),
     ])
-    return AgentService(llm=llm, chat=ChatService(ChatRepository(session)), tools=tools)
+    return AgentService(llm=llm, chat=ChatService(ChatRepository(session), user_id), tools=tools)

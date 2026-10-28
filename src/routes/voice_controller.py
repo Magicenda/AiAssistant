@@ -16,9 +16,10 @@ class TextToVoiceRequest(BaseModel):
 async def generate_voice_from_text(
     payload: TextToVoiceRequest,
     background_tasks: BackgroundTasks,
-    voice_orchestrator: VoiceOrchestratorDep
+    voice_orchestrator: VoiceOrchestratorDep,
+    user_id: CurrentUserIdDep,
 ):
-    job_id = voice_orchestrator.create_job(payload.text)
+    job_id = voice_orchestrator.create_job(user_id, payload.text)
 
     background_tasks.add_task(
         voice_orchestrator.run_tts_worker,
@@ -40,7 +41,7 @@ async def ask_by_voice(
     audio_bytes = await payload.read_audio()
     await chat_service.get_history(payload.chat_id, limit=1)    # 404, если чата нет
 
-    job_id = voice_orchestrator.create_job()
+    job_id = voice_orchestrator.create_job(user_id)
     background_tasks.add_task(
         voice_orchestrator.run_pipeline, job_id, audio_bytes, payload.chat_id, user_id
     )
@@ -49,16 +50,20 @@ async def ask_by_voice(
 
 
 @router.get("/jobs/{job_id}", response_model=AssistantVoiceJobResult)
-async def get_voice_generation_status(job_id: UUID,  voice_orchestrator: VoiceOrchestratorDep):
-    job = voice_orchestrator.get_job_status(job_id)
+async def get_voice_generation_status(
+    job_id: UUID, voice_orchestrator: VoiceOrchestratorDep, user_id: CurrentUserIdDep
+):
+    job = voice_orchestrator.get_job_status(job_id, user_id)
     if not job:
         raise HTTPException(status_code=404, detail="Задача не найдена")
     return job
 
 
 @router.get("/jobs/{job_id}/audio")
-async def download_audio_binary(job_id: UUID, voice_orchestrator: VoiceOrchestratorDep):
-    job = voice_orchestrator.get_job_status(job_id)
+async def download_audio_binary(
+    job_id: UUID, voice_orchestrator: VoiceOrchestratorDep, user_id: CurrentUserIdDep
+):
+    job = voice_orchestrator.get_job_status(job_id, user_id)
     if not job:
         raise HTTPException(status_code=404, detail="Задача не найдена")
     if job.status != JobStatus.COMPLETED:
