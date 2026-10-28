@@ -17,6 +17,7 @@ function safeEnv(value: string | undefined) {
 
 const envUrl = safeEnv(process.env.NEXT_PUBLIC_API_URL);
 
+/** Возвращает адрес backend API, зашитый на этапе сборки. */
 export function getApiUrl() {
   return envUrl;
 }

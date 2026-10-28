@@ -21,6 +21,7 @@ function linkClass(tone: Tone) {
     : "text-primary underline decoration-primary/50 underline-offset-4 hover:decoration-primary";
 }
 
+/** Отделяет конечную пунктуацию и скобку от «голой» ссылки. */
 function splitTrailing(value: string) {
   let href = value;
   let tail = "";
@@ -36,6 +37,7 @@ function splitTrailing(value: string) {
   return { href, tail };
 }
 
+/** Рендерит строчную разметку: код, жирный, курсив и ссылки. */
 function renderInline(text: string, tone: Tone, prefix: string): ReactNode[] {
   const nodes: ReactNode[] = [];
   let last = 0;
@@ -118,6 +120,7 @@ type Block =
   | { type: "list"; ordered: boolean; items: string[] }
   | { type: "code"; lines: string[] };
 
+/** Режет текст на блоки: абзацы, цитаты, списки, код. */
 function parseBlocks(text: string): Block[] {
   const lines = text.replace(/\r\n/g, "\n").split("\n");
   const blocks: Block[] = [];
@@ -195,6 +198,13 @@ function parseBlocks(text: string): Block[] {
   return blocks;
 }
 
+/**
+ * Минималистичный рендер markdown без внешних зависимостей: абзацы, списки,
+ * цитаты, код и ссылки.
+ *
+ * @param props - Пропсы: текст, тон оформления и класс контейнера.
+ * @returns Разметку блоков текста.
+ */
 export function Markdown({
   text,
   tone = "assistant",

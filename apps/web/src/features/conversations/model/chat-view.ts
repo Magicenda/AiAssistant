@@ -8,12 +8,14 @@ const dayYearFormat = new Intl.DateTimeFormat("ru-RU", {
 });
 const dayMs = 86_400_000;
 
+/** Ключ дня без времени — для сравнения дат. */
 export function dayKey(value?: number) {
   if (!value) return "";
   const date = new Date(value);
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
 
+/** Заголовок-разделитель: «Сегодня», «Вчера» или дата. */
 export function dayLabel(value: number, now = Date.now()) {
   const key = dayKey(value);
   if (key === dayKey(now)) return "Сегодня";
@@ -33,6 +35,7 @@ export interface MessageItem {
   separator?: string;
 }
 
+/** Добавляет к сообщениям группировку по автору и разделители дней. */
 export function buildMessageItems(messages: ChatMessage[]): MessageItem[] {
   return messages.map((message, index) => {
     const previous = messages[index - 1];

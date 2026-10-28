@@ -4,6 +4,7 @@ import { ArrowRight, KeyRound, ServerCog } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { ModelForm } from "@/features/model-settings";
 
+/** Экран настроек: форма модели и пояснения, как настройки применяются. */
 export function SettingsView() {
   return (
     <section className="mx-auto max-w-3xl space-y-6 p-2 pb-12 md:p-6">

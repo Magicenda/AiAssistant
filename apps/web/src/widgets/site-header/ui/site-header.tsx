@@ -4,6 +4,7 @@ import { Settings2 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Logo } from "@/shared/ui/logo";
 
+/** Шапка лендинга (Server Component): логотип и ссылки на чат и настройки. */
 export function SiteHeader() {
   return (
     <header className="border-border bg-background/95 sticky top-0 z-30 border-b-2 backdrop-blur">

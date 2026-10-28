@@ -1,14 +1,21 @@
 export type ProviderId = "openrouter" | "openai" | "deepseek" | "mistral" | "ollama" | "custom";
 
+/** Пресет провайдера для быстрого выбора в форме настроек. */
 export interface ProviderPreset {
   id: ProviderId;
+  /** Название в интерфейсе. */
   label: string;
+  /** Базовый адрес API без `/chat/completions`. */
   baseUrl: string;
+  /** Модель по умолчанию. */
   model: string;
+  /** Нужен ли API-ключ. */
   keyRequired: boolean;
+  /** Пояснение для пользователя под селектом. */
   note: string;
 }
 
+/** Известные провайдеры; порядок задаёт порядок в селекте. */
 export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     id: "openrouter",
@@ -60,11 +67,17 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   },
 ];
 
+/** Настройки модели, хранящиеся в localStorage браузера. */
 export interface ModelSettings {
+  /** Выбранный провайдер. */
   provider: ProviderId;
+  /** Базовый адрес API без `/chat/completions`. */
   baseUrl: string;
+  /** Ключ провайдера; для локальных адресов может быть пустым. */
   apiKey: string;
+  /** Идентификатор модели провайдера. */
   model: string;
+  /** От 0 до 1.5. */
   temperature: number;
 }
 
@@ -79,16 +92,20 @@ export const DEFAULT_MODEL_SETTINGS: ModelSettings = {
 /** Настройки, которые фронтенд передаёт backend вместе с запросом. */
 export interface ModelRequestSettings {
   provider: ProviderId;
+  /** Копия `baseUrl` — контракт backend в snake_case. */
   base_url: string;
+  /** Копия `apiKey`. */
   api_key: string;
   model: string;
   temperature: number;
 }
 
+/** Угадывает провайдера по адресу; если адрес незнакомый — `custom`. */
 export function providerFor(baseUrl: string): ProviderId {
   return PROVIDER_PRESETS.find(preset => preset.baseUrl === baseUrl)?.id ?? "custom";
 }
 
+/** Локальный адрес: ключ для него не нужен. */
 export function isLocalAddress(value: string) {
   return (
     /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|host\.docker\.internal)(:|\/|$)/i.test(
@@ -97,6 +114,7 @@ export function isLocalAddress(value: string) {
   );
 }
 
+/** Для нелокального адреса требуется API-ключ. */
 export function requiresApiKey(baseUrl: string) {
   return !isLocalAddress(baseUrl);
 }

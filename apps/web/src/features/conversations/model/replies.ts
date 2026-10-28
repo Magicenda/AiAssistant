@@ -4,10 +4,15 @@ import { queryAssistant, type QueryResult } from "@/features/assistant";
 import { appendMessage, readChats } from "./store";
 import { ensureRemoteChat, resetRemoteChat } from "./remote";
 
+/** Живое состояние генерации ответа, наблюдаемое через подписку. */
 export interface ReplyState {
+  /** `streaming` — генерация идёт, `error` — завершилась ошибкой. */
   status: "streaming" | "error";
+  /** Накопленный текст ответа. */
   text: string;
+  /** Сообщение об ошибке для показа в чате. */
   error?: string;
+  /** Машинный код ошибки из `ApiError`. */
   code?: string;
 }
 
@@ -67,11 +72,13 @@ function networkMessage(error: unknown) {
   return "Не удалось получить ответ. Проверьте подключение.";
 }
 
+/** Подписка на изменения генерации; возвращает функцию отписки. */
 export function subscribeReplies(listener: () => void) {
   window.addEventListener(event, listener);
   return () => window.removeEventListener(event, listener);
 }
 
+/** Текущее состояние генерации для чата или `null`, если она не идёт. */
 export function getReply(chatId: string): ReplyState | null {
   return jobs.get(chatId)?.state ?? null;
 }

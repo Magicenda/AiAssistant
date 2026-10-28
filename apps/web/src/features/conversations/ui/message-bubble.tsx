@@ -13,6 +13,7 @@ const timeFormat = new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "
 const collapseAfterChars = 480;
 const collapseAfterLines = 8;
 
+/** Копирует в буфер с фолбэком на `execCommand` — для контекстов без Clipboard API. */
 async function copyText(value: string) {
   try {
     await navigator.clipboard.writeText(value);
@@ -34,6 +35,7 @@ async function copyText(value: string) {
   }
 }
 
+/** Пиксельная аватарка ассистента. */
 export function AssistantAvatar() {
   return (
     <span className="pixel-bevel bg-secondary text-secondary-foreground flex size-9 shrink-0 items-center justify-center">
@@ -42,6 +44,7 @@ export function AssistantAvatar() {
   );
 }
 
+/** Плеер голосового сообщения ('use client': играет `<audio>` и показывает прогресс). */
 export function VoiceBubble({ audio }: { audio: ChatAudio }) {
   const ref = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -86,6 +89,7 @@ export function VoiceBubble({ audio }: { audio: ChatAudio }) {
   );
 }
 
+/** Иконочная кнопка действия над сообщением; `danger` включает тревожный цвет. */
 function ActionButton({
   label,
   danger,
@@ -113,14 +117,27 @@ function ActionButton({
 }
 
 export interface MessageBubbleProps {
+  /** Сообщение локальной истории. */
   message: ChatMessage;
+  /** Сообщение продолжает предыдущее того же автора за тот же день. */
   grouped?: boolean;
+  /** Последнее в группе — у него показывается время. */
   lastInGroup?: boolean;
+  /** Ответить цитатой на сообщение. */
   onReply?: (message: ChatMessage) => void;
+  /** Удалить сообщение. */
   onDelete?: (message: ChatMessage) => void;
+  /** Перегенерировать ответ ассистента. */
   onRegenerate?: (message: ChatMessage) => void;
 }
 
+/**
+ * Пузырь сообщения ('use client': копирование, сворачивание длинных текстов).
+ * Сообщения пользователя — справа, ответы ассистента — слева с аватаркой.
+ *
+ * @param props - Пропсы пузыря.
+ * @returns Разметку сообщения с действиями и временем.
+ */
 export function MessageBubble({
   message,
   grouped = false,
@@ -272,6 +289,7 @@ export function MessageBubble({
   );
 }
 
+/** Индикатор «ассистент печатает». */
 export function TypingBubble() {
   return (
     <div className="mt-3 flex items-end gap-2.5" role="status" aria-live="polite">

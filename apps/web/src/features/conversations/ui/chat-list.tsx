@@ -16,6 +16,7 @@ import {
 import { plainText } from "../model/plain-text";
 import type { Chat } from "@/entities/chat";
 
+/** Превью последнего сообщения для строки списка. */
 function preview(chat: Chat) {
   const last = chat.messages.at(-1);
   if (!last) return "Пока нет сообщений";
@@ -24,14 +25,21 @@ function preview(chat: Chat) {
 }
 
 interface RowProps {
+  /** id открытого чата — его строка подсвечена. */
   currentId?: string;
+  /** id чата, для которого показано подтверждение удаления. */
   confirmId: string | null;
+  /** Закрыть список. */
   onClose: () => void;
+  /** Удалить чат; подтверждение уже пройдено. */
   onDelete: (chat: Chat) => void;
+  /** Закрепить или открепить чат. */
   onTogglePin: (chat: Chat) => void;
+  /** Включить или снять подтверждение удаления. */
   onConfirm: (id: string | null) => void;
 }
 
+/** Строка чата: превью, дата, закрепление и удаление с подтверждением. */
 function ChatRow({ chat, ...props }: RowProps & { chat: Chat }) {
   const { currentId, confirmId, onClose, onDelete, onTogglePin, onConfirm } = props;
   const active = chat.id === currentId;
@@ -103,6 +111,7 @@ function ChatRow({ chat, ...props }: RowProps & { chat: Chat }) {
   );
 }
 
+/** Группа строк с заголовком: «Закреплённые», «Сегодня», «Раньше» и т.д. */
 function Section({ label, chats, ...rowProps }: RowProps & { label: string; chats: Chat[] }) {
   if (!chats.length) return null;
   return (
@@ -117,6 +126,28 @@ function Section({ label, chats, ...rowProps }: RowProps & { label: string; chat
   );
 }
 
+interface ChatListProps {
+  /** Все чаты локальной истории. */
+  chats: Chat[];
+  /** id текущего чата. */
+  currentId?: string;
+  /** Создать новый чат. */
+  onNew: () => void;
+  /** Закрыть список. */
+  onClose: () => void;
+  /** Удалить чат. */
+  onDelete: (chat: Chat) => void;
+  /** Закрепить или открепить чат. */
+  onTogglePin: (chat: Chat) => void;
+}
+
+/**
+ * Диалог со списком чатов ('use client': поиск, подтверждение удаления,
+ * модальный `<dialog>`).
+ *
+ * @param props - Пропсы списка.
+ * @returns Модальное окно с поиском и чатами, сгруппированными по давности.
+ */
 export function ChatList({
   chats,
   currentId,
@@ -124,14 +155,7 @@ export function ChatList({
   onClose,
   onDelete,
   onTogglePin,
-}: {
-  chats: Chat[];
-  currentId?: string;
-  onNew: () => void;
-  onClose: () => void;
-  onDelete: (chat: Chat) => void;
-  onTogglePin: (chat: Chat) => void;
-}) {
+}: ChatListProps) {
   const [query, setQuery] = useState("");
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);

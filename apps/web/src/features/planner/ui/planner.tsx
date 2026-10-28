@@ -35,6 +35,7 @@ const dateKey = (date: Date) =>
   `-${String(date.getDate()).padStart(2, "0")}`;
 const selectClass = "h-9 rounded-md border bg-background px-3 text-sm";
 
+/** Проверяет запись из localStorage: тип, корректную дату и флаг выполнения. */
 function isEntry(value: unknown): value is Entry {
   if (!value || typeof value !== "object") return false;
   const item = value as Partial<Entry>;
@@ -48,7 +49,19 @@ function isEntry(value: unknown): value is Entry {
   );
 }
 
-export function Planner({ section }: { section: Section }) {
+interface PlannerProps {
+  /** Раздел дашборда, определяет фильтр записей и заголовок. */
+  section: Section;
+}
+
+/**
+ * Экран планировщика ('use client': записи в localStorage, календарь месяца,
+ * фильтры по вкладкам и периодам).
+ *
+ * @param props - Пропсы компонента.
+ * @returns Разметку раздела планировщика.
+ */
+export function Planner({ section }: PlannerProps) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
@@ -84,6 +97,7 @@ export function Planner({ section }: { section: Section }) {
     return () => window.clearInterval(timer);
   }, []);
 
+  /** Сохраняет записи в localStorage; возвращает успех — форма закрывается только при нём. */
   function save(next: Entry[]) {
     try {
       localStorage.setItem(storageKey, JSON.stringify(next));

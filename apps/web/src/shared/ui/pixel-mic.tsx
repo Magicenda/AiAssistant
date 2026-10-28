@@ -1,3 +1,4 @@
+/** Пиксельный микрофон в стиле темы: иконка lucide не совпадает по стилю, поэтому SVG. */
 export function PixelMic({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 16 16" shapeRendering="crispEdges" className={className} aria-hidden="true">

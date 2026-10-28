@@ -32,9 +32,11 @@ const buttonVariants = cva(
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
+  /** Рендерить содержимое через `Slot` — например, для `Link` без вложенного `<button>`. */
   asChild?: boolean;
 }
 
+/** Пиксельная кнопка (shadcn); варианты — в `buttonVariants`. */
 function Button({ className, variant, size, asChild = false, ...props }: ButtonProps) {
   const Comp = asChild ? Slot : "button";
 

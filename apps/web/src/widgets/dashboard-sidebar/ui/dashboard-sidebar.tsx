@@ -12,6 +12,7 @@ import { cn } from "@/shared/lib/cn";
 
 type NavItem = { href: Route; label: string; icon: LucideIcon };
 
+/** Пункт навигации: типобезопасный маршрут, подпись и иконка lucide. */
 const NAV_ITEMS: NavItem[] = [
   { href: "/plans", label: "Планы", icon: CalendarDays },
   { href: "/tasks", label: "Задачи", icon: CheckSquare },
@@ -22,6 +23,11 @@ const NAV_ITEMS: NavItem[] = [
 
 const FOOTER_ITEMS: NavItem[] = [{ href: "/settings", label: "Настройки", icon: Settings }];
 
+/**
+ * Боковое меню дашборда ('use client': `usePathname` для подсветки раздела,
+ * `<dialog>` для мобильного меню).
+ * На десктопе — постоянная колонка слева, на мобильных — шапка с кнопкой «Меню».
+ */
 export function DashboardSidebar() {
   const pathname = usePathname();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -31,9 +37,11 @@ export function DashboardSidebar() {
     dialog.current?.close();
   }
   useEffect(() => {
+    // Смена раздела закрывает открытое мобильное меню.
     dialog.current?.close();
   }, [pathname]);
   useEffect(() => {
+    // Окно растянули до десктопа — диалоговое меню больше не нужно.
     const desktop = matchMedia("(min-width: 1024px)");
     const sync = () => {
       if (desktop.matches) dialog.current?.close();

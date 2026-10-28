@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type VoiceClip = { dataUrl: string; type: string; duration: number };
+export type VoiceClip = {
+  /** Аудио в виде data URL — хранится вместе с сообщением чата. */
+  dataUrl: string;
+  /** MIME-тип записи, например `audio/webm;codecs=opus`. */
+  type: string;
+  /** Длительность в секундах. */
+  duration: number;
+};
 
 type Status = "idle" | "starting" | "recording" | "stopping";
 
@@ -15,6 +22,12 @@ function readAsDataUrl(blob: Blob) {
   });
 }
 
+/**
+ * Управляет записью голоса ('use client': `MediaRecorder` и таймер длительности).
+ *
+ * @returns Статус, текст ошибки, длительность и методы `start`/`stop`;
+ *   `stop` резолвится записанным фрагментом или `null`, если запись не удалась.
+ */
 export function useAudioRecording() {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
@@ -25,6 +38,7 @@ export function useAudioRecording() {
   const chunks = useRef<Blob[]>([]);
   const startedAt = useRef(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Счётчик «поколений»: колбэки устаревшего старта не должны трогать состояние.
   const generation = useRef(0);
   const starting = useRef(false);
   const resolveStop = useRef<((clip: VoiceClip | null) => void) | null>(null);

@@ -39,11 +39,13 @@ const selectClass =
 const labelClass =
   "block space-y-2 font-mono text-xs uppercase tracking-wider text-muted-foreground";
 
+/** Итог сохранения или сброса — одна строка для блока со статусом. */
 interface Feedback {
   tone: "ok" | "error";
   text: string;
 }
 
+/** Значения полей формы до сохранения. */
 interface Draft {
   provider: ProviderId;
   baseUrl: string;
@@ -52,6 +54,12 @@ interface Draft {
   temperature: number;
 }
 
+/**
+ * Форма настроек модели ('use client': черновик в состоянии, пресеты
+ * провайдеров, запись в localStorage).
+ *
+ * @returns Разметку формы с секциями «Модель», «Доступ», «Параметры ответа», «Сервер».
+ */
 export function ModelForm() {
   const saved = useSyncExternalStore(
     subscribeModelSettings,

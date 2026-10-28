@@ -1,3 +1,4 @@
+/** Ошибка запроса к backend: понятное пользователю сообщение, код и HTTP-статус. */
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -16,6 +17,7 @@ interface ErrorShape {
   code?: unknown;
 }
 
+/** Разбирает тело ошибки (`message`, `detail` FastAPI) в `ApiError` по статусу. */
 export async function readApiError(response: Response): Promise<ApiError> {
   let message = `Запрос завершился с ошибкой ${response.status}.`;
   let code = "request_failed";

@@ -57,6 +57,7 @@ import type { Chat, ChatMessage } from "@/entities/chat";
 const maxLength = 4000;
 const maxComposerHeight = 176;
 
+/** Первая непустая строка сообщения, обрезанная до заголовка чата. */
 function titleFrom(value: string) {
   const line =
     value
@@ -67,11 +68,13 @@ function titleFrom(value: string) {
   return clean.length > 48 ? `${clean.slice(0, 48)}…` : clean;
 }
 
+/** Превью цитируемого сообщения для блока ответа. */
 function replySnippet(value: string) {
   const text = plainText(value) || "Голосовое сообщение";
   return text.length > 140 ? `${text.slice(0, 140)}…` : text;
 }
 
+/** Кнопка выпадающего меню чата; `danger` включает тревожный цвет. */
 function MenuItem({
   onClick,
   danger,
@@ -95,6 +98,7 @@ function MenuItem({
   );
 }
 
+/** Разделитель с подписью даты между группами сообщений. */
 function DateSeparator({ label }: { label: string }) {
   return (
     <div className="mt-4 flex items-center gap-3" role="separator" aria-label={label}>
@@ -107,7 +111,19 @@ function DateSeparator({ label }: { label: string }) {
   );
 }
 
-export function Conversation({ sessionId }: { sessionId?: string }) {
+interface ConversationProps {
+  /** id открытого чата; без него — новый диалог. */
+  sessionId?: string;
+}
+
+/**
+ * Экран диалога ('use client': состояние композера, локальная история,
+ * запись голоса, стриминг ответа через `useSyncExternalStore`).
+ *
+ * @param props - Пропсы компонента.
+ * @returns Разметку чата: шапка, лента сообщений и композер.
+ */
+export function Conversation({ sessionId }: ConversationProps) {
   const router = useRouter();
   const [chats, setChats] = useState<Chat[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -159,6 +175,7 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
 
   useEffect(() => {
     if (!draftReady.current) return;
+    // Пишем черновик только после чтения: иначе пустая строка затрёт сохранённое.
     const timer = window.setTimeout(() => writeDraft(draftId, text), 250);
     return () => window.clearTimeout(timer);
   }, [draftId, text]);
@@ -219,6 +236,7 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
     return chatId;
   }
 
+  /** Валидирует текст, сохраняет сообщение и запускает ответ ассистента. */
   function sendText(raw: string) {
     const value = raw.trim();
     if (!value || replyPending) return;
@@ -239,6 +257,7 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
     requestReply(chatId);
   }
 
+  /** Удаляет сообщение локально и отменяет идущую генерацию. */
   function deleteMessage(message: ChatMessage) {
     if (!sessionId) return;
     cancelReplies(sessionId);
@@ -246,6 +265,7 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
     if (replyTo?.id === message.id) setReplyTo(null);
   }
 
+  /** Удаляет ответ ассистента и генерирует его заново по последнему сообщению. */
   function regenerateMessage(message: ChatMessage) {
     if (!sessionId) return;
     const latest = readChats().find(item => item.id === sessionId);
@@ -257,6 +277,7 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
     requestReply(sessionId);
   }
 
+  /** Удаляет чат локально, его черновик и копию на backend. */
   function deleteChatById(id: string) {
     cancelReplies(id);
     removeRemoteChat(id);
@@ -295,6 +316,7 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
     closeMenu();
   }
 
+  /** Двухшаговое подтверждение: первое нажатие просит подтвердить, второе очищает историю. */
   function handleClear() {
     if (!sessionId) return;
     if (confirmAction !== "clear") {
@@ -311,6 +333,7 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
     closeMenu();
   }
 
+  /** Двухшаговое подтверждение: первое нажатие просит подтвердить, второе удаляет чат. */
   function handleDeleteChat() {
     if (!sessionId) return;
     if (confirmAction !== "delete") {
@@ -332,6 +355,7 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
     event.currentTarget.form?.requestSubmit();
   }
 
+  /** Завершает запись, отправляет аудио на транскрипцию и сохраняет сообщение. */
   async function handleStop() {
     const clip = await audio.stop();
     if (!clip) return;
@@ -536,6 +560,7 @@ export function Conversation({ sessionId }: { sessionId?: string }) {
               />
             </Fragment>
           ))}
+          {/* Живой ответ стримится в ленту поверх истории; в чат он попадёт только после завершения. */}
           {reply?.status === "streaming" &&
             (reply.text ? (
               <MessageBubble

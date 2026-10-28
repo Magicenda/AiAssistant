@@ -3,6 +3,7 @@ import type { Chat } from "@/entities/chat";
 
 const timeFormat = new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" });
 
+/** Собирает чат в Markdown-документ для экспорта. */
 export function chatToMarkdown(chat: Chat) {
   const lines: string[] = [`# ${chat.title || "Новый чат"}`, ""];
   for (const message of chat.messages) {
@@ -22,6 +23,7 @@ export function chatToMarkdown(chat: Chat) {
   return lines.join("\n");
 }
 
+/** Безопасное имя файла из названия чата. */
 export function chatFileName(chat: Chat) {
   const base = (chat.title || "chat")
     .toLowerCase()
@@ -31,6 +33,7 @@ export function chatFileName(chat: Chat) {
   return `${base || "chat"}.md`;
 }
 
+/** Скачивает чат как `.md` через временный `<a>`. */
 export function downloadChat(chat: Chat) {
   const blob = new Blob([chatToMarkdown(chat)], { type: "text/markdown;charset=utf-8" });
   const url = URL.createObjectURL(blob);

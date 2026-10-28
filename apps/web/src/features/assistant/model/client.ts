@@ -15,6 +15,7 @@ function endpoint(path: string) {
   return `${getApiUrl()}${path}`;
 }
 
+/** Превращает ответ с ошибкой в `ApiError`, отдельно помечая 404 как `not_found`. */
 async function parseError(response: Response) {
   const error = await readApiError(response);
   if (response.status === 404) {
@@ -23,6 +24,7 @@ async function parseError(response: Response) {
   return error;
 }
 
+/** Создаёт чат на backend и возвращает его `chat_id`. */
 export async function createRemoteChat(name: string) {
   const response = await fetch(endpoint("/chat/create_chat"), {
     method: "POST",
@@ -38,6 +40,7 @@ export async function createRemoteChat(name: string) {
   return chatId;
 }
 
+/** Удаляет чат на backend; отсутствие чата (404) ошибкой не считается. */
 export async function deleteRemoteChat(chatId: number) {
   const response = await fetch(endpoint(`/chat/delete_chat/${chatId}`), {
     method: "DELETE",
@@ -45,6 +48,7 @@ export async function deleteRemoteChat(chatId: number) {
   if (!response.ok && response.status !== 404) throw await parseError(response);
 }
 
+/** Достаёт текст ответа из типовых форматов OpenAI-совместимых провайдеров. */
 function extractAnswer(value: unknown): string {
   if (typeof value === "string") return value;
   if (!value || typeof value !== "object") return "";
@@ -79,6 +83,7 @@ function extractAnswer(value: unknown): string {
   return "";
 }
 
+/** Разбирает одно SSE-событие и возвращает его текст; `[DONE]` даёт пустую строку. */
 function parseSseEvent(raw: string) {
   const data = raw
     .split(/\r?\n/)
@@ -94,6 +99,7 @@ function parseSseEvent(raw: string) {
   }
 }
 
+/** Читает SSE-поток до конца, передавая текст колбэку `onDelta`. */
 async function readSse(response: Response, onDelta?: (text: string) => void) {
   if (!response.body) throw new ApiError("Сервер не вернул поток ответа.", "empty_response", 502);
   const reader = response.body.getReader();
@@ -134,6 +140,7 @@ async function readSse(response: Response, onDelta?: (text: string) => void) {
   return answer;
 }
 
+/** Читает поток обычного текста, передавая фрагменты колбэку `onDelta`. */
 async function readPlain(response: Response, onDelta?: (text: string) => void) {
   if (!response.body) throw new ApiError("Сервер не вернул ответ.", "empty_response", 502);
   const reader = response.body.getReader();
@@ -161,6 +168,15 @@ async function readPlain(response: Response, onDelta?: (text: string) => void) {
   return answer;
 }
 
+/**
+ * Отправляет запрос ассистенту и читает ответ в зависимости от `Content-Type`:
+ * SSE-поток, JSON или обычный текст.
+ *
+ * @param chatId - id чата на backend, созданный заранее через `createRemoteChat`.
+ * @param query - Сообщение пользователя.
+ * @param options - `signal` для отмены и `onDelta` для стриминга текста в UI.
+ * @returns Полный текст ответа ассистента.
+ */
 export async function queryAssistant(
   chatId: number,
   query: string,
@@ -196,6 +212,7 @@ export async function queryAssistant(
   return { answer: await readPlain(response, options.onDelta) };
 }
 
+/** Отправляет голосовую запись на `/chat/transcribe` и возвращает расшифровку. */
 export async function transcribeVoice(chatId: number, file: Blob) {
   const form = new FormData();
   form.append("chat_id", String(chatId));

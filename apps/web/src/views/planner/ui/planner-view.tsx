@@ -1,5 +1,6 @@
 import { Planner } from "@/features/planner";
 
+/** Экран планировщика: раздел определяет фильтр записей и заголовок. */
 export function PlannerView({
   section,
 }: {

@@ -70,11 +70,13 @@ function current(): ModelSettings {
   return cached;
 }
 
+/** Настройки из localStorage; на сервере и при ошибке — значения по умолчанию. */
 export function readModelSettings(): ModelSettings {
   if (typeof window === "undefined") return { ...DEFAULT_MODEL_SETTINGS };
   return current();
 }
 
+/** Валидирует и сохраняет настройки, уведомляет подписчиков. */
 export function writeModelSettings(value: unknown): ModelSettings {
   const settings = normalizeSettings(value);
   localStorage.setItem(storageKey, JSON.stringify(settings));
@@ -83,6 +85,7 @@ export function writeModelSettings(value: unknown): ModelSettings {
   return settings;
 }
 
+/** Удаляет сохранённые настройки и возвращает значения по умолчанию. */
 export function resetModelSettings(): ModelSettings {
   localStorage.removeItem(storageKey);
   cached = { ...DEFAULT_MODEL_SETTINGS };
@@ -90,6 +93,7 @@ export function resetModelSettings(): ModelSettings {
   return { ...DEFAULT_MODEL_SETTINGS };
 }
 
+/** Подписка на изменения настроек; возвращает функцию отписки. */
 export function subscribeModelSettings(listener: () => void) {
   const wrapped = () => {
     cached = null;

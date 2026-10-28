@@ -14,10 +14,12 @@ function readAll(): Record<string, string> {
   }
 }
 
+/** Возвращает сохранённый черновик чата или пустую строку. */
 export function readDraft(id: string): string {
   return readAll()[id] ?? "";
 }
 
+/** Сохраняет черновик; пустой текст удаляет запись. */
 export function writeDraft(id: string, text: string) {
   const all = readAll();
   if (text) all[id] = text;
@@ -25,10 +27,11 @@ export function writeDraft(id: string, text: string) {
   try {
     localStorage.setItem(key, JSON.stringify(all));
   } catch {
-    /* квота не критична: черновик не должен ломать ввод */
+    /* Квота не критична: черновик не должен ломать ввод. */
   }
 }
 
+/** Удаляет черновик вместе с чатом. */
 export function removeDraft(id: string) {
   const all = readAll();
   if (!(id in all)) return;
@@ -36,6 +39,6 @@ export function removeDraft(id: string) {
   try {
     localStorage.setItem(key, JSON.stringify(all));
   } catch {
-    /* см. writeDraft */
+    /* Квота не критична, см. `writeDraft`. */
   }
 }

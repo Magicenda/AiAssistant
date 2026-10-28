@@ -1,3 +1,4 @@
+/** Длительность в формате `M:SS` (например, `1:05`). */
 export function formatDuration(value: number) {
   const total = Math.max(0, Math.floor(value));
   const minutes = Math.floor(total / 60);

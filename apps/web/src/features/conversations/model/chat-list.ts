@@ -11,10 +11,12 @@ const fullFormat = new Intl.DateTimeFormat("ru-RU", {
   year: "numeric",
 });
 
+/** Дата последней активности: явная или от последнего сообщения. */
 export function chatTimestamp(chat: Chat) {
   return chat.updatedAt ?? chat.messages.at(-1)?.createdAt ?? 0;
 }
 
+/** Сортирует чаты: закреплённые сверху, затем по свежести. */
 export function sortChats(chats: Chat[]) {
   return [...chats].sort((a, b) => {
     if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
@@ -22,6 +24,7 @@ export function sortChats(chats: Chat[]) {
   });
 }
 
+/** Фильтрует чаты по названию и тексту сообщений. */
 export function filterChats(chats: Chat[], query: string) {
   const value = query.trim().toLowerCase();
   if (!value) return chats;
@@ -32,6 +35,7 @@ export function filterChats(chats: Chat[], query: string) {
   );
 }
 
+/** Метка даты: время для сегодня, «вчера», день недели или дата. */
 export function chatDateLabel(value: number, now = Date.now()) {
   if (!value) return "";
   if (dayKey(value) === dayKey(now)) return timeFormat.format(value);
