@@ -1,4 +1,5 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
@@ -8,7 +9,7 @@ from gigachat import GigaChat
 
 from core.exceptions import ChatNotFoundError
 from db.models import BaseModel
-from db.session import engine
+from db.session import SessionLocal, engine
 
 from routes.voice_controller import router as voice_router 
 from routes.chat_controller import router as chat_router
@@ -21,6 +22,12 @@ from services.tts_services import FileStorageService, TTSService
 load_dotenv()
 
 
+async def _cleanup_loop(orchestrator: VoiceGenerationOrchestrator, interval: int = 60) -> None:
+    while True:
+        await asyncio.sleep(interval)
+        orchestrator.cleanup_expired()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
@@ -28,11 +35,17 @@ async def lifespan(app: FastAPI):
     app.state.llm = GigaChat()
     app.state.file_storage = FileStorageService()
     app.state.tts = TTSService()
-    app.state.voice = VoiceGenerationOrchestrator(app.state.file_storage, app.state.tts)
     app.state.audio = AudioService(language="ru", model_size="base")
+    app.state.voice = VoiceGenerationOrchestrator(
+        app.state.file_storage, app.state.tts, app.state.audio, app.state.llm, SessionLocal
+    )
+    cleanup_task = asyncio.create_task(_cleanup_loop(app.state.voice))
     try:
         yield
     finally:
+        cleanup_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await cleanup_task
         await app.state.llm.aclose()
         await engine.dispose()       
 

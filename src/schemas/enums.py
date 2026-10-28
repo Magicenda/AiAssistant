@@ -2,7 +2,9 @@ from enum import Enum
 
 class JobStatus(str, Enum):
     PENDING = "pending"
-    PROCESSING = "processing"
+    TRANSCRIBING = "transcribing"
+    THINKING = "thinking"
+    SPEAKING = "speaking"
     COMPLETED = "completed"
     FAILED = "failed"
 

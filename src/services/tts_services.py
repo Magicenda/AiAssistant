@@ -66,16 +66,13 @@ class FileStorageService:
             raise HTTPException(status_code=404, detail="Аудиофайл не найден")
         return path
 
-    def cleanup_old_files(self, max_age_seconds: int = 900) -> None:
-        now = time.time()
-        for filename in os.listdir(STORAGE_DIR):
-            file_path = os.path.join(STORAGE_DIR, filename)
-            if os.path.isfile(file_path):
-                if now - os.path.getmtime(file_path) > max_age_seconds:
-                    try:
-                        os.remove(file_path)
-                    except OSError:
-                        pass
+    def delete_file(self, file_id: str) -> None:
+        try:
+            os.remove(os.path.join(STORAGE_DIR, os.path.basename(file_id)))
+        except FileNotFoundError:
+            pass
+
+
 class TTSService:
     def __init__(self, voice: str = "ru-RU-SvetlanaNeural", rate: str = "+0%"):
         self.voice = voice

@@ -1,0 +1,20 @@
+from gigachat import GigaChat
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from db.repository.chat_repository import ChatRepository
+from db.repository.meeting_repository import MeetingRepository
+from db.repository.task_repository import TaskRepository
+from services.agent_service import AgentService
+from services.chat_service import ChatService
+from tools.base import ToolRegistry
+from tools.meeting_tools import MeetingToolkit
+from tools.task_tools import TaskToolkit
+
+
+def build_agent_service(llm: GigaChat, session: AsyncSession) -> AgentService:
+    """Собирает агента вне запроса FastAPI (например, в фоновом воркере) на переданной сессии."""
+    tools = ToolRegistry([
+        TaskToolkit(TaskRepository(session)),
+        MeetingToolkit(MeetingRepository(session)),
+    ])
+    return AgentService(llm=llm, chat=ChatService(ChatRepository(session)), tools=tools)

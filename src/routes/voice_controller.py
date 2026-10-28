@@ -2,10 +2,9 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import FileResponse
-from starlette.background import BackgroundTask
 
 from schemas import AssistantVoiceJobResult, JobStatus, VoiceJobCreatedResponse
-from deps import VoiceOrchestratorDep
+from deps import ChatServiceDep, SpeechInputDep, VoiceOrchestratorDep
 router = APIRouter(prefix="/voice", tags=["Text to Voice Pipeline"])
 
 
@@ -30,6 +29,22 @@ async def generate_voice_from_text(
     return VoiceJobCreatedResponse(job_id=job_id, status=JobStatus.PENDING)
 
 
+@router.post("/ask", response_model=VoiceJobCreatedResponse, status_code=202)
+async def ask_by_voice(
+    payload: SpeechInputDep,
+    background_tasks: BackgroundTasks,
+    chat_service: ChatServiceDep,
+    voice_orchestrator: VoiceOrchestratorDep,
+):
+    audio_bytes = await payload.read_audio()
+    await chat_service.get_history(payload.chat_id, limit=1)    # 404, если чата нет
+
+    job_id = voice_orchestrator.create_job()
+    background_tasks.add_task(voice_orchestrator.run_pipeline, job_id, audio_bytes, payload.chat_id)
+
+    return VoiceJobCreatedResponse(job_id=job_id, status=JobStatus.PENDING)
+
+
 @router.get("/jobs/{job_id}", response_model=AssistantVoiceJobResult)
 async def get_voice_generation_status(job_id: UUID,  voice_orchestrator: VoiceOrchestratorDep):
     job = voice_orchestrator.get_job_status(job_id)
@@ -50,10 +65,8 @@ async def download_audio_binary(job_id: UUID, voice_orchestrator: VoiceOrchestra
     if not file_path:
         raise HTTPException(status_code=404, detail="Файл озвучки не найден")
 
-    
     return FileResponse(
         path=file_path,
         media_type="audio/mpeg",
         filename=f"response_{job_id}.mp3",
-        background=BackgroundTask(voice_orchestrator.storage.cleanup_old_files, 900)
     )
