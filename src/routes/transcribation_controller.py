@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from deps import AudioServiceDep, SpeechInputDep
 
@@ -18,7 +18,7 @@ async def transcribe_audio(
     transcription = await service.recognize_from_bytes(audio_bytes)
     if not transcription.status:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=422,
             detail="Речь не распознана",
         )
     return TranscriptionResponse(text=transcription.text)
