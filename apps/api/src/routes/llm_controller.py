@@ -1,4 +1,6 @@
 from fastapi import APIRouter
+import json
+
 from deps import AgentServiceDep
 from schemas.llm_request import QueryRequest
 from schemas.voice import VoiceJobCreatedResponse
@@ -14,8 +16,13 @@ router = APIRouter(prefix="/llm", tags=["llm"])
 
 @router.post("/query", response_model=QueryResponse)
 async def query(request: QueryRequest, service: AgentServiceDep) -> QueryResponse:
+    reply_to = request.reply_to.model_dump() if request.reply_to else None
     answer = await service.generate_response(
-        request.chat_id, request.query, request.model_settings
+        request.chat_id,
+        request.query,
+        request.model_settings,
+        reply_to=json.dumps(reply_to, ensure_ascii=False) if reply_to else None,
+        regenerate=request.regenerate,
     )
     return QueryResponse(answer=answer)
 

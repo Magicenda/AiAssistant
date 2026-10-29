@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from enum import Enum as PyEnum
 
-from sqlalchemy import String, DateTime, Integer, Enum as SQLEnum, func, ForeignKey
+from sqlalchemy import Boolean, String, DateTime, Integer, Enum as SQLEnum, Text, func, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase
 
 
@@ -96,6 +96,9 @@ class Chat(BaseModel):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(nullable=False)
+    pinned: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -126,6 +129,8 @@ class Message(BaseModel):
         ForeignKey("chats.id", ondelete="CASCADE"), index=True
     )
     content: Mapped[str] = mapped_column(nullable=False)
+    # Снимок цитируемого сообщения в JSON: при удалении оригинала цитата остаётся.
+    reply_to: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

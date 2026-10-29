@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from core.config import settings
-from db.models import Message
+from db.models import Message, MessageRole
 from schemas.model_settings import ModelSettings
 from services.chat_service import ChatService
 from services.llm_client import LLMClient, build_llm_client
@@ -33,18 +33,29 @@ class AgentService:
         self.temperature = temperature
 
     async def generate_response(
-        self, chat_id: int, user_input: str, model_settings: ModelSettings | None = None
+        self,
+        chat_id: int,
+        user_input: str,
+        model_settings: ModelSettings | None = None,
+        reply_to: str | None = None,
+        regenerate: bool = False,
     ) -> str:
+        # Перегенерация заменяет последний ответ, а не копит дубли в истории.
+        if regenerate:
+            await self.chat.delete_last_assistant_message(chat_id)
+
         history = await self.chat.get_history(chat_id, limit=settings.history_limit)
         system = SYSTEM_PROMPT.format(now=datetime.now(timezone.utc).isoformat(timespec="minutes"))
 
         messages = [
             {"role": "system", "content": [{"text": system}]},
             *map(to_llm_message, history),
-            {"role": "user", "content": [{"text": user_input}]},
         ]
+        # При перегенерации вопрос уже есть в истории — второй раз его не добавляем.
+        if not regenerate or not history or history[-1].role != MessageRole.USER:
+            messages.append({"role": "user", "content": [{"text": user_input}]})
 
-        # Для локальной модели клиент живёт только один запрос; GigaChat берём общий.
+        # Для локальной модели клиент строит только этот запрос; GigaChat общий.
         llm = self.llm
         if model_settings is not None and model_settings.provider == "local":
             llm = build_llm_client(model_settings)
@@ -56,7 +67,8 @@ class AgentService:
             if llm is not self.llm:
                 await llm.aclose()
 
-        await self.chat.add_message(chat_id, "user", user_input)
+        if not regenerate:
+            await self.chat.add_message(chat_id, "user", user_input, reply_to)
         await self.chat.add_message(chat_id, "assistant", answer)
         return answer
 

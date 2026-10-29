@@ -5,8 +5,14 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import inspect, text
 
-from core.exceptions import ChatNotFoundError, InvalidCredentialsError, UserAlreadyExistsError
+from core.exceptions import (
+    ChatNotFoundError,
+    InvalidCredentialsError,
+    MessageNotFoundError,
+    UserAlreadyExistsError,
+)
 from db.models import BaseModel
 from db.session import SessionLocal, engine
 
@@ -30,10 +36,26 @@ async def _cleanup_loop(orchestrator: VoiceGenerationOrchestrator, interval: int
         orchestrator.cleanup_expired()
 
 
+async def _ensure_columns(conn) -> None:
+    """Досоздаёт новые колонки: `create_all` не меняет существующие таблицы."""
+    chat_columns = await conn.run_sync(
+        lambda sync: {column["name"] for column in inspect(sync).get_columns("chats")}
+    )
+    if "pinned" not in chat_columns:
+        await conn.execute(text("ALTER TABLE chats ADD COLUMN pinned BOOLEAN NOT NULL DEFAULT FALSE"))
+
+    message_columns = await conn.run_sync(
+        lambda sync: {column["name"] for column in inspect(sync).get_columns("messages")}
+    )
+    if "reply_to" not in message_columns:
+        await conn.execute(text("ALTER TABLE messages ADD COLUMN reply_to TEXT"))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(BaseModel.metadata.create_all)
+        await _ensure_columns(conn)
     app.state.llm = build_llm_client()
     app.state.file_storage = FileStorageService()
     app.state.tts = TTSService()
@@ -76,6 +98,11 @@ async def invalid_credentials_handler(request: Request, exc: InvalidCredentialsE
 
 @app.exception_handler(ChatNotFoundError)
 async def chat_not_found_handler(request: Request, exc: ChatNotFoundError):
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(MessageNotFoundError)
+async def message_not_found_handler(request: Request, exc: MessageNotFoundError):
     return JSONResponse(status_code=404, content={"detail": str(exc)})
 
 
