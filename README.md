@@ -2,15 +2,41 @@
 
 Локальный AI-ассистент: backend на Python и веб-интерфейс на Next.js.
 
+## Структура
+
+```
+AiAssistant/
+├── apps/
+│   ├── api/   # FastAPI backend
+│   └── web/   # Next.js frontend
+├── API.md     # контракт backend API
+└── package.json   # скрипты монорепы
+```
+
+Каждое приложение живёт в своей папке `apps/*` со своим пакетным менеджером:
+backend — uv, frontend — Bun.
+
 ## Backend
 
+Приложение — в [`apps/api`](apps/api). Полное описание — в
+[`apps/api/README.md`](apps/api/README.md).
+
 ```bash
-uv sync
+cd apps/api
 cp .env.example .env        # заполните DATABASE_URL и GIGACHAT_*
+uv sync
 uv run uvicorn app:app --app-dir src --reload
 ```
 
-Запускать нужно из корня проекта: так `src/` попадает в `sys.path` (импорты без префикса `src.`), а папка `storage/` создаётся в корне.
+Из корня монорепы:
+
+```bash
+bun api:sync   # установка зависимостей
+bun api:dev    # dev-сервер с автоперезагрузкой
+```
+
+Запускать нужно из `apps/api`: так `src/` попадает в `sys.path` (импорты без
+префикса `src.`), а папка `storage/` создаётся рядом с приложением.
 
 ## Frontend
 
@@ -140,6 +166,10 @@ Backend должен разрешать origin фронтенда (`http://local
 | `bun lint`         | ESLint                              |
 | `bun format`       | форматирование всех файлов Prettier |
 | `bun format:check` | проверка форматирования без записи  |
+| `bun test`         | тесты фронтенда (Vitest)            |
+| `bun api:sync`     | установка зависимостей backend      |
+| `bun api:dev`      | backend dev-сервер с автоперезагрузкой |
+| `bun api:start`    | backend без автоперезагрузки        |
 
 Перед коммитом: `bun format`, затем `bun typecheck` и `bun lint` — типы и
 линтер должны проходить чисто, проверка форматирования — зелёная.

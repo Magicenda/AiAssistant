@@ -236,5 +236,11 @@ next-env.d.ts
 .env*.local
 *.log
 
+# Backend runtime
+apps/api/storage/
+apps/api/state/
+apps/api/*.db
+apps/api/*.sqlite3
+
 # macOS
 .DS_Store

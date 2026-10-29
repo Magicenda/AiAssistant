@@ -14,6 +14,9 @@
     "lint": "bun run --cwd apps/web lint",
     "format": "bun run --cwd apps/web format",
     "format:check": "bun run --cwd apps/web format:check",
-    "test": "bun run --cwd apps/web test"
+    "test": "bun run --cwd apps/web test",
+    "api:sync": "uv sync --directory apps/api",
+    "api:dev": "uv run --directory apps/api uvicorn app:app --app-dir src --reload",
+    "api:start": "uv run --directory apps/api uvicorn app:app --app-dir src"
   }
 }
