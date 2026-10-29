@@ -1,25 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
+  ArrowUpRight,
+  Bell,
   CalendarDays,
+  CheckCheck,
   ChevronLeft,
   ChevronRight,
   List,
-  Plus,
+  RefreshCw,
   Search,
   Sparkles,
-  ArrowUpRight,
-  CheckCheck,
-  Bell,
 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { ApiError } from "@/shared/api";
 import { cn } from "@/shared/lib/cn";
+import { fetchEntries, type Entry, type EntryKind } from "../model/entries";
 
-type Kind = "task" | "meeting" | "reminder";
-type Entry = { id: string; title: string; kind: Kind; date: string; done: boolean };
 type Section = "plans" | "tasks" | "meetings" | "reminders" | "search";
 const titles = {
   plans: "Мои планы",
@@ -29,24 +29,24 @@ const titles = {
   search: "Поиск",
 };
 const kinds = { task: "Задача", meeting: "Встреча", reminder: "Напоминание" };
-const storageKey = "ai-assistant-planner-v1";
 const dateKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` +
   `-${String(date.getDate()).padStart(2, "0")}`;
 const selectClass = "h-9 rounded-md border bg-background px-3 text-sm";
+const dateFormat = new Intl.DateTimeFormat("ru-RU", {
+  day: "numeric",
+  month: "long",
+  hour: "2-digit",
+  minute: "2-digit",
+  year: "numeric",
+});
 
-/** Проверяет запись из localStorage: тип, корректную дату и флаг выполнения. */
-function isEntry(value: unknown): value is Entry {
-  if (!value || typeof value !== "object") return false;
-  const item = value as Partial<Entry>;
-  return (
-    typeof item.id === "string" &&
-    typeof item.title === "string" &&
-    (item.kind === "task" || item.kind === "meeting" || item.kind === "reminder") &&
-    typeof item.date === "string" &&
-    Number.isFinite(Date.parse(item.date)) &&
-    typeof item.done === "boolean"
-  );
+/** Сортирует по сроку: ближайшие первыми, записи без срока — в конце. */
+function byDeadline(a: Entry, b: Entry) {
+  if (a.date === null && b.date === null) return 0;
+  if (a.date === null) return 1;
+  if (b.date === null) return -1;
+  return a.date.localeCompare(b.date);
 }
 
 interface PlannerProps {
@@ -55,8 +55,9 @@ interface PlannerProps {
 }
 
 /**
- * Экран планировщика ('use client': записи в localStorage, календарь месяца,
- * фильтры по вкладкам и периодам).
+ * Экран планировщика ('use client': данные профиля с backend, календарь месяца,
+ * фильтры по вкладкам и периодам). Записи создаются ассистентом, поэтому
+ * список перезапрашивается при открытии раздела и по возврату фокуса.
  *
  * @param props - Пропсы компонента.
  * @returns Разметку раздела планировщика.
@@ -64,6 +65,7 @@ interface PlannerProps {
 export function Planner({ section }: PlannerProps) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [ready, setReady] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [now, setNow] = useState<Date | null>(null);
   const [month, setMonth] = useState<Date | null>(null);
@@ -72,42 +74,43 @@ export function Planner({ section }: PlannerProps) {
   const [tab, setTab] = useState("active");
   const [period, setPeriod] = useState("all");
   const [query, setQuery] = useState("");
-  const [adding, setAdding] = useState(false);
-  const [title, setTitle] = useState("");
-  const [date, setDate] = useState("");
-  const [kind, setKind] = useState<Kind>("task");
+
+  const load = useCallback(async () => {
+    try {
+      const next = await fetchEntries();
+      setEntries(next);
+      setError("");
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "Не удалось загрузить записи.");
+    } finally {
+      setReady(true);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect --
-       дата устройства и localStorage доступны только после гидрации */
+       дата устройства доступна только после гидрации */
     const today = new Date();
     setNow(today);
     setMonth(new Date(today.getFullYear(), today.getMonth(), 1));
     setSelected(dateKey(today));
-    try {
-      const saved: unknown = JSON.parse(localStorage.getItem(storageKey) ?? "[]");
-      if (Array.isArray(saved) && saved.every(isEntry)) setEntries(saved);
-      else setError("Не удалось прочитать сохранённые записи.");
-    } catch {
-      setError("Хранилище браузера недоступно или данные повреждены.");
-    }
-    setReady(true);
-    const timer = window.setInterval(() => setNow(new Date()), 60000);
     /* eslint-enable react-hooks/set-state-in-effect */
-    return () => window.clearInterval(timer);
-  }, []);
+    void load();
+    const onRefresh = () => void load();
+    window.addEventListener("chats-change", onRefresh);
+    window.addEventListener("focus", onRefresh);
+    const timer = window.setInterval(() => setNow(new Date()), 60000);
+    return () => {
+      window.removeEventListener("chats-change", onRefresh);
+      window.removeEventListener("focus", onRefresh);
+      window.clearInterval(timer);
+    };
+  }, [load]);
 
-  /** Сохраняет записи в localStorage; возвращает успех — форма закрывается только при нём. */
-  function save(next: Entry[]) {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(next));
-      setEntries(next);
-      setError("");
-      return true;
-    } catch {
-      setError("Не удалось сохранить изменения. Проверьте доступ к хранилищу браузера.");
-      return false;
-    }
+  function refresh() {
+    setRefreshing(true);
+    void load();
   }
 
   if (!ready || !now || !month) {
@@ -115,7 +118,7 @@ export function Planner({ section }: PlannerProps) {
   }
 
   const today = dateKey(now);
-  const type: Kind | undefined =
+  const kindForSection: EntryKind | undefined =
     section === "tasks"
       ? "task"
       : section === "meetings"
@@ -125,48 +128,41 @@ export function Planner({ section }: PlannerProps) {
           : undefined;
   const filtered = entries
     .filter(item => {
-      if (type && item.kind !== type) return false;
-      if (section === "tasks") {
-        if (tab === "done" ? !item.done : item.done) return false;
-        if (tab === "overdue" && new Date(item.date) >= now) return false;
-      }
-      if (section === "meetings" || section === "reminders") {
-        if (new Date(item.date) < now !== (tab === "past")) return false;
+      if (kindForSection && item.kind !== kindForSection) return false;
+      if (kindForSection) {
+        const isPast = item.date !== null && new Date(item.date) < now;
+        if (tab === "past" ? !isPast : isPast) return false;
       }
       if (section === "search") {
         return item.title.toLocaleLowerCase("ru").includes(query.trim().toLocaleLowerCase("ru"));
       }
       if (section === "plans") {
-        if (calendar) return item.date.slice(0, 10) === selected;
-        if (period === "today") return item.date.slice(0, 10) === today;
+        if (calendar) return item.date?.slice(0, 10) === selected;
+        if (period === "today") return item.date?.slice(0, 10) === today;
         if (period === "tomorrow") {
           const next = new Date(now);
           next.setDate(next.getDate() + 1);
-          return item.date.slice(0, 10) === dateKey(next);
+          return item.date?.slice(0, 10) === dateKey(next);
         }
         if (period === "week") {
           const end = new Date(now);
           end.setDate(end.getDate() + 7);
-          return item.date.slice(0, 10) >= today && new Date(item.date) < end;
+          return item.date !== null && item.date.slice(0, 10) >= today && new Date(item.date) < end;
         }
       }
       return true;
     })
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort(byDeadline);
 
-  const tabs =
-    section === "tasks"
-      ? [
-          ["active", "Активные"],
-          ["overdue", "Просроченные"],
-          ["done", "Выполненные"],
-        ]
-      : [
-          ["active", section === "reminders" ? "Ближайшие" : "Предстоящие"],
-          ["past", section === "reminders" ? "Прошедшие" : "Прошедшие"],
-        ];
+  const tabs = [
+    ["active", section === "reminders" ? "Ближайшие" : "Предстоящие"],
+    ["past", "Прошедшие"],
+  ];
   const start = new Date(month);
   start.setDate(1 - ((month.getDay() + 6) % 7));
+  const upcomingCount = (kind: EntryKind) =>
+    entries.filter(entry => entry.kind === kind && (entry.date === null || new Date(entry.date) >= now))
+      .length;
 
   return (
     <section className="mx-auto max-w-6xl space-y-6 p-2 pb-10 md:p-6">
@@ -180,17 +176,20 @@ export function Planner({ section }: PlannerProps) {
             Задачи, встречи и напоминания в одном месте
           </p>
         </div>
-        {section !== "search" && (
-          <Button
-            onClick={() => {
-              setKind(type ?? "task");
-              setAdding(!adding);
-            }}
-          >
-            <Plus className="size-4" />
-            Добавить запись
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={refresh} disabled={refreshing}>
+            <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
+            Обновить
           </Button>
-        )}
+          {section !== "search" && (
+            <Button asChild>
+              <Link href="/chat">
+                <Sparkles className="size-4" />
+                Создать в чате
+              </Link>
+            </Button>
+          )}
+        </div>
       </header>
       {section === "plans" && (
         <>
@@ -220,21 +219,9 @@ export function Planner({ section }: PlannerProps) {
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             {[
-              {
-                label: "Задачи в работе",
-                count: entries.filter(e => e.kind === "task" && !e.done).length,
-                icon: CheckCheck,
-              },
-              {
-                label: "Предстоящие встречи",
-                count: entries.filter(e => e.kind === "meeting" && new Date(e.date) >= now).length,
-                icon: CalendarDays,
-              },
-              {
-                label: "Ближайшие напоминания",
-                count: entries.filter(e => e.kind === "reminder" && new Date(e.date) >= now).length,
-                icon: Bell,
-              },
+              { label: "Задачи в работе", count: upcomingCount("task"), icon: CheckCheck },
+              { label: "Предстоящие встречи", count: upcomingCount("meeting"), icon: CalendarDays },
+              { label: "Ближайшие напоминания", count: upcomingCount("reminder"), icon: Bell },
             ].map(({ label, count, icon: Icon }) => (
               <div
                 key={label}
@@ -259,70 +246,8 @@ export function Planner({ section }: PlannerProps) {
       )}
       <>
         <p className="border-border bg-card/70 text-muted-foreground rounded-2xl border px-4 py-3 text-xs">
-          Записи сохраняются в этом браузере. Ассистента можно подключить в настройках.
+          Записи создаёт ассистент, они хранятся на сервере. Обновите список после диалога.
         </p>
-        {adding && (
-          <form
-            className="bg-card/70 shadow-primary/5 space-y-4 rounded-3xl border p-6 shadow-lg"
-            onSubmit={event => {
-              event.preventDefault();
-              if (!title.trim() || !date || !Number.isFinite(Date.parse(date))) return;
-              if (
-                save([
-                  ...entries,
-                  { id: crypto.randomUUID(), title: title.trim(), kind, date, done: false },
-                ])
-              ) {
-                setTitle("");
-                setDate("");
-                setAdding(false);
-              }
-            }}
-          >
-            <h2 className="font-semibold">Новая запись</h2>
-            <label className="block space-y-2 text-sm">
-              Название
-              <Input
-                required
-                maxLength={200}
-                value={title}
-                onChange={event => setTitle(event.target.value)}
-                placeholder="Например, встреча с командой"
-              />
-            </label>
-            <div className="flex flex-wrap gap-4">
-              <label className="space-y-2 text-sm">
-                Тип
-                <select
-                  className={cn(selectClass, "block")}
-                  value={kind}
-                  onChange={event => setKind(event.target.value as Kind)}
-                >
-                  {Object.entries(kinds).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="space-y-2 text-sm">
-                Дата и время
-                <Input
-                  required
-                  type="datetime-local"
-                  value={date}
-                  onChange={event => setDate(event.target.value)}
-                />
-              </label>
-            </div>
-            <div className="flex gap-2">
-              <Button type="submit">Сохранить</Button>
-              <Button type="button" variant="ghost" onClick={() => setAdding(false)}>
-                Отмена
-              </Button>
-            </div>
-          </form>
-        )}
         {section === "search" && (
           <label className="flex items-center gap-3">
             <Search className="text-muted-foreground size-5 shrink-0" />
@@ -334,7 +259,7 @@ export function Planner({ section }: PlannerProps) {
             />
           </label>
         )}
-        {type && (
+        {kindForSection && (
           <div className="flex flex-wrap gap-2" aria-label="Фильтр записей">
             {tabs.map(([value, label]) => (
               <Button
@@ -428,7 +353,7 @@ export function Planner({ section }: PlannerProps) {
                   const day = new Date(start);
                   day.setDate(start.getDate() + index);
                   const key = dateKey(day);
-                  const count = entries.filter(item => item.date.slice(0, 10) === key).length;
+                  const count = entries.filter(item => item.date?.slice(0, 10) === key).length;
                   return (
                     <Button
                       key={key}
@@ -464,9 +389,7 @@ export function Planner({ section }: PlannerProps) {
               : section === "search"
                 ? "Результаты поиска"
                 : "Записи"}
-            <span className="text-muted-foreground ml-2 text-sm font-normal">
-              {filtered.length}
-            </span>
+            <span className="text-muted-foreground ml-2 text-sm font-normal">{filtered.length}</span>
           </h2>
           {filtered.length === 0 && (
             <div className="border-border bg-card/70 rounded-3xl border px-6 py-16 text-center">
@@ -477,7 +400,7 @@ export function Planner({ section }: PlannerProps) {
               <p className="text-muted-foreground mt-2 text-sm">
                 {section === "search"
                   ? "Попробуйте другое слово из названия."
-                  : "Добавьте запись или выберите другой период."}
+                  : "Попросите ассистента создать задачу, встречу или напоминание."}
               </p>
             </div>
           )}
@@ -487,40 +410,12 @@ export function Planner({ section }: PlannerProps) {
               className="border-border bg-card/70 flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-5 shadow-sm transition-shadow hover:shadow-md"
             >
               <div className="min-w-0">
-                <p
-                  className={cn(
-                    "font-medium break-words",
-                    item.done && "text-muted-foreground line-through",
-                  )}
-                >
-                  {item.title}
-                </p>
+                <p className="font-medium break-words">{item.title}</p>
                 <p className="text-muted-foreground mt-1 text-sm">
                   {kinds[item.kind]} ·{" "}
-                  {new Date(item.date).toLocaleString("ru-RU", {
-                    day: "numeric",
-                    month: "long",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    year: "numeric",
-                  })}
+                  {item.date ? dateFormat.format(new Date(item.date)) : "Без срока"}
                 </p>
               </div>
-              {item.kind === "task" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    save(
-                      entries.map(entry =>
-                        entry.id === item.id ? { ...entry, done: !entry.done } : entry,
-                      ),
-                    )
-                  }
-                >
-                  {item.done ? "Вернуть в активные" : "Выполнено"}
-                </Button>
-              )}
             </article>
           ))}
         </div>
