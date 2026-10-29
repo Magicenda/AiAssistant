@@ -81,7 +81,7 @@ username=alice&password=correct-horse-1
 ```
 Ответ `200`:
 ```json
-{ "chat_id": 3, "name_chat": "Рабочие дела", "messages": [] }
+{ "chat_id": 3, "name_chat": "Рабочие дела", "messages": [], "pinned": false }
 ```
 
 ### `GET /api/chat/get_all_chats`
@@ -93,16 +93,31 @@ username=alice&password=correct-horse-1
 {
   "chat_id": 3,
   "name_chat": "Рабочие дела",
+  "pinned": false,
   "messages": [
-    { "id": 10, "role": "user", "content": "Привет", "created_at": "2026-10-29T16:05:29+00:00" },
-    { "id": 11, "role": "assistant", "content": "Здравствуйте!", "created_at": "2026-10-29T16:05:31+00:00" }
+    { "id": 10, "role": "user", "content": "Привет", "created_at": "2026-10-29T16:05:29+00:00", "reply_to": null },
+    { "id": 11, "role": "assistant", "content": "Здравствуйте!", "created_at": "2026-10-29T16:05:31+00:00", "reply_to": null }
   ]
 }
 ```
-`role`: `user`, `assistant`, `system`, `tool`. Ошибка: `404` — чата нет или он чужой.
+`role`: `user`, `assistant`, `system`, `tool`. `reply_to` — снимок цитируемого
+сообщения `{ id, role, text }` или `null`. Ошибка: `404` — чата нет или он чужой.
+
+### `PATCH /api/chat/{chat_id}`
+Переименовывает и/или закрепляет чат. Оба поля необязательны:
+```json
+{ "name_chat": "Новое имя", "pinned": true }
+```
+Ответ `200`: обновлённый чат.
 
 ### `DELETE /api/chat/delete_chat/{chat_id}`
 Ответ `200`: `true`. Вместе с чатом удаляются все его сообщения. Ошибка: `404`.
+
+### `DELETE /api/chat/{chat_id}/message/{message_id}`
+Удаляет одно сообщение. Ответ `200`: обновлённый чат. Ошибка: `404`.
+
+### `DELETE /api/chat/{chat_id}/messages`
+Очищает историю, оставляя чат и его имя. Ответ `200`: обновлённый чат.
 
 ### `POST /api/chat/add_message/{chat_id}`
 Добавляет сообщение вручную. **Параметры передаются в query-строке, а не в теле**:
@@ -124,6 +139,14 @@ username=alice&password=correct-horse-1
 { "answer": "Готово, напоминание создано." }
 ```
 Запрос может идти несколько секунд (иногда десятки) — показывайте индикатор загрузки и не ставьте короткий таймаут. Ошибка: `404` — чата нет.
+
+Необязательные поля:
+
+- `reply_to` — цитата, на которую отвечает пользователь:
+  `{ "id": "10", "role": "assistant", "text": "Превью ответа" }`. Сохраняется
+  вместе с вопросом и возвращается в истории.
+- `regenerate` — `true` заменяет последний ответ ассистента новым, не добавляя
+  вопрос в историю повторно. `query` всё равно передаётся для контекста.
 
 По умолчанию ответ генерирует GigaChat с ключом из env backend. Пользователь может
 переключиться на локальную модель (Ollama / LM Studio), передав `model_settings`:
