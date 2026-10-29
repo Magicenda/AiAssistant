@@ -23,7 +23,7 @@ uv run uvicorn app:app --app-dir src --reload
 Из корня монорепы:
 
 ```bash
-bun api:dev
+bun run dev:api
 ```
 
 Запускать нужно из `apps/api`: так `src/` попадает в `sys.path` (импорты без

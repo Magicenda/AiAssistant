@@ -7,16 +7,16 @@
     "node": ">=20.9.0"
   },
   "scripts": {
-    "dev": "bun run --cwd apps/web dev",
-    "build": "bun run --cwd apps/web build",
-    "start": "bun run --cwd apps/web start",
-    "typecheck": "bun run --cwd apps/web typecheck",
-    "lint": "bun run --cwd apps/web lint",
-    "format": "bun run --cwd apps/web format",
-    "format:check": "bun run --cwd apps/web format:check",
-    "test": "bun run --cwd apps/web test",
-    "api:sync": "uv sync --directory apps/api",
-    "api:dev": "uv run --directory apps/api uvicorn app:app --app-dir src --reload",
-    "api:start": "uv run --directory apps/api uvicorn app:app --app-dir src"
+    "dev:web": "bun run --cwd apps/web dev",
+    "build:web": "bun run --cwd apps/web build",
+    "start:web": "bun run --cwd apps/web start",
+    "typecheck:web": "bun run --cwd apps/web typecheck",
+    "lint:web": "bun run --cwd apps/web lint",
+    "format:web": "bun run --cwd apps/web format",
+    "format:check:web": "bun run --cwd apps/web format:check",
+    "test:web": "bun run --cwd apps/web test",
+    "sync:api": "uv sync --directory apps/api",
+    "dev:api": "uv run --directory apps/api uvicorn app:app --app-dir src --reload",
+    "start:api": "uv run --directory apps/api uvicorn app:app --app-dir src"
   }
 }

@@ -31,8 +31,8 @@ uv run uvicorn app:app --app-dir src --reload
 Из корня монорепы:
 
 ```bash
-bun api:sync   # установка зависимостей
-bun api:dev    # dev-сервер с автоперезагрузкой
+bun run sync:api   # установка зависимостей
+bun run dev:api    # dev-сервер с автоперезагрузкой
 ```
 
 Запускать нужно из `apps/api`: так `src/` попадает в `sys.path` (импорты без
@@ -64,7 +64,12 @@ Next.js 16 (App Router) + Tailwind CSS v4 + shadcn/ui + Prettier + Bun.
 cd apps/web
 cp .env.example .env.local   # NEXT_PUBLIC_API_URL=http://localhost:8000
 bun install
-bun dev
+```
+
+Из корня монорепы:
+
+```bash
+bun run dev:web
 ```
 
 Откройте <http://localhost:3000>, перейдите в **Настройки** и укажите
@@ -77,7 +82,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 Значение инлайнится на этапе сборки; в интерфейсе его менять нельзя.
-Для production установите переменную перед `bun build`.
+Для production установите переменную перед `bun run build:web`.
 
 ### Настройки модели
 
@@ -157,22 +162,23 @@ Backend должен разрешать origin фронтенда (`http://local
 
 Запускать из корня монорепы:
 
-| Команда            | Что делает                          |
-| ------------------ | ----------------------------------- |
-| `bun dev`          | Next dev server (Turbopack)         |
-| `bun build`        | production build                    |
-| `bun start`        | production server                   |
-| `bun typecheck`    | `tsc --noEmit`                      |
-| `bun lint`         | ESLint                              |
-| `bun format`       | форматирование всех файлов Prettier |
-| `bun format:check` | проверка форматирования без записи  |
-| `bun test`         | тесты фронтенда (Vitest)            |
-| `bun api:sync`     | установка зависимостей backend      |
-| `bun api:dev`      | backend dev-сервер с автоперезагрузкой |
-| `bun api:start`    | backend без автоперезагрузки        |
+| Команда              | Что делает                             |
+| -------------------- | -------------------------------------- |
+| `bun run dev:web`    | Next dev server (Turbopack)            |
+| `bun run build:web`  | production build                       |
+| `bun run start:web`  | production server                      |
+| `bun run typecheck:web` | `tsc --noEmit`                      |
+| `bun run lint:web`   | ESLint                                 |
+| `bun run format:web` | форматирование файлов Prettier         |
+| `bun run format:check:web` | проверка форматирования без записи |
+| `bun run test:web`   | тесты фронтенда (Vitest)               |
+| `bun run sync:api`   | установка зависимостей backend         |
+| `bun run dev:api`    | backend dev-сервер с автоперезагрузкой |
+| `bun run start:api`  | backend без автоперезагрузки           |
 
-Перед коммитом: `bun format`, затем `bun typecheck` и `bun lint` — типы и
-линтер должны проходить чисто, проверка форматирования — зелёная.
+Перед коммитом: `bun run format:web`, затем `bun run typecheck:web` и
+`bun run lint:web` — типы и линтер должны проходить чисто, проверка
+форматирования — зелёная.
 
 ### Стиль кода
 

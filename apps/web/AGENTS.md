@@ -50,8 +50,8 @@
 
 ## Форматирование (Prettier)
 
-- Форматирование — только Prettier: `bun format` (записать) и `bun format:check`
-  (проверить). Конфиг — `apps/web/.prettierrc.json`: ширина строки `100`,
+- Форматирование — только Prettier: `bun run format:web` (записать) и
+  `bun run format:check:web` (проверить). Конфиг — `apps/web/.prettierrc.json`: ширина строки `100`,
   стрелочные функции с одним аргументом — без скобок, плагин
   `prettier-plugin-tailwindcss` сортирует Tailwind-классы.
 - Не форматировать руками то, что делает Prettier: переносы строк, кавычки,
@@ -96,9 +96,11 @@
 
 ## Процесс
 
-- Перед коммитом: `bun format`, затем `bun typecheck` и `bun lint` — оба должны
-  проходить чисто, `bun format:check` — зелёный.
-- Для production-сборки использовать `bun build`; Docker и серверную часть сюда не добавлять.
+- Перед коммитом: `bun run format:web`, затем `bun run typecheck:web` и
+  `bun run lint:web` — оба должны проходить чисто, `bun run format:check:web` —
+  зелёный.
+- Для production-сборки использовать `bun run build:web`; Docker и серверную
+  часть сюда не добавлять.
 - Вопросы «куда класть код» решаются по README.md разделу «Структура».
 - Не переписывать чужие слои: работу в `views/<чужой-screen>` согласовывать с владельцем.
 
