@@ -1,7 +1,8 @@
+from pathlib import Path
+from typing import Literal
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-import os
-from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 
@@ -20,6 +21,12 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(min_length=32)
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
+
+    llm_provider: Literal["gigachat", "openai_compatible"] = "gigachat"
+    llm_base_url: str = "http://localhost:11434/v1"
+    llm_api_key: str = "ollama"
+    llm_model: str = ""
+    llm_timeout: float = 120.0
 
 
 settings = Settings()

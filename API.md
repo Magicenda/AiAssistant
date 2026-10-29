@@ -125,6 +125,27 @@ username=alice&password=correct-horse-1
 ```
 Запрос может идти несколько секунд (иногда десятки) — показывайте индикатор загрузки и не ставьте короткий таймаут. Ошибка: `404` — чата нет.
 
+По умолчанию ответ генерирует GigaChat с ключом из env backend. Пользователь может
+переключиться на локальную модель (Ollama / LM Studio), передав `model_settings`:
+
+```json
+{
+  "chat_id": 3,
+  "query": "Привет",
+  "model_settings": {
+    "provider": "local",
+    "base_url": "http://localhost:11434/v1",
+    "api_key": "",
+    "model": "qwen2.5:7b",
+    "temperature": 0.7
+  }
+}
+```
+
+`model_settings` необязателен. Поддерживаются только `provider: "gigachat"` и
+`provider: "local"`; для `local` обязательны `base_url` и `model`. Без поля
+backend использует настройки из env.
+
 ### `POST /api/llm/query_and_voice`
 То же, что `/query`, плюс озвучка ответа в фоне. Тело то же. Ответ `202`:
 ```json

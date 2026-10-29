@@ -5,11 +5,11 @@ import uuid
 from dataclasses import dataclass, field
 from uuid import UUID
 
-from gigachat import GigaChat
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from schemas import JobStatus, AssistantVoiceJobResult
 from services.agent_factory import build_agent_service
+from services.llm_client import LLMClient
 from services.transcribation_service import AudioService
 from services.tts_services import TTSService, FileStorageService
 
@@ -37,7 +37,7 @@ class VoiceGenerationOrchestrator:
         storage: FileStorageService,
         tts_service: TTSService,
         audio_service: AudioService,
-        llm: GigaChat,
+        llm: LLMClient,
         session_factory: async_sessionmaker,
     ):
         self.storage = storage

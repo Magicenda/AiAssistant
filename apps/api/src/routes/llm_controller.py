@@ -14,7 +14,9 @@ router = APIRouter(prefix="/llm", tags=["llm"])
 
 @router.post("/query", response_model=QueryResponse)
 async def query(request: QueryRequest, service: AgentServiceDep) -> QueryResponse:
-    answer = await service.generate_response(request.chat_id, request.query)
+    answer = await service.generate_response(
+        request.chat_id, request.query, request.model_settings
+    )
     return QueryResponse(answer=answer)
 
 @router.post("/query_and_voice", response_model=VoiceJobCreatedResponse, status_code=202)
@@ -25,7 +27,9 @@ async def query_and_voice(
     background_tasks: BackgroundTasks,
     user_id: CurrentUserIdDep,
 ):
-    answer = await agent.generate_response(request.chat_id, request.query)
+    answer = await agent.generate_response(
+        request.chat_id, request.query, request.model_settings
+    )
     job_id = orchestrator.create_job(user_id, answer)
     background_tasks.add_task(orchestrator.run_tts_worker, job_id, answer)
     return VoiceJobCreatedResponse(job_id=job_id, status=JobStatus.PENDING)

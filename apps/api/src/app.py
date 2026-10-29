@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from gigachat import GigaChat
 
 from core.exceptions import ChatNotFoundError, InvalidCredentialsError, UserAlreadyExistsError
 from db.models import BaseModel
@@ -17,6 +16,7 @@ from routes.llm_controller import router as llm_router
 from routes.transcribation_controller import router as audio_router
 from routes.profile_controller import router as profile_router
 from routes.auth_controller import router as auth_router
+from services.llm_client import build_llm_client
 from services.orchestrator import VoiceGenerationOrchestrator
 from services.transcribation_service import AudioService
 from services.tts_services import FileStorageService, TTSService
@@ -34,7 +34,7 @@ async def _cleanup_loop(orchestrator: VoiceGenerationOrchestrator, interval: int
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(BaseModel.metadata.create_all)
-    app.state.llm = GigaChat()
+    app.state.llm = build_llm_client()
     app.state.file_storage = FileStorageService()
     app.state.tts = TTSService()
     app.state.audio = AudioService(language="ru", model_size="base")

@@ -3,7 +3,6 @@ from typing import Annotated
 import jwt
 from fastapi import Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.security import OAuth2PasswordBearer
-from gigachat import GigaChat
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.security import decode_access_token
@@ -16,6 +15,7 @@ from db.session import get_session
 from services.agent_service import AgentService
 from services.auth_service import AuthService
 from services.chat_service import ChatService
+from services.llm_client import LLMClient
 from services.profile_service import ProfileService
 from services.transcribation_service import AudioService
 from services.orchestrator import VoiceGenerationOrchestrator
@@ -26,11 +26,11 @@ from tools.task_tools import TaskToolkit
 
 
 
-def get_llm(request: Request) -> GigaChat:
+def get_llm(request: Request) -> LLMClient:
     return request.app.state.llm
 
 
-LLMDep = Annotated[GigaChat, Depends(get_llm)]
+LLMDep = Annotated[LLMClient, Depends(get_llm)]
 
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]

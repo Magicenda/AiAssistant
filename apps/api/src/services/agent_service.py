@@ -1,10 +1,10 @@
 from datetime import datetime, timezone
 
-from gigachat import GigaChat
-
 from core.config import settings
 from db.models import Message
+from schemas.model_settings import ModelSettings
 from services.chat_service import ChatService
+from services.llm_client import LLMClient, build_llm_client
 from tools.base import ToolRegistry
 
 SYSTEM_PROMPT = (
@@ -22,7 +22,7 @@ def to_llm_message(m: Message) -> dict:
 class AgentService:
     def __init__(
         self,
-        llm: GigaChat,
+        llm: LLMClient,
         chat: ChatService,
         tools: ToolRegistry,
         temperature: float = 0.1,
@@ -32,7 +32,9 @@ class AgentService:
         self.tools = tools
         self.temperature = temperature
 
-    async def generate_response(self, chat_id: int, user_input: str) -> str:
+    async def generate_response(
+        self, chat_id: int, user_input: str, model_settings: ModelSettings | None = None
+    ) -> str:
         history = await self.chat.get_history(chat_id, limit=settings.history_limit)
         system = SYSTEM_PROMPT.format(now=datetime.now(timezone.utc).isoformat(timespec="minutes"))
 
@@ -42,19 +44,28 @@ class AgentService:
             {"role": "user", "content": [{"text": user_input}]},
         ]
 
-        answer = await self._run_agent_loop(messages)
+        # Для локальной модели клиент живёт только один запрос; GigaChat берём общий.
+        llm = self.llm
+        if model_settings is not None and model_settings.provider == "local":
+            llm = build_llm_client(model_settings)
+        temperature = model_settings.temperature if model_settings else self.temperature
 
-        
+        try:
+            answer = await self._run_agent_loop(messages, llm, temperature)
+        finally:
+            if llm is not self.llm:
+                await llm.aclose()
+
         await self.chat.add_message(chat_id, "user", user_input)
         await self.chat.add_message(chat_id, "assistant", answer)
         return answer
 
-    async def _run_agent_loop(self, messages: list[dict]) -> str:
+    async def _run_agent_loop(self, messages: list[dict], llm: LLMClient, temperature: float) -> str:
         print(self.tools.specs())
         for _ in range(settings.agent_max_steps):
-            response = await self.llm.achat.create({
+            response = await llm.create({
                 "messages": messages,
-                "model_options": {"temperature": self.temperature},
+                "model_options": {"temperature": temperature},
                 "tools": [{"functions": {"specifications": self.tools.specs()}}],
             })
             msg = response.messages[-1]

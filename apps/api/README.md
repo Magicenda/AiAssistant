@@ -49,14 +49,40 @@ apps/api/
 └── requirements.txt
 ```
 
+## LLM-провайдеры
+
+Поддерживаются два варианта, переключение — через `LLM_PROVIDER`:
+
+| `LLM_PROVIDER`      | Что использовать                  | Обязательные переменные                            |
+| ------------------- | --------------------------------- | -------------------------------------------------- |
+| `gigachat` (по умолчанию) | GigaChat API                | `GIGACHAT_CREDENTIALS`, `GIGACHAT_SCOPE`, `GIGACHAT_MODEL` |
+| `openai_compatible` | Ollama или LM Studio              | `LLM_BASE_URL`, `LLM_MODEL` (ключ обычно любой)    |
+
+Ollama и LM Studio отдают OpenAI-совместимый `/v1/chat/completions`:
+
+```dotenv
+LLM_PROVIDER=openai_compatible
+LLM_BASE_URL=http://localhost:11434/v1   # Ollama; LM Studio — http://localhost:1234/v1
+LLM_API_KEY=ollama                       # LM Studio — lm-studio
+LLM_MODEL=qwen2.5:7b
+```
+
+Инструменты (задачи, встречи) работают в обоих режимах, если выбранная модель
+умеет function calling.
+
 ## Переменные окружения
 
 | Переменная             | Назначение                                  |
 | ---------------------- | ------------------------------------------- |
+| `LLM_PROVIDER`         | `gigachat` или `openai_compatible`          |
 | `DATABASE_URL`         | строка подключения SQLAlchemy (async)       |
 | `GIGACHAT_CREDENTIALS` | ключ авторизации GigaChat                   |
 | `GIGACHAT_SCOPE`       | scope GigaChat                              |
 | `GIGACHAT_MODEL`       | модель GigaChat                             |
+| `LLM_BASE_URL`         | base URL Ollama/LM Studio, включает `/v1`   |
+| `LLM_API_KEY`          | ключ OpenAI-совместимого сервера            |
+| `LLM_MODEL`            | идентификатор модели Ollama/LM Studio       |
+| `LLM_TIMEOUT`          | таймаут запроса к LLM, по умолчанию 120 с   |
 | `JWT_SECRET`           | секрет подписи JWT, минимум 32 символа      |
 | `JWT_ALGORITHM`        | алгоритм JWT, по умолчанию `HS256`          |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | время жизни токена, по умолчанию 60   |
