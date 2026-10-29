@@ -1,8 +1,8 @@
 import { ApiError } from "@/shared/api/http";
 import { queryAssistant, type QueryResult } from "@/features/assistant";
+import type { ChatReply } from "@/entities/chat";
 
-import { appendMessage, readChats } from "./store";
-import { ensureRemoteChat, resetRemoteChat } from "./remote";
+import { appendChatMessage, refreshChat } from "./store";
 
 /** Живое состояние генерации ответа, наблюдаемое через подписку. */
 export interface ReplyState {
@@ -10,10 +10,23 @@ export interface ReplyState {
   status: "streaming" | "error";
   /** Накопленный текст ответа. */
   text: string;
+  /** Вопрос, который ещё не подтверждён сервером — для оптимистичного пузыря. */
+  query?: string;
+  /** Цитата, приложенная к вопросу. */
+  replyTo?: ChatReply;
+  /** Ответ перегенерируется, а не отправляется впервые. */
+  regenerate?: boolean;
   /** Сообщение об ошибке для показа в чате. */
   error?: string;
   /** Машинный код ошибки из `ApiError`. */
   code?: string;
+}
+
+interface ReplyOptions {
+  /** Цитата, на которую отвечает пользователь. */
+  replyTo?: ChatReply;
+  /** Перегенерировать последний ответ без повторного сохранения вопроса. */
+  regenerate?: boolean;
 }
 
 interface Job {
@@ -41,28 +54,6 @@ function drop(chatId: string, job: Job) {
   notify();
 }
 
-function lastUserText(chatId: string) {
-  const chat = readChats().find(item => item.id === chatId);
-  if (!chat) return "";
-  return (
-    [...chat.messages]
-      .reverse()
-      .find(message => message.role === "user" && message.text.trim())
-      ?.text.trim() ?? ""
-  );
-}
-
-function savePartial(chatId: string, job: Job) {
-  const text = job.state.text.trim();
-  if (!text) return;
-  appendMessage(chatId, {
-    id: crypto.randomUUID(),
-    role: "assistant",
-    text,
-    createdAt: Date.now(),
-  });
-}
-
 function networkMessage(error: unknown) {
   if (error instanceof ApiError) return error.message;
   if (error instanceof TypeError) {
@@ -83,29 +74,42 @@ export function getReply(chatId: string): ReplyState | null {
   return jobs.get(chatId)?.state ?? null;
 }
 
-/** Отправляет последнее сообщение пользователя на backend и стримит ответ. */
-export function requestReply(chatId: string) {
+/**
+ * Отправляет вопрос на backend и стримит ответ.
+ *
+ * @param chatId - id чата на backend.
+ * @param query - текст вопроса; при `regenerate` backend берёт его из истории.
+ * @param options - цитата и режим перегенерации.
+ */
+export function requestReply(chatId: string, query: string, options: ReplyOptions = {}) {
   const previous = jobs.get(chatId);
   if (previous) {
     previous.controller.abort();
     jobs.delete(chatId);
   }
 
-  const query = lastUserText(chatId);
+  const trimmed = query.trim();
   const job: Job = {
     controller: new AbortController(),
-    state: { status: "streaming", text: "" },
+    state: {
+      status: "streaming",
+      text: "",
+      // При перегенерации вопрос уже в истории — второй пузырь не нужен.
+      query: options.regenerate ? undefined : trimmed,
+      replyTo: options.replyTo,
+      regenerate: options.regenerate,
+    },
     keepPartial: false,
   };
   jobs.set(chatId, job);
   notify();
 
-  if (!query) {
+  if (!trimmed) {
     update(chatId, job, {
+      ...job.state,
       status: "error",
-      text: "",
-      error: "В чате нет сообщения пользователя для отправки.",
-      code: "empty_chat",
+      error: "Введите текст вопроса.",
+      code: "empty_query",
     });
     return;
   }
@@ -118,50 +122,64 @@ export function requestReply(chatId: string) {
 
   void (async () => {
     try {
-      let remoteId = await ensureRemoteChat(chatId);
-      let result: QueryResult;
-      try {
-        result = await queryAssistant(remoteId, query, { signal, onDelta });
-      } catch (error) {
-        if (!(error instanceof ApiError) || error.status !== 404) throw error;
-        await resetRemoteChat(chatId);
-        remoteId = await ensureRemoteChat(chatId);
-        update(chatId, job, { status: "streaming", text: "" });
-        result = await queryAssistant(remoteId, query, { signal, onDelta });
-      }
+      const result: QueryResult = await queryAssistant(Number(chatId), trimmed, {
+        signal,
+        onDelta,
+        replyTo: options.replyTo,
+        regenerate: options.regenerate,
+      });
 
       if (jobs.get(chatId) !== job) return;
       const text = result.answer.trim() || job.state.text.trim();
       if (!text) {
         update(chatId, job, {
+          ...job.state,
           status: "error",
-          text: "",
           error: "Сервер вернул пустой ответ. Попробуйте ещё раз.",
           code: "empty_response",
         });
         return;
       }
+
+      // Ответ уже сохранён backend'ом вместе с вопросом — перечитываем чат.
+      try {
+        await refreshChat(chatId);
+      } catch (error) {
+        update(chatId, job, {
+          ...job.state,
+          status: "error",
+          text,
+          error: networkMessage(error),
+          code: error instanceof ApiError ? error.code : "refresh_error",
+        });
+        return;
+      }
       drop(chatId, job);
-      appendMessage(chatId, {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        text,
-        createdAt: Date.now(),
-      });
     } catch (error) {
       if (jobs.get(chatId) !== job) return;
       const aborted = error instanceof DOMException && error.name === "AbortError";
       if (aborted) {
-        if (job.keepPartial) savePartial(chatId, job);
+        if (job.keepPartial) {
+          const text = job.state.text.trim();
+          if (text) {
+            void appendChatMessage(chatId, "assistant", text)
+              .catch(() => undefined)
+              .finally(() => drop(chatId, job));
+            return;
+          }
+        }
         drop(chatId, job);
         return;
       }
       update(chatId, job, {
+        ...job.state,
         status: "error",
         text: job.state.text,
         error: networkMessage(error),
         code: error instanceof ApiError ? error.code : "network_error",
       });
+      // При перегенерации backend мог успеть удалить прошлый ответ — синхронизируем.
+      void refreshChat(chatId).catch(() => undefined);
     }
   })();
 }

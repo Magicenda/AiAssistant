@@ -6,6 +6,7 @@ export type {
   ChatMessageDto,
   ChatMessageRole,
   ChatReply,
+  ChatReplyDto,
   ChatRole,
   LlmAnswer,
 } from "./model/types";

@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  chatDtoToDomain,
-  isChatDto,
-  isChatList,
-  isChatMessageDto,
-  isLlmAnswer,
-} from "./dto";
+import { chatDtoToDomain, isChatDto, isChatList, isChatMessageDto, isLlmAnswer } from "./dto";
 
 const message = {
   id: 10,
@@ -58,10 +52,46 @@ describe("chatDtoToDomain", () => {
     expect(domain).toEqual({
       id: "3",
       title: "Рабочие дела",
+      pinned: false,
+      updatedAt: Date.parse("2026-10-29T16:05:30+00:00"),
       messages: [
-        { id: "10", text: "Привет", role: "user" },
-        { id: "11", text: "tool out", role: "assistant" },
+        {
+          id: "10",
+          text: "Привет",
+          role: "user",
+          createdAt: Date.parse("2026-10-29T16:05:29+00:00"),
+        },
+        {
+          id: "11",
+          text: "tool out",
+          role: "assistant",
+          createdAt: Date.parse("2026-10-29T16:05:30+00:00"),
+        },
       ],
+    });
+  });
+
+  it("maps pinning and reply quotes", () => {
+    const domain = chatDtoToDomain({
+      chat_id: 4,
+      name_chat: "Закреплённый",
+      pinned: true,
+      messages: [
+        {
+          id: 12,
+          role: "user",
+          content: "Продолжи",
+          created_at: "2026-10-29T16:05:29+00:00",
+          reply_to: { id: "10", role: "assistant", text: "Прошлый ответ" },
+        },
+      ],
+    });
+
+    expect(domain.pinned).toBe(true);
+    expect(domain.messages[0].replyTo).toEqual({
+      id: "10",
+      role: "assistant",
+      text: "Прошлый ответ",
     });
   });
 });

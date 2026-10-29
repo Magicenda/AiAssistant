@@ -36,7 +36,19 @@ import { PixelMic } from "@/shared/ui/pixel-mic";
 import { cn } from "@/shared/lib/cn";
 import { formatDuration } from "@/shared/lib/format-duration";
 import { useAudioRecording } from "../model/use-audio-recording";
-import { readChats, removeChat, removeMessage, saveChat, updateChat } from "../model/store";
+import {
+  clearChatMessages,
+  createChat,
+  deleteChat,
+  deleteChatMessage,
+  isChatsLoaded,
+  loadChats,
+  readChats,
+  renameChat,
+  setChatPinned,
+  subscribeChats,
+} from "../model/store";
+import { queueAudio } from "../model/audio";
 import { readDraft, removeDraft, writeDraft } from "../model/drafts";
 import { downloadChat } from "../model/export-chat";
 import {
@@ -50,12 +62,12 @@ import { buildMessageItems } from "../model/chat-view";
 import { plainText } from "../model/plain-text";
 import { MessageBubble, TypingBubble } from "./message-bubble";
 import { ChatList } from "./chat-list";
-import { ensureRemoteChat, removeRemoteChat, resetRemoteChat } from "../model/remote";
 import { transcribeVoice } from "@/features/assistant";
 import type { Chat, ChatMessage } from "@/entities/chat";
 
 const maxLength = 4000;
 const maxComposerHeight = 176;
+const emptyChats: Chat[] = [];
 
 /** Первая непустая строка сообщения, обрезанная до заголовка чата. */
 function titleFrom(value: string) {
@@ -125,8 +137,9 @@ interface ConversationProps {
  */
 export function Conversation({ sessionId }: ConversationProps) {
   const router = useRouter();
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  const chats = useSyncExternalStore(subscribeChats, readChats, () => emptyChats);
+  const hydrated = isChatsLoaded();
+  const [sending, setSending] = useState(false);
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -138,6 +151,7 @@ export function Conversation({ sessionId }: ConversationProps) {
   const [confirmAction, setConfirmAction] = useState<"clear" | "delete" | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const audio = useAudioRecording();
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -153,17 +167,9 @@ export function Conversation({ sessionId }: ConversationProps) {
   const replyPending = reply?.status === "streaming";
 
   useEffect(() => {
-    const sync = () => {
-      setChats(readChats());
-      setHydrated(true);
-    };
-    sync();
-    window.addEventListener("chats-change", sync);
-    window.addEventListener("storage", sync);
-    return () => {
-      window.removeEventListener("chats-change", sync);
-      window.removeEventListener("storage", sync);
-    };
+    void loadChats().catch(cause => {
+      setError(cause instanceof Error ? cause.message : "Не удалось загрузить чаты.");
+    });
   }, []);
 
   useEffect(() => {
@@ -182,8 +188,14 @@ export function Conversation({ sessionId }: ConversationProps) {
 
   const chat = sessionId ? (chats.find(item => item.id === sessionId) ?? null) : null;
   const messages = chat?.messages ?? [];
-  const items = buildMessageItems(messages);
+  // Пока backend перегенерирует ответ, старый прячем, чтобы не было двух ответов.
+  const visibleMessages =
+    regeneratingId && replyPending
+      ? messages.filter(message => message.id !== regeneratingId)
+      : messages;
+  const items = buildMessageItems(visibleMessages);
   const hasMessages = messages.length > 0;
+  const lastUserText = [...messages].reverse().find(message => message.role === "user")?.text ?? "";
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -214,85 +226,74 @@ export function Conversation({ sessionId }: ConversationProps) {
     setConfirmAction(null);
   }
 
-  /** Сохраняет исходящее сообщение; возвращает id чата или null при ошибке. */
-  function saveOutgoing(message: ChatMessage, title: string, targetId?: string) {
-    const chatId = targetId ?? sessionId ?? crypto.randomUUID();
-    const existing = readChats().find(item => item.id === chatId) ?? null;
-    try {
-      const base: Chat = existing ?? { id: chatId, title, messages: [] };
-      saveChat({
-        ...base,
-        title: base.title || title,
-        messages: [...base.messages, message],
-      });
-    } catch {
-      setError("Не удалось сохранить сообщение. Хранилище браузера недоступно.");
-      return null;
-    }
-    setError("");
-    setAtBottom(true);
-    setReplyTo(null);
-    if (chatId !== sessionId) router.push(`/chat/${chatId}`);
-    return chatId;
-  }
-
-  /** Валидирует текст, сохраняет сообщение и запускает ответ ассистента. */
-  function sendText(raw: string) {
+  /** Валидирует текст, создаёт чат при необходимости и запускает ответ. */
+  async function sendText(raw: string) {
     const value = raw.trim();
-    if (!value || replyPending) return;
-    const message: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      text: value,
-      createdAt: Date.now(),
-      replyTo: replyTo
-        ? { id: replyTo.id, role: replyTo.role, text: replySnippet(replyTo.text) }
-        : undefined,
-    };
-    const chatId = saveOutgoing(message, titleFrom(value));
-    if (!chatId) return;
-    setText("");
-    writeDraft(draftId, "");
-    textareaRef.current?.focus();
-    requestReply(chatId);
+    if (!value || replyPending || sending) return;
+    const snapshot = replyTo
+      ? { id: replyTo.id, role: replyTo.role, text: replySnippet(replyTo.text) }
+      : undefined;
+    setSending(true);
+    try {
+      let chatId = sessionId;
+      if (!chatId) chatId = (await createChat(titleFrom(value))).id;
+      setRegeneratingId(null);
+      setText("");
+      writeDraft(draftId, "");
+      setReplyTo(null);
+      setAtBottom(true);
+      setError("");
+      requestReply(chatId, value, { replyTo: snapshot });
+      if (chatId !== sessionId) router.push(`/chat/${chatId}`);
+      textareaRef.current?.focus();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Не удалось создать чат.");
+    } finally {
+      setSending(false);
+    }
   }
 
-  /** Удаляет сообщение локально и отменяет идущую генерацию. */
-  function deleteMessage(message: ChatMessage) {
+  /** Удаляет сообщение на backend и отменяет идущую генерацию. */
+  async function deleteMessage(message: ChatMessage) {
     if (!sessionId) return;
     cancelReplies(sessionId);
-    removeMessage(sessionId, message.id);
     if (replyTo?.id === message.id) setReplyTo(null);
+    try {
+      await deleteChatMessage(sessionId, message.id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Не удалось удалить сообщение.");
+    }
   }
 
-  /** Удаляет ответ ассистента и генерирует его заново по последнему сообщению. */
+  /** Просит backend заменить последний ответ новым. */
   function regenerateMessage(message: ChatMessage) {
-    if (!sessionId) return;
-    const latest = readChats().find(item => item.id === sessionId);
-    if (!latest) return;
-    const index = latest.messages.findIndex(item => item.id === message.id);
-    if (index < 0) return;
+    if (!sessionId || !lastUserText.trim()) return;
     cancelReplies(sessionId);
-    removeMessage(sessionId, message.id);
-    requestReply(sessionId);
+    setRegeneratingId(message.id);
+    requestReply(sessionId, lastUserText, { regenerate: true });
   }
 
-  /** Удаляет чат локально, его черновик и копию на backend. */
-  function deleteChatById(id: string) {
+  /** Удаляет чат на backend и его локальный черновик. */
+  async function deleteChatById(id: string) {
     cancelReplies(id);
-    removeRemoteChat(id);
-    removeChat(id);
+    try {
+      await deleteChat(id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Не удалось удалить чат.");
+    }
     removeDraft(id);
     if (id === sessionId) router.push("/chat");
   }
 
   function togglePin(target: Chat) {
-    updateChat(target.id, { pinned: !target.pinned }, { touch: false });
+    void setChatPinned(target.id, !target.pinned).catch(cause =>
+      setError(cause instanceof Error ? cause.message : "Не удалось закрепить чат."),
+    );
   }
 
   function handlePin() {
     if (!chat) return;
-    updateChat(chat.id, { pinned: !chat.pinned }, { touch: false });
+    togglePin(chat);
     closeMenu();
   }
 
@@ -306,8 +307,11 @@ export function Conversation({ sessionId }: ConversationProps) {
   function commitRename() {
     if (!sessionId) return;
     const value = renameValue.trim();
-    if (value) updateChat(sessionId, { title: value }, { touch: false });
     setRenaming(false);
+    if (!value || value === chat?.title) return;
+    void renameChat(sessionId, value).catch(cause =>
+      setError(cause instanceof Error ? cause.message : "Не удалось переименовать чат."),
+    );
   }
 
   function handleExport() {
@@ -317,20 +321,23 @@ export function Conversation({ sessionId }: ConversationProps) {
   }
 
   /** Двухшаговое подтверждение: первое нажатие просит подтвердить, второе очищает историю. */
-  function handleClear() {
+  async function handleClear() {
     if (!sessionId) return;
     if (confirmAction !== "clear") {
       setConfirmAction("clear");
       return;
     }
-    void resetRemoteChat(sessionId);
-    updateChat(sessionId, { messages: [], title: "", remoteId: undefined });
-    writeDraft(draftId, "");
+    cancelReplies(sessionId);
+    closeMenu();
     setReplyTo(null);
     setText("");
     setNotice("");
-    cancelReplies(sessionId);
-    closeMenu();
+    writeDraft(draftId, "");
+    try {
+      await clearChatMessages(sessionId);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Не удалось очистить историю.");
+    }
   }
 
   /** Двухшаговое подтверждение: первое нажатие просит подтвердить, второе удаляет чат. */
@@ -341,12 +348,12 @@ export function Conversation({ sessionId }: ConversationProps) {
       return;
     }
     closeMenu();
-    deleteChatById(sessionId);
+    void deleteChatById(sessionId);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    sendText(text);
+    void sendText(text);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -360,25 +367,37 @@ export function Conversation({ sessionId }: ConversationProps) {
     const clip = await audio.stop();
     if (!clip) return;
 
-    const targetId = sessionId ?? crypto.randomUUID();
     const replySnapshot = replyTo;
-    const existing = readChats().find(item => item.id === targetId);
-    if (!existing) {
-      try {
-        saveChat({ id: targetId, title: "", messages: [] });
-      } catch {
-        setError("Не удалось создать чат. Хранилище браузера недоступно.");
-        return;
-      }
-    }
-
     setNotice("");
     setTranscribing(true);
-    let transcript = "";
+
+    let chatId = sessionId;
+    let createdId: string | null = null;
     try {
-      const remoteId = await ensureRemoteChat(targetId);
+      if (!chatId) {
+        const created = await createChat("Голос");
+        chatId = created.id;
+        createdId = created.id;
+        router.push(`/chat/${chatId}`);
+      }
       const blob = await (await fetch(clip.dataUrl)).blob();
-      transcript = await transcribeVoice(remoteId, blob);
+      const transcript = (await transcribeVoice(Number(chatId), blob)).trim();
+      if (!transcript) {
+        if (createdId) await deleteChat(createdId);
+        setNotice("Речь не распознана. Попробуйте записать ещё раз.");
+        return;
+      }
+      if (createdId) void renameChat(chatId, titleFrom(transcript)).catch(() => undefined);
+      queueAudio(chatId, transcript, clip);
+      requestReply(chatId, transcript, {
+        replyTo: replySnapshot
+          ? {
+              id: replySnapshot.id,
+              role: replySnapshot.role,
+              text: replySnippet(replySnapshot.text),
+            }
+          : undefined,
+      });
     } catch (cause) {
       setNotice(
         cause instanceof Error
@@ -388,23 +407,6 @@ export function Conversation({ sessionId }: ConversationProps) {
     } finally {
       setTranscribing(false);
     }
-
-    const message: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      text: transcript,
-      createdAt: Date.now(),
-      replyTo: replySnapshot
-        ? {
-            id: replySnapshot.id,
-            role: replySnapshot.role,
-            text: replySnippet(replySnapshot.text),
-          }
-        : undefined,
-      audio: clip,
-    };
-    const chatId = saveOutgoing(message, transcript ? titleFrom(transcript) : "Голос", targetId);
-    if (chatId && transcript) requestReply(chatId);
   }
 
   function newChat() {
@@ -520,7 +522,7 @@ export function Conversation({ sessionId }: ConversationProps) {
               currentId={sessionId}
               onNew={newChat}
               onClose={() => setHistoryOpen(false)}
-              onDelete={target => deleteChatById(target.id)}
+              onDelete={target => void deleteChatById(target.id)}
               onTogglePin={togglePin}
             />
           )}
@@ -531,9 +533,29 @@ export function Conversation({ sessionId }: ConversationProps) {
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex h-full flex-col overflow-y-auto overscroll-contain pr-1 pb-4"
+          className="pixel-scrollbar flex h-full flex-col overflow-y-auto overscroll-contain pr-1 pb-4"
         >
-          {hydrated && !hasMessages && (
+          {!hydrated && (
+            <p className="text-muted-foreground p-8 text-center font-mono text-xs">
+              Загрузка чатов…
+            </p>
+          )}
+          {hydrated && sessionId && !chat && (
+            <div className="flex flex-1 flex-col items-center justify-center text-center">
+              <Logo className="text-muted-foreground mb-6 size-12" />
+              <h2 className="font-pixel text-foreground text-2xl">Чат не найден</h2>
+              <p className="text-muted-foreground mt-3 max-w-sm font-mono text-xs tracking-wider uppercase">
+                Возможно, он удалён. Создайте новый диалог.
+              </p>
+              <Button asChild size="sm" className="mt-4">
+                <Link href="/chat">
+                  <Plus className="size-4" />
+                  Новый чат
+                </Link>
+              </Button>
+            </div>
+          )}
+          {hydrated && !hasMessages && (!sessionId || chat) && (
             <div className="flex flex-1 flex-col items-center justify-center text-center">
               <Logo className="text-primary mb-6 size-12" />
               <h2 className="font-pixel text-foreground text-2xl">Чем помочь?</h2>
@@ -560,6 +582,18 @@ export function Conversation({ sessionId }: ConversationProps) {
               />
             </Fragment>
           ))}
+          {/* Вопрос до подтверждения сервером: backend сохранит его вместе с ответом. */}
+          {reply?.query && (
+            <MessageBubble
+              message={{
+                id: "live-query",
+                role: "user",
+                text: reply.query,
+                replyTo: reply.replyTo,
+              }}
+              lastInGroup
+            />
+          )}
           {/* Живой ответ стримится в ленту поверх истории; в чат он попадёт только после завершения. */}
           {reply?.status === "streaming" &&
             (reply.text ? (
@@ -588,7 +622,16 @@ export function Conversation({ sessionId }: ConversationProps) {
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   {sessionId && (
-                    <Button size="sm" variant="outline" onClick={() => requestReply(sessionId)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        requestReply(sessionId, reply.query ?? lastUserText, {
+                          replyTo: reply.replyTo,
+                          regenerate: reply.regenerate,
+                        })
+                      }
+                    >
                       Повторить
                     </Button>
                   )}
@@ -732,7 +775,7 @@ export function Conversation({ sessionId }: ConversationProps) {
                     size="icon"
                     variant="ghost"
                     aria-label="Записать голосовое сообщение"
-                    disabled={replyPending}
+                    disabled={replyPending || sending}
                     onClick={() => void audio.start()}
                   >
                     <PixelMic className="size-5" />
@@ -754,7 +797,7 @@ export function Conversation({ sessionId }: ConversationProps) {
                       type="submit"
                       size="icon"
                       aria-label="Отправить"
-                      disabled={!text.trim()}
+                      disabled={!text.trim() || sending}
                     >
                       <ArrowUp className="size-5" />
                     </Button>

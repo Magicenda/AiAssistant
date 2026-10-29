@@ -39,23 +39,31 @@ export interface Chat {
   pinned?: boolean;
   /** Unix-время последней активности в миллисекундах. */
   updatedAt?: number;
-  /** id чата на backend; создаётся при первом запросе к серверу. */
-  remoteId?: number;
 }
 
 export type ChatMessageRole = "user" | "assistant" | "system" | "tool";
+
+export interface ChatReplyDto {
+  /** id исходного сообщения; у старых записей может отсутствовать. */
+  id?: string | null;
+  role: ChatMessageRole;
+  /** Превью текста на момент ответа. */
+  text: string;
+}
 
 export interface ChatMessageDto {
   id: number;
   role: ChatMessageRole;
   content: string;
   created_at: string;
+  reply_to?: ChatReplyDto | null;
 }
 
 export interface ChatDto {
   chat_id: number;
   name_chat: string;
   messages: ChatMessageDto[];
+  pinned?: boolean;
 }
 
 export interface LlmAnswer {

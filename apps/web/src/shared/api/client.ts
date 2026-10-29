@@ -3,7 +3,7 @@ import { ApiError, readError } from "./errors";
 import { logError, logRequest } from "./log";
 import { getAccessToken, notifyUnauthorized } from "./token";
 
-type Method = "GET" | "POST" | "DELETE";
+type Method = "GET" | "POST" | "PATCH" | "DELETE";
 type ParseMode = "json" | "blob" | "text" | "none";
 
 export interface ApiRequestOptions {
@@ -17,10 +17,7 @@ export interface ApiRequestOptions {
   signal?: AbortSignal;
 }
 
-export async function apiRequest(
-  path: string,
-  options: ApiRequestOptions = {},
-): Promise<unknown> {
+export async function apiRequest(path: string, options: ApiRequestOptions = {}): Promise<unknown> {
   const {
     method = "GET",
     body,
@@ -92,19 +89,13 @@ export async function apiRequest(
   }
 }
 
-export async function apiBlob(
-  path: string,
-  options: ApiRequestOptions = {},
-): Promise<Blob> {
+export async function apiBlob(path: string, options: ApiRequestOptions = {}): Promise<Blob> {
   const data: unknown = await apiRequest(path, { ...options, parse: "blob" });
   if (data instanceof Blob) return data;
   throw new ApiError(0, "Некорректный ответ сервера");
 }
 
-export function parseData<T>(
-  data: unknown,
-  guard: (value: unknown) => value is T,
-): T {
+export function parseData<T>(data: unknown, guard: (value: unknown) => value is T): T {
   if (!guard(data)) throw new ApiError(0, "Некорректный ответ сервера");
   return data;
 }

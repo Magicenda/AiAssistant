@@ -254,7 +254,7 @@ export function ChatList({
         )}
       </div>
 
-      <div className="max-h-[60vh] overflow-y-auto overscroll-contain p-1">
+      <div className="pixel-scrollbar max-h-[60vh] overflow-y-auto overscroll-contain p-1">
         {!chats.length && (
           <p className="text-muted-foreground px-3 py-8 text-center font-mono text-xs">
             Пока нет диалогов

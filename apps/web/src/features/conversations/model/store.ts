@@ -1,120 +1,125 @@
-import type { Chat, ChatAudio, ChatMessage, ChatReply, ChatRole } from "@/entities/chat";
+import { chatDtoToDomain, type Chat } from "@/entities/chat";
+import {
+  addRemoteMessage,
+  clearRemoteChat,
+  createRemoteChat,
+  deleteRemoteChat,
+  deleteRemoteMessage,
+  getAllChats,
+  getChat,
+  updateRemoteChat,
+} from "@/features/assistant";
+import { attachAudio, removeAudio, saveMessageAudio, takeQueuedAudio } from "./audio";
 
-const key = "assistant-chats-v1";
+// Чаты и сообщения — на backend. В памяти держим кэш для синхронного рендера,
+// а localStorage используем только для черновиков и голосовых вложений.
+const event = "chats-change";
+const empty: Chat[] = [];
 
-function toRole(value: unknown): ChatRole {
-  return value === "assistant" ? "assistant" : "user";
+let cache: Chat[] = empty;
+let loaded = false;
+
+function emit() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(event));
 }
 
-function toAudio(value: unknown): ChatAudio | undefined {
-  if (!value || typeof value !== "object") return undefined;
-  const item = value as Record<string, unknown>;
-  if (
-    typeof item.dataUrl !== "string" ||
-    typeof item.type !== "string" ||
-    typeof item.duration !== "number"
-  )
-    return undefined;
-  return { dataUrl: item.dataUrl, type: item.type, duration: item.duration };
+function put(chat: Chat) {
+  cache = [chat, ...cache.filter(item => item.id !== chat.id)];
+  emit();
 }
 
-function toReply(value: unknown): ChatReply | undefined {
-  if (!value || typeof value !== "object") return undefined;
-  const item = value as Record<string, unknown>;
-  if (typeof item.id !== "string" || typeof item.text !== "string") return undefined;
-  return { id: item.id, role: toRole(item.role), text: item.text };
+/** Подписка на изменения кэша чатов; возвращает функцию отписки. */
+export function subscribeChats(listener: () => void) {
+  window.addEventListener(event, listener);
+  return () => window.removeEventListener(event, listener);
 }
 
-function toMessage(value: unknown): ChatMessage | null {
-  if (typeof value === "string") return { id: crypto.randomUUID(), text: value, role: "user" };
-  if (!value || typeof value !== "object") return null;
-  const item = value as Partial<ChatMessage>;
-  if (typeof item.id !== "string" || typeof item.text !== "string") return null;
-  return {
-    id: item.id,
-    text: item.text,
-    role: toRole(item.role),
-    createdAt: typeof item.createdAt === "number" ? item.createdAt : undefined,
-    replyTo: toReply(item.replyTo),
-    audio: toAudio(item.audio),
-  };
-}
-
+/** Текущий кэш чатов; на сервере всегда пустой. */
 export function readChats(): Chat[] {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(key) ?? "[]");
-    if (!Array.isArray(value)) return [];
-    return value.flatMap(item => {
-      if (!item || typeof item !== "object") return [];
-      const chat = item as Partial<Chat>;
-      if (
-        typeof chat.id !== "string" ||
-        typeof chat.title !== "string" ||
-        !Array.isArray(chat.messages)
-      )
-        return [];
-      const messages = chat.messages
-        .map(toMessage)
-        .filter((message): message is ChatMessage => message !== null);
-      return [
-        {
-          id: chat.id,
-          title: chat.title,
-          messages,
-          pinned: chat.pinned === true,
-          remoteId: typeof chat.remoteId === "number" ? chat.remoteId : undefined,
-          updatedAt:
-            typeof chat.updatedAt === "number" ? chat.updatedAt : (messages.at(-1)?.createdAt ?? 0),
-        },
-      ];
-    });
-  } catch {
-    return [];
+  return cache;
+}
+
+/** Загружены ли чаты с backend хотя бы раз. */
+export function isChatsLoaded() {
+  return loaded;
+}
+
+/** Чат из кэша по id. */
+export function findChat(chatId: string) {
+  return cache.find(item => item.id === chatId) ?? null;
+}
+
+/** Загружает все чаты с backend и заменяет кэш. */
+export async function loadChats(): Promise<Chat[]> {
+  const dtos = await getAllChats();
+  cache = dtos.map(chatDtoToDomain).map(attachAudio);
+  loaded = true;
+  emit();
+  return cache;
+}
+
+/** Создаёт чат на backend и сразу кладёт его в кэш. */
+export async function createChat(title: string): Promise<Chat> {
+  const name = title.trim() || "Новый чат";
+  const id = await createRemoteChat(name);
+  const chat: Chat = { id: String(id), title: name, messages: [], updatedAt: 0 };
+  put(chat);
+  return chat;
+}
+
+/** Переименовывает чат. */
+export async function renameChat(chatId: string, title: string) {
+  put(chatDtoToDomain(await updateRemoteChat(Number(chatId), { name_chat: title })));
+}
+
+/** Закрепляет или открепляет чат. */
+export async function setChatPinned(chatId: string, pinned: boolean) {
+  put(chatDtoToDomain(await updateRemoteChat(Number(chatId), { pinned })));
+}
+
+/** Удаляет чат вместе с историей. */
+export async function deleteChat(chatId: string) {
+  await deleteRemoteChat(Number(chatId));
+  removeAudio(chatId);
+  cache = cache.filter(item => item.id !== chatId);
+  emit();
+}
+
+/** Удаляет одно сообщение. */
+export async function deleteChatMessage(chatId: string, messageId: string) {
+  const chat = chatDtoToDomain(await deleteRemoteMessage(Number(chatId), Number(messageId)));
+  removeAudio(chatId, messageId);
+  put(chat);
+}
+
+/** Очищает историю чата, оставляя сам чат. */
+export async function clearChatMessages(chatId: string) {
+  const chat = chatDtoToDomain(await clearRemoteChat(Number(chatId)));
+  removeAudio(chatId);
+  put(chat);
+}
+
+/** Перечитывает один чат с backend (после ответа ассистента). */
+export async function refreshChat(chatId: string): Promise<Chat | null> {
+  const chat = chatDtoToDomain(await getChat(Number(chatId)));
+  // Голосовое пришло раньше сообщения: привязываем его к последнему вопросу.
+  const lastUser = [...chat.messages].reverse().find(message => message.role === "user");
+  if (lastUser) {
+    const audio = takeQueuedAudio(chatId, lastUser.text);
+    if (audio) saveMessageAudio(chatId, lastUser.id, audio);
   }
+  const withAudio = attachAudio(chat);
+  put(withAudio);
+  return withAudio;
 }
 
-export function writeChats(chats: Chat[]) {
-  localStorage.setItem(key, JSON.stringify(chats));
-  window.dispatchEvent(new Event("chats-change"));
-}
-
-interface SaveOptions {
-  /** Обновлять ли дату активности. Для переименования и закрепления — false. */
-  touch?: boolean;
-}
-
-/** Сохраняет чат и поднимает его в начало списка (последний активный — сверху). */
-export function saveChat(next: Chat, options: SaveOptions = {}): Chat {
-  const stamped = options.touch === false ? next : { ...next, updatedAt: Date.now() };
-  writeChats([stamped, ...readChats().filter(chat => chat.id !== stamped.id)]);
-  return stamped;
-}
-
-export function updateChat(
+/** Сохраняет сообщение вручную — для частичного ответа после остановки. */
+export async function appendChatMessage(
   chatId: string,
-  patch: Partial<Omit<Chat, "id">>,
-  options: SaveOptions = {},
-): Chat | null {
-  const chat = readChats().find(item => item.id === chatId);
-  if (!chat) return null;
-  return saveChat({ ...chat, ...patch }, options);
-}
-
-export function removeChat(chatId: string) {
-  writeChats(readChats().filter(chat => chat.id !== chatId));
-}
-
-export function removeMessage(chatId: string, messageId: string): Chat | null {
-  const chat = readChats().find(item => item.id === chatId);
-  if (!chat) return null;
-  return saveChat({
-    ...chat,
-    messages: chat.messages.filter(message => message.id !== messageId),
-  });
-}
-
-export function appendMessage(chatId: string, message: ChatMessage): Chat | null {
-  const chat = readChats().find(item => item.id === chatId);
-  if (!chat) return null;
-  return saveChat({ ...chat, messages: [...chat.messages, message] });
+  role: "user" | "assistant",
+  text: string,
+): Promise<Chat> {
+  const chat = attachAudio(chatDtoToDomain(await addRemoteMessage(Number(chatId), role, text)));
+  put(chat);
+  return chat;
 }
