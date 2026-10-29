@@ -42,3 +42,22 @@ export interface Chat {
   /** id чата на backend; создаётся при первом запросе к серверу. */
   remoteId?: number;
 }
+
+export type ChatMessageRole = "user" | "assistant" | "system" | "tool";
+
+export interface ChatMessageDto {
+  id: number;
+  role: ChatMessageRole;
+  content: string;
+  created_at: string;
+}
+
+export interface ChatDto {
+  chat_id: number;
+  name_chat: string;
+  messages: ChatMessageDto[];
+}
+
+export interface LlmAnswer {
+  answer: string;
+}
