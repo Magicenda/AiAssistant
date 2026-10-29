@@ -9,6 +9,7 @@ AiAssistant/
 ├── apps/
 │   ├── api/   # FastAPI backend
 │   └── web/   # Next.js frontend
+├── docker-compose.yml   # PostgreSQL для локальной разработки
 ├── API.md     # контракт backend API
 └── package.json   # скрипты монорепы
 ```
@@ -23,7 +24,7 @@ backend — uv, frontend — Bun.
 
 ```bash
 cd apps/api
-cp .env.example .env        # заполните DATABASE_URL и GIGACHAT_*
+cp .env.example .env        # заполните JWT_SECRET и GIGACHAT_*
 uv sync
 uv run uvicorn app:app --app-dir src --reload
 ```
@@ -31,12 +32,32 @@ uv run uvicorn app:app --app-dir src --reload
 Из корня монорепы:
 
 ```bash
+bun run db:up      # PostgreSQL в Docker (localhost:5434)
 bun run sync:api   # установка зависимостей
 bun run dev:api    # dev-сервер с автоперезагрузкой
 ```
 
 Запускать нужно из `apps/api`: так `src/` попадает в `sys.path` (импорты без
 префикса `src.`), а папка `storage/` создаётся рядом с приложением.
+
+### База данных
+
+PostgreSQL поднимается из [`docker-compose.yml`](docker-compose.yml) на
+`localhost:5434` (порт снаружи, чтобы не конфликтовать с другими проектами):
+
+```bash
+bun run db:up     # запустить
+bun run db:logs   # логи
+bun run db:down   # остановить
+```
+
+Параметры по умолчанию: пользователь `postgres`, пароль `postgres`, база
+`ai_assistant`. Строка подключения уже прописана в `.env.example`. Подключиться
+клиентом:
+
+```bash
+psql -h localhost -p 5434 -U postgres -d ai_assistant
+```
 
 Провайдер LLM задаётся переменной `LLM_PROVIDER`: `gigachat` (по умолчанию)
 или `openai_compatible` для Ollama / LM Studio. Подробности — в
@@ -180,6 +201,9 @@ Backend должен разрешать origin фронтенда (`http://local
 | `bun run sync:api`   | установка зависимостей backend         |
 | `bun run dev:api`    | backend dev-сервер с автоперезагрузкой |
 | `bun run start:api`  | backend без автоперезагрузки           |
+| `bun run db:up`      | PostgreSQL в Docker (localhost:5434)   |
+| `bun run db:down`    | остановить контейнер с БД              |
+| `bun run db:logs`    | логи PostgreSQL                        |
 
 Перед коммитом: `bun run format:web`, затем `bun run typecheck:web` и
 `bun run lint:web` — типы и линтер должны проходить чисто, проверка

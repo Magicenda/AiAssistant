@@ -17,6 +17,9 @@
     "test:web": "bun run --cwd apps/web test",
     "sync:api": "uv sync --directory apps/api",
     "dev:api": "uv run --directory apps/api uvicorn app:app --app-dir src --reload",
-    "start:api": "uv run --directory apps/api uvicorn app:app --app-dir src"
+    "start:api": "uv run --directory apps/api uvicorn app:app --app-dir src",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres"
   }
 }

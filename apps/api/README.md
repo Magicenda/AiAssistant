@@ -16,18 +16,46 @@ uv sync
 uv run uvicorn app:app --app-dir src --reload
 ```
 
-`DATABASE_URL` в примере уже указывает на локальный SQLite; для production
-замените на `postgresql+asyncpg://...`. `JWT_SECRET` обязателен и должен быть
-не короче 32 символов (`openssl rand -hex 32`).
+`JWT_SECRET` обязателен и должен быть не короче 32 символов
+(`openssl rand -hex 32`).
 
 Из корня монорепы:
 
 ```bash
+bun run db:up      # PostgreSQL в Docker
 bun run dev:api
 ```
 
 Запускать нужно из `apps/api`: так `src/` попадает в `sys.path` (импорты без
 префикса `src.`), а папка `storage/` создаётся рядом с приложением.
+
+## База данных
+
+PostgreSQL поднимается из корневого [`docker-compose.yml`](../../docker-compose.yml):
+
+```bash
+bun run db:up     # docker compose up -d postgres
+bun run db:down
+bun run db:logs
+```
+
+| Параметр | Значение                         |
+| -------- | -------------------------------- |
+| Хост     | `localhost`                      |
+| Порт     | `5434` (снаружи контейнера)      |
+| Пользователь | `postgres`                   |
+| Пароль   | `postgres`                       |
+| База     | `ai_assistant`                   |
+
+`DATABASE_URL` в `.env.example` уже указывает на этот контейнер. Подключиться
+клиентом:
+
+```bash
+psql -h localhost -p 5434 -U postgres -d ai_assistant
+```
+
+Без Docker можно использовать SQLite: замените `DATABASE_URL` на
+`sqlite+aiosqlite:///./assistant.db`.
 
 Swagger — <http://localhost:8000/docs>, контракт API — в [`../../API.md`](../../API.md).
 
