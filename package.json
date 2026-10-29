@@ -1,0 +1,19 @@
+{
+  "name": "ai-assistant",
+  "private": true,
+  "packageManager": "bun@1.4.4",
+  "engines": {
+    "bun": ">=1.4.4",
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "bun run --cwd apps/web dev",
+    "build": "bun run --cwd apps/web build",
+    "start": "bun run --cwd apps/web start",
+    "typecheck": "bun run --cwd apps/web typecheck",
+    "lint": "bun run --cwd apps/web lint",
+    "format": "bun run --cwd apps/web format",
+    "format:check": "bun run --cwd apps/web format:check",
+    "test": "bun run --cwd apps/web test"
+  }
+}

@@ -221,3 +221,20 @@ __marimo__/
 
 *.mp3
 *.vscode/
+
+# Node / Bun / Next.js
+# Python-секция выше игнорирует любые lib/ — возвращаем исходники фронтенда
+!apps/web/src/shared/lib/
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+.turbo/
+.vercel/
+.env.local
+.env*.local
+*.log
+
+# macOS
+.DS_Store

@@ -1,0 +1,17 @@
+{
+  "name": "AI Assistant",
+  "short_name": "AI Assistant",
+  "description": "Локальный AI-ассистент с вашим ключом модели",
+  "start_url": "/chat",
+  "display": "standalone",
+  "background_color": "#0b0d20",
+  "theme_color": "#0b0d20",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
