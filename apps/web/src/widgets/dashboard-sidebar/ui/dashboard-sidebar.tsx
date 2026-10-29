@@ -2,13 +2,24 @@
 
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
-import { Bell, CalendarDays, CheckSquare, ListTodo, Menu, Search, Settings, X } from "lucide-react";
+import {
+  Bell,
+  CalendarDays,
+  CheckSquare,
+  ListTodo,
+  LogOut,
+  Menu,
+  Search,
+  Settings,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/shared/ui/button";
 import { Logo } from "@/shared/ui/logo";
 import { cn } from "@/shared/lib/cn";
+import { logout } from "@/features/auth";
 
 type NavItem = { href: Route; label: string; icon: LucideIcon };
 
@@ -30,8 +41,19 @@ const FOOTER_ITEMS: NavItem[] = [{ href: "/settings", label: "Настройки
  */
 export function DashboardSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const dialog = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
+
+  const logoutLinkClass =
+    "flex items-center gap-3 border-2 border-transparent px-3 py-2 font-mono text-xs " +
+    "font-bold tracking-wider uppercase transition-colors text-muted-foreground " +
+    "hover:text-foreground hover:bg-white/5";
+
+  function handleLogout() {
+    logout();
+    router.replace("/sign-in");
+  }
 
   function close() {
     dialog.current?.close();
@@ -105,6 +127,10 @@ export function DashboardSidebar() {
             {label}
           </Link>
         ))}
+        <button type="button" onClick={handleLogout} className={logoutLinkClass}>
+          <LogOut className="size-4" />
+          Выйти
+        </button>
       </div>
     </>
   );
