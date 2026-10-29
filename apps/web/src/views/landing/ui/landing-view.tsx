@@ -95,7 +95,7 @@ export function LandingView() {
             <p className="text-muted-foreground">$ bun dev</p>
             <p className="text-primary">→ http://localhost:3000</p>
             <p className="text-muted-foreground pt-2"># backend</p>
-            <p className="text-foreground">NEXT_PUBLIC_API_URL=http://localhost:8000</p>
+            <p className="text-foreground break-all">NEXT_PUBLIC_API_URL=http://localhost:8000</p>
           </div>
         </div>
       </section>

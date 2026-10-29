@@ -259,7 +259,7 @@ export function Markdown({
           <pre
             key={index}
             className={cn(
-              "overflow-x-auto p-2 font-mono text-xs leading-relaxed",
+              "pixel-scrollbar overflow-x-auto p-2 font-mono text-xs leading-relaxed",
               tone === "user"
                 ? "bg-primary-foreground/15 text-primary-foreground"
                 : "text-foreground bg-black/40",

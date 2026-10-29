@@ -20,8 +20,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --font-sans: var(--font-pixel-family);
-  --font-mono: var(--font-pixel-family);
+  --font-sans: var(--font-ui-family);
+  --font-mono: var(--font-ui-family);
   --radius-sm: 0;
   --radius-md: 0;
   --radius-lg: 0;
@@ -33,6 +33,7 @@
 :root {
   color-scheme: dark;
   --font-pixel-family: var(--font-pixel), "Courier New", monospace;
+  --font-ui-family: var(--font-ui), "Courier New", monospace;
   --background: #0b0d20;
   --foreground: #f3e9d6;
   --card: #151a33;
@@ -71,13 +72,16 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-pixel-family);
+    font-family: var(--font-ui-family);
+    /* На Windows субпиксельное сглаживание даёт цветные каёмки на тонких штрихах. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     background-color: #0b0d20;
     background-image:
       repeating-linear-gradient(
         0deg,
-        rgba(0, 0, 0, 0.18) 0px,
-        rgba(0, 0, 0, 0.18) 1px,
+        rgba(0, 0, 0, 0.07) 0px,
+        rgba(0, 0, 0, 0.07) 1px,
         transparent 1px,
         transparent 3px
       ),
@@ -135,6 +139,33 @@
 
 .pixel-frame {
   border: 2px solid #05060f;
+}
+
+/* Пиксельный скроллбар: жёлтый бегунок в рамке вместо системного. */
+.pixel-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) var(--muted);
+}
+.pixel-scrollbar::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+.pixel-scrollbar::-webkit-scrollbar-track {
+  background: var(--muted);
+  border-left: 2px solid #05060f;
+}
+.pixel-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border: 2px solid #05060f;
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.25),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.35);
+}
+.pixel-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--secondary);
+}
+.pixel-scrollbar::-webkit-scrollbar-corner {
+  background: var(--muted);
 }
 
 .pixel-glow {

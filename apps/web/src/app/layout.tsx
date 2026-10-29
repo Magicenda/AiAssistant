@@ -13,6 +13,15 @@ const handjet = localFont({
   display: "swap",
 });
 
+// JetBrains Mono — шрифт для обычного текста: пиксельная сетка Handjet
+// на мелком кегле рассыпается в серые полосы и плохо читается.
+const jetbrainsMono = localFont({
+  src: "./fonts/JetBrainsMono.woff2",
+  weight: "100 800",
+  variable: "--font-ui",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: {
     default: siteConfig.name,
@@ -29,7 +38,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ru" className={handjet.variable}>
+    <html lang="ru" className={`${handjet.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-dvh">{children}</body>
     </html>
   );
