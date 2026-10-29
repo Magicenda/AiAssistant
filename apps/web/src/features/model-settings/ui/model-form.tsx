@@ -92,11 +92,13 @@ export function ModelForm() {
 
   function applyProvider(id: ProviderId) {
     const preset = PROVIDER_PRESETS.find(item => item.id === id);
-    if (!preset || id === "custom") {
-      patch({ provider: id });
-      return;
-    }
-    patch({ provider: id, baseUrl: preset.baseUrl, model: preset.model });
+    if (!preset) return;
+    patch({
+      provider: id,
+      baseUrl: preset.baseUrl,
+      model: preset.model,
+      apiKey: id === "gigachat" ? "" : settings.apiKey,
+    });
   }
 
   function handleBaseUrl(value: string) {
@@ -172,75 +174,89 @@ export function ModelForm() {
             </select>
           </label>
 
-          <label className={labelClass}>
-            Модель
-            <Input
-              required
-              value={settings.model}
-              list="model-options"
-              placeholder="например, openai/gpt-4o-mini"
-              onChange={event => patch({ model: event.target.value })}
-              spellCheck={false}
-            />
-            <datalist id="model-options">
-              {PROVIDER_PRESETS.filter(preset => preset.model).map(preset => (
-                <option key={preset.id} value={preset.model} />
-              ))}
-            </datalist>
-          </label>
+          {settings.provider === "local" && (
+            <label className={labelClass}>
+              Модель
+              <Input
+                required
+                value={settings.model}
+                list="model-options"
+                placeholder="например, qwen2.5:7b"
+                onChange={event => patch({ model: event.target.value })}
+                spellCheck={false}
+              />
+              <datalist id="model-options">
+                {PROVIDER_PRESETS.filter(preset => preset.model).map(preset => (
+                  <option key={preset.id} value={preset.model} />
+                ))}
+              </datalist>
+            </label>
+          )}
         </div>
 
-        <label className={labelClass}>
-          Адрес API модели
-          <Input
-            required
-            value={settings.baseUrl}
-            placeholder="https://api.openai.com/v1"
-            onChange={event => handleBaseUrl(event.target.value)}
-            spellCheck={false}
-            inputMode="url"
-          />
-        </label>
-        <p className="text-muted-foreground font-mono text-[0.7rem] leading-relaxed">
-          {PROVIDER_PRESETS.find(item => item.id === settings.provider)?.note} Укажите адрес без
-          /chat/completions — backend добавит путь сам.
-        </p>
+        {settings.provider === "local" && (
+          <>
+            <label className={labelClass}>
+              Адрес API модели
+              <Input
+                required
+                value={settings.baseUrl}
+                placeholder="http://localhost:11434/v1"
+                onChange={event => handleBaseUrl(event.target.value)}
+                spellCheck={false}
+                inputMode="url"
+              />
+            </label>
+            <p className="text-muted-foreground font-mono text-[0.7rem] leading-relaxed">
+              {PROVIDER_PRESETS.find(item => item.id === settings.provider)?.note} Укажите адрес без
+              /chat/completions — backend добавит путь сам.
+            </p>
+          </>
+        )}
+
+        {settings.provider === "gigachat" && (
+          <p className="text-muted-foreground font-mono text-[0.7rem] leading-relaxed">
+            {PROVIDER_PRESETS.find(item => item.id === settings.provider)?.note}
+          </p>
+        )}
       </section>
 
-      <section className="pixel-panel space-y-4 p-5">
-        <h2 className="font-pixel text-foreground flex items-center gap-2 text-sm">
-          <KeyRound className="text-primary size-4" />
-          Доступ
-        </h2>
-        <label className={labelClass}>
-          API-ключ
-          <div className="relative">
-            <Input
-              type={showKey ? "text" : "password"}
-              value={settings.apiKey}
-              autoComplete="off"
-              spellCheck={false}
-              placeholder={keyOptional ? "Не требуется для локального адреса" : "sk-…"}
-              onChange={event => patch({ apiKey: event.target.value })}
-              className="pr-11"
-            />
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="absolute top-0 right-0 size-10"
-              aria-label={showKey ? "Скрыть ключ" : "Показать ключ"}
-              onClick={() => setShowKey(value => !value)}
-            >
-              {showKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-            </Button>
-          </div>
-        </label>
-        <p className="text-muted-foreground font-mono text-[0.7rem] leading-relaxed">
-          Ключ хранится только в этом браузере и передаётся backend вместе с запросом. Backend
-          использует его для обращения к модели.
-        </p>
-      </section>
+      {settings.provider === "local" && (
+        <section className="pixel-panel space-y-4 p-5">
+          <h2 className="font-pixel text-foreground flex items-center gap-2 text-sm">
+            <KeyRound className="text-primary size-4" />
+            Доступ
+          </h2>
+          <label className={labelClass}>
+            API-ключ
+            <div className="relative">
+              <Input
+                type={showKey ? "text" : "password"}
+                value={settings.apiKey}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={keyOptional ? "Не требуется для локального адреса" : "sk-…"}
+                onChange={event => patch({ apiKey: event.target.value })}
+                className="pr-11"
+              />
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="absolute top-0 right-0 size-10"
+                aria-label={showKey ? "Скрыть ключ" : "Показать ключ"}
+                onClick={() => setShowKey(value => !value)}
+              >
+                {showKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </Button>
+            </div>
+          </label>
+          <p className="text-muted-foreground font-mono text-[0.7rem] leading-relaxed">
+            Ключ хранится только в этом браузере и передаётся backend вместе с запросом. Для Ollama
+            и LM Studio он обычно не нужен.
+          </p>
+        </section>
+      )}
 
       <section className="pixel-panel space-y-4 p-5">
         <h2 className="font-pixel text-foreground flex items-center gap-2 text-sm">
@@ -286,7 +302,10 @@ export function ModelForm() {
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="submit"
-          disabled={saving || !settings.baseUrl.trim() || !settings.model.trim()}
+          disabled={
+            saving ||
+            (settings.provider === "local" && (!settings.baseUrl.trim() || !settings.model.trim()))
+          }
         >
           {saving ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
           Сохранить
@@ -300,7 +319,7 @@ export function ModelForm() {
             Есть несохранённые изменения
           </span>
         )}
-        {!requiresApiKey(settings.baseUrl) && settings.provider !== "custom" && (
+        {settings.provider === "local" && !requiresApiKey(settings.baseUrl) && (
           <span className="text-muted-foreground font-mono text-[0.7rem] tracking-wider uppercase">
             Ключ для этого сервиса не нужен
           </span>

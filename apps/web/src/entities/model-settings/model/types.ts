@@ -1,13 +1,13 @@
-export type ProviderId = "openrouter" | "openai" | "deepseek" | "mistral" | "ollama" | "custom";
+export type ProviderId = "gigachat" | "local";
 
 /** Пресет провайдера для быстрого выбора в форме настроек. */
 export interface ProviderPreset {
   id: ProviderId;
   /** Название в интерфейсе. */
   label: string;
-  /** Базовый адрес API без `/chat/completions`. */
+  /** Базовый адрес API без `/chat/completions`; пустой для GigaChat. */
   baseUrl: string;
-  /** Модель по умолчанию. */
+  /** Модель по умолчанию; пустая, если её задаёт сервер. */
   model: string;
   /** Нужен ли API-ключ. */
   keyRequired: boolean;
@@ -15,55 +15,23 @@ export interface ProviderPreset {
   note: string;
 }
 
-/** Известные провайдеры; порядок задаёт порядок в селекте. */
+/** Доступные варианты; GigaChat — по умолчанию, локальная модель — альтернатива. */
 export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
-    id: "openrouter",
-    label: "OpenRouter",
-    baseUrl: "https://openrouter.ai/api/v1",
-    model: "openai/gpt-4o-mini",
-    keyRequired: true,
-    note: "Сотни моделей от разных провайдеров по одному ключу.",
-  },
-  {
-    id: "openai",
-    label: "OpenAI",
-    baseUrl: "https://api.openai.com/v1",
-    model: "gpt-4o-mini",
-    keyRequired: true,
-    note: "Модели GPT и распознавание речи Whisper.",
-  },
-  {
-    id: "deepseek",
-    label: "DeepSeek",
-    baseUrl: "https://api.deepseek.com/v1",
-    model: "deepseek-chat",
-    keyRequired: true,
-    note: "Недорогие модели DeepSeek с OpenAI-совместимым API.",
-  },
-  {
-    id: "mistral",
-    label: "Mistral",
-    baseUrl: "https://api.mistral.ai/v1",
-    model: "mistral-small-latest",
-    keyRequired: true,
-    note: "Европейский провайдер с OpenAI-совместимым API.",
-  },
-  {
-    id: "ollama",
-    label: "Ollama",
-    baseUrl: "http://localhost:11434/v1",
-    model: "llama3.2",
-    keyRequired: false,
-    note: "Локальная модель без ключа и без интернета.",
-  },
-  {
-    id: "custom",
-    label: "Другой",
+    id: "gigachat",
+    label: "GigaChat",
     baseUrl: "",
     model: "",
-    keyRequired: true,
-    note: "Любой сервис с OpenAI-совместимым /chat/completions.",
+    keyRequired: false,
+    note: "Модель проекта по умолчанию. Ключ и модель заданы на сервере.",
+  },
+  {
+    id: "local",
+    label: "Локальная модель",
+    baseUrl: "http://localhost:11434/v1",
+    model: "",
+    keyRequired: false,
+    note: "Ollama или LM Studio: укажите адрес и модель из локального сервера.",
   },
 ];
 
@@ -71,27 +39,27 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
 export interface ModelSettings {
   /** Выбранный провайдер. */
   provider: ProviderId;
-  /** Базовый адрес API без `/chat/completions`. */
+  /** Базовый адрес API без `/chat/completions`; пустой для GigaChat. */
   baseUrl: string;
-  /** Ключ провайдера; для локальных адресов может быть пустым. */
+  /** Ключ локального сервера; обычно не требуется. */
   apiKey: string;
-  /** Идентификатор модели провайдера. */
+  /** Идентификатор локальной модели. */
   model: string;
   /** От 0 до 1.5. */
   temperature: number;
 }
 
 export const DEFAULT_MODEL_SETTINGS: ModelSettings = {
-  provider: "openrouter",
-  baseUrl: "https://openrouter.ai/api/v1",
+  provider: "gigachat",
+  baseUrl: "",
   apiKey: "",
   model: "",
   temperature: 0.7,
 };
 
-/** Настройки, которые фронтенд передаёт backend вместе с запросом. */
+/** Настройки, которые фронтенд передаёт backend для локальной модели. */
 export interface ModelRequestSettings {
-  provider: ProviderId;
+  provider: "local";
   /** Копия `baseUrl` — контракт backend в snake_case. */
   base_url: string;
   /** Копия `apiKey`. */
@@ -100,9 +68,9 @@ export interface ModelRequestSettings {
   temperature: number;
 }
 
-/** Угадывает провайдера по адресу; если адрес незнакомый — `custom`. */
+/** Локальная модель — всё, что не GigaChat; пустой адрес означает GigaChat. */
 export function providerFor(baseUrl: string): ProviderId {
-  return PROVIDER_PRESETS.find(preset => preset.baseUrl === baseUrl)?.id ?? "custom";
+  return baseUrl.trim() ? "local" : "gigachat";
 }
 
 /** Локальный адрес: ключ для него не нужен. */

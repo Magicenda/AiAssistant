@@ -25,14 +25,7 @@ function normalizeBaseUrl(value: string) {
 }
 
 function normalizeProvider(value: unknown): ProviderId {
-  return value === "openrouter" ||
-    value === "openai" ||
-    value === "deepseek" ||
-    value === "mistral" ||
-    value === "ollama" ||
-    value === "custom"
-    ? value
-    : DEFAULT_MODEL_SETTINGS.provider;
+  return value === "local" ? "local" : DEFAULT_MODEL_SETTINGS.provider;
 }
 
 function normalizeTemperature(value: unknown) {
@@ -44,9 +37,11 @@ function normalizeTemperature(value: unknown) {
 function normalizeSettings(value: unknown): ModelSettings {
   if (!value || typeof value !== "object") return { ...DEFAULT_MODEL_SETTINGS };
   const item = value as Record<string, unknown>;
+  const baseUrl = normalizeBaseUrl(typeof item.baseUrl === "string" ? item.baseUrl : "");
   return {
-    provider: normalizeProvider(item.provider),
-    baseUrl: normalizeBaseUrl(typeof item.baseUrl === "string" ? item.baseUrl : ""),
+    // Старые настройки с готовым baseUrl считаем локальной моделью.
+    provider: baseUrl ? "local" : normalizeProvider(item.provider),
+    baseUrl,
     apiKey: typeof item.apiKey === "string" ? item.apiKey.trim() : "",
     model: typeof item.model === "string" ? item.model.trim() : "",
     temperature: normalizeTemperature(item.temperature),
@@ -113,9 +108,9 @@ export function subscribeModelSettings(listener: () => void) {
  */
 export function modelRequestSettings(): ModelRequestSettings | null {
   const settings = readModelSettings();
-  if (!settings.baseUrl || !settings.model) return null;
+  if (settings.provider !== "local" || !settings.baseUrl || !settings.model) return null;
   return {
-    provider: settings.provider,
+    provider: "local",
     base_url: settings.baseUrl,
     api_key: settings.apiKey,
     model: settings.model,

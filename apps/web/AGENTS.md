@@ -19,7 +19,7 @@
 - Адрес backend задаётся **только** через `NEXT_PUBLIC_API_URL` (по умолчанию `http://localhost:8000`). Значение инлайнится на этапе сборки; поля адреса сервера в UI не делать.
 - Запросы к backend инкапсулированы в `features/assistant/model/client.ts`. Не разбрасывать `fetch` по компонентам.
 - Настройки модели (провайдер, base URL, ключ, модель, температура) хранит пользователь в localStorage — `entities/model-settings`. Форма — `features/model-settings`.
-- Эти настройки передаются backend в поле `model_settings` запроса `/llm/query` (JSON) и `/chat/transcribe` (multipart). Если модель не заполнена, поле не отправляется — backend использует свою конфигурацию.
+- Эти настройки передаются backend в поле `model_settings` запроса `/llm/query` (JSON). Для GigaChat поле не отправляется — backend использует ключ и модель из env.
 - **Никаких секретов в сборке**: не добавлять API-ключи в `.env` и не заворачивать их в `NEXT_PUBLIC_*`.
 - Backend — источник правды для LLM-истории; localStorage — только локальный кеш интерфейса. `remoteId` в чате связывает их.
 - Ошибки API показывать пользователю на русском (`{ message }`, `{ detail }` FastAPI); сетевые ошибки — отдельным текстом.

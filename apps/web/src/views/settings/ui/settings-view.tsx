@@ -12,8 +12,8 @@ export function SettingsView() {
         <p className="text-primary font-mono text-xs tracking-[0.2em] uppercase">Модель</p>
         <h1 className="font-pixel text-foreground text-2xl sm:text-3xl">Настройки ассистента</h1>
         <p className="text-muted-foreground max-w-xl font-mono text-sm leading-relaxed">
-          Выберите провайдера, модель и API-ключ. Стриминг ответов и распознавание речи выполняет
-          backend — фронтенд передаёт ему эти настройки.
+          По умолчанию работает GigaChat с ключом на сервере. Можно переключиться на свою локальную
+          модель в Ollama или LM Studio.
         </p>
       </header>
 
@@ -23,7 +23,7 @@ export function SettingsView() {
           <div>
             <p className="font-pixel text-foreground text-xs">Настройки в браузере</p>
             <p className="text-muted-foreground mt-1 font-mono text-[0.7rem] leading-relaxed">
-              Провайдер, модель и ключ хранятся в localStorage и передаются backend.
+              Для локальной модели адрес, модель и ключ хранятся в localStorage.
             </p>
           </div>
         </div>
@@ -32,7 +32,7 @@ export function SettingsView() {
           <div>
             <p className="font-pixel text-foreground text-xs">Работа на сервере</p>
             <p className="text-muted-foreground mt-1 font-mono text-[0.7rem] leading-relaxed">
-              Запросы к модели, стриминг ответов и распознавание речи делает backend.
+              Ключ GigaChat остаётся на сервере; локальную модель вызывает backend.
             </p>
           </div>
         </div>

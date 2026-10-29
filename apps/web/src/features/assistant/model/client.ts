@@ -2,6 +2,7 @@ import { ApiError as HttpApiError } from "@/shared/api/http";
 import { ApiError as TransportApiError, apiRequest, parseData } from "@/shared/api";
 import { apiConfig } from "@/shared/config";
 import { isChatDto, isLlmAnswer } from "@/entities/chat";
+import { modelRequestSettings } from "@/entities/model-settings";
 import { isTranscript } from "@/entities/voice";
 
 export interface QueryOptions {
@@ -61,10 +62,16 @@ export function queryAssistant(
   options: QueryOptions = {},
 ): Promise<QueryResult> {
   return request(async () => {
+    const modelSettings = modelRequestSettings();
     const result = parseData(
       await apiRequest("/api/llm/query", {
         method: "POST",
-        body: { chat_id: chatId, query },
+        body: {
+          chat_id: chatId,
+          query,
+          // Без настроек backend использует GigaChat из своего env.
+          ...(modelSettings ? { model_settings: modelSettings } : {}),
+        },
         signal: options.signal,
         timeoutMs: apiConfig.timeoutsMs.llmQuery,
       }),
