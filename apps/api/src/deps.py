@@ -3,6 +3,7 @@ from typing import Annotated
 import jwt
 from fastapi import Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.security import OAuth2PasswordBearer
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.security import decode_access_token
@@ -12,6 +13,7 @@ from db.repository.meeting_repository import MeetingRepository
 from db.repository.task_repository import TaskRepository
 from db.repository.user_repository import UserRepository
 from db.session import get_session
+from schemas.model_settings import ModelSettings
 from services.agent_service import AgentService
 from services.auth_service import AuthService
 from services.chat_service import ChatService
@@ -171,9 +173,16 @@ class UserSpeechInputDTO:
         self,
         chat_id: int = Form(..., description="Уникальный ID чата"),
         file: UploadFile = File(..., description="Бинарный файл аудиозаписи"),
+        model_settings: str | None = Form(
+            None,
+            description="JSON-настройки модели, те же, что у /llm/query",
+        ),
+        speak: bool = Form(True, description="Синтезировать ответ на сервере"),
     ):
         self.chat_id = chat_id
         self.file = file
+        self.model_settings_raw = model_settings
+        self.speak = speak
         self.original_filename = file.filename
 
         if not file.content_type or not file.content_type.startswith("audio/"):
@@ -195,6 +204,18 @@ class UserSpeechInputDTO:
                 detail="Передан пустой файл.",
             )
         return audio_bytes
+
+    def read_model_settings(self) -> ModelSettings | None:
+        """Разбирает необязательные настройки модели из формы; 422 при некорректном JSON."""
+        if not self.model_settings_raw:
+            return None
+        try:
+            return ModelSettings.model_validate_json(self.model_settings_raw)
+        except ValidationError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Некорректные настройки модели",
+            )
 
 
 SpeechInputDep = Annotated[UserSpeechInputDTO, Depends()]

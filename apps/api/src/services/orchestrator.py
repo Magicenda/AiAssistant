@@ -5,9 +5,12 @@ import uuid
 from dataclasses import dataclass, field
 from uuid import UUID
 
+from gigachat.exceptions import AuthenticationError as GigaChatAuthenticationError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from core.exceptions import GIGACHAT_AUTH_MESSAGE
 from schemas import JobStatus, AssistantVoiceJobResult
+from schemas.model_settings import ModelSettings
 from services.agent_factory import build_agent_service
 from services.llm_client import LLMClient
 from services.transcribation_service import AudioService
@@ -97,19 +100,33 @@ class VoiceGenerationOrchestrator:
             self._fail(entry, e)
 
     async def run_pipeline(
-        self, job_id: UUID, audio_bytes: bytes, chat_id: int, user_id: int
+        self,
+        job_id: UUID,
+        audio_bytes: bytes,
+        chat_id: int,
+        user_id: int,
+        model_settings: ModelSettings | None = None,
+        speak: bool = True,
     ) -> None:
         """Полный цикл: речь пользователя -> текст -> ответ агента -> аудио ответа."""
         entry = self._jobs[job_id]
         try:
             await asyncio.wait_for(
-                self._run_stages(job_id, entry, audio_bytes, chat_id, user_id), PIPELINE_TIMEOUT_SECONDS
+                self._run_stages(job_id, entry, audio_bytes, chat_id, user_id, model_settings, speak),
+                PIPELINE_TIMEOUT_SECONDS,
             )
         except Exception as e:
             self._fail(entry, e)
 
     async def _run_stages(
-        self, job_id: UUID, entry: _JobEntry, audio_bytes: bytes, chat_id: int, user_id: int
+        self,
+        job_id: UUID,
+        entry: _JobEntry,
+        audio_bytes: bytes,
+        chat_id: int,
+        user_id: int,
+        model_settings: ModelSettings | None = None,
+        speak: bool = True,
     ) -> None:
         job = entry.result
 
@@ -123,10 +140,16 @@ class VoiceGenerationOrchestrator:
         # воркер живёт дольше запроса, поэтому сессия БД у него своя
         async with self.session_factory() as session:
             agent = build_agent_service(self.llm, session, user_id)
-            job.agent_reply_text = await agent.generate_response(chat_id, transcription.text)
+            job.agent_reply_text = await agent.generate_response(
+                chat_id, transcription.text, model_settings
+            )
             await session.commit()
 
-        await self._speak(job_id, entry, job.agent_reply_text)
+        # Клиент может озвучить ответ сам, по кускам: тогда сервер не тратит время на TTS.
+        if speak:
+            await self._speak(job_id, entry, job.agent_reply_text)
+        else:
+            job.status = JobStatus.COMPLETED
 
     async def _speak(self, job_id: UUID, entry: _JobEntry, text: str) -> None:
         job = entry.result
@@ -141,6 +164,8 @@ class VoiceGenerationOrchestrator:
     def _fail(entry: _JobEntry, exc: Exception) -> None:
         if isinstance(exc, PipelineError):
             message = str(exc)
+        elif isinstance(exc, GigaChatAuthenticationError):
+            message = GIGACHAT_AUTH_MESSAGE
         elif isinstance(exc, TimeoutError):
             message = "Превышено время обработки"
         else:

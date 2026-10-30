@@ -1,9 +1,11 @@
+import asyncio
 import os
 import uuid
 import aiofiles
 from fastapi import UploadFile, HTTPException, status
 
 import edge_tts
+from edge_tts.exceptions import EdgeTTSException
 
 from schemas import AudioFileMetadata
 
@@ -76,11 +78,14 @@ class TTSService:
         self.voice = voice
         self.rate = rate
 
-    async def synthesize_speech(self, text_to_speech: str) -> bytes:
-        if not text_to_speech or not text_to_speech.strip():
-            raise ValueError("Text to speech cannot be empty")
-        
-        communicate = edge_tts.Communicate(text=text_to_speech, voice=self.voice, rate=self.rate)
+    async def _synthesize_once(self, text_to_speech: str) -> bytes:
+        communicate = edge_tts.Communicate(
+            text=text_to_speech,
+            voice=self.voice,
+            rate=self.rate,
+            connect_timeout=10,
+            receive_timeout=30,
+        )
 
         audio_buffer = bytearray()
         async for chunk in communicate.stream():
@@ -89,3 +94,57 @@ class TTSService:
         if not audio_buffer:
             raise RuntimeError("Failed to generate audio from text")
         return bytes(audio_buffer)
+
+    async def synthesize_speech(self, text_to_speech: str) -> bytes:
+        if not text_to_speech or not text_to_speech.strip():
+            raise ValueError("Text to speech cannot be empty")
+
+        # Edge TTS периодически отвечает «No audio received» или зависает:
+        # короткие повторы с паузой делают озвучку устойчивее.
+        last_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                return await asyncio.wait_for(self._synthesize_once(text_to_speech), timeout=45)
+            except (EdgeTTSException, TimeoutError, OSError, RuntimeError) as exc:
+                last_error = exc
+                if attempt < 2:
+                    await asyncio.sleep(0.5 * (2**attempt))
+
+        raise RuntimeError("Не удалось синтезировать речь") from last_error
+
+    async def stream_speech(self, text_to_speech: str):
+        """Отдаёт mp3 по мере синтеза: браузер начинает играть, не дожидаясь конца.
+
+        Ретраи возможны только до первого отданного куска — после начала ответа
+        заголовки уже ушли клиенту.
+        """
+        if not text_to_speech or not text_to_speech.strip():
+            raise ValueError("Text to speech cannot be empty")
+
+        last_error: Exception | None = None
+        for attempt in range(3):
+            yielded = False
+            try:
+                communicate = edge_tts.Communicate(
+                    text=text_to_speech,
+                    voice=self.voice,
+                    rate=self.rate,
+                    connect_timeout=10,
+                    receive_timeout=30,
+                )
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        yielded = True
+                        yield chunk["data"]
+                if not yielded:
+                    raise RuntimeError("Failed to generate audio from text")
+                return
+            except (EdgeTTSException, TimeoutError, OSError, RuntimeError) as exc:
+                if yielded:
+                    # Первый звук уже пошёл: повторять с начала нельзя.
+                    raise
+                last_error = exc
+                if attempt < 2:
+                    await asyncio.sleep(0.5 * (2**attempt))
+
+        raise RuntimeError("Не удалось синтезировать речь") from last_error

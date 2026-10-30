@@ -1,11 +1,19 @@
 from uuid import UUID
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, BackgroundTasks, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
-from schemas import AssistantVoiceJobResult, JobStatus, VoiceJobCreatedResponse
-from deps import ChatServiceDep, CurrentUserIdDep, SpeechInputDep, VoiceOrchestratorDep
+from schemas import (
+    AssistantVoiceJobResult,
+    JobStatus,
+    SpeechStreamResponse,
+    VoiceJobCreatedResponse,
+)
+from deps import ChatServiceDep, CurrentUserIdDep, SpeechInputDep, TTSServiceDep, VoiceOrchestratorDep
+from services.speech_stream import STREAM_TTL_SECONDS, SpeechStreamRegistry
+
 router = APIRouter(prefix="/voice", tags=["Text to Voice Pipeline"])
+speech_streams = SpeechStreamRegistry()
 
 
 class TextToVoiceRequest(BaseModel):
@@ -30,6 +38,32 @@ async def generate_voice_from_text(
     return VoiceJobCreatedResponse(job_id=job_id, status=JobStatus.PENDING)
 
 
+@router.post("/stream", response_model=SpeechStreamResponse)
+async def create_speech_stream(
+    payload: TextToVoiceRequest,
+    user_id: CurrentUserIdDep,
+):
+    """Создаёт короткоживущую ссылку на потоковую озвучку текста."""
+    stream_id = speech_streams.create(user_id, payload.text)
+    return SpeechStreamResponse(
+        stream_url=f"/api/voice/stream/{stream_id}",
+        expires_in=STREAM_TTL_SECONDS,
+    )
+
+
+@router.get("/stream/{stream_id}")
+async def stream_speech_audio(stream_id: str, tts: TTSServiceDep):
+    """Отдаёт mp3 по мере синтеза: браузер начинает говорить без ожидания конца."""
+    item = speech_streams.get(stream_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Озвучка не найдена или устарела")
+    return StreamingResponse(
+        tts.stream_speech(item.text),
+        media_type="audio/mpeg",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @router.post("/ask", response_model=VoiceJobCreatedResponse, status_code=202)
 async def ask_by_voice(
     payload: SpeechInputDep,
@@ -39,11 +73,18 @@ async def ask_by_voice(
     user_id: CurrentUserIdDep,
 ):
     audio_bytes = await payload.read_audio()
+    model_settings = payload.read_model_settings()
     await chat_service.get_history(payload.chat_id, limit=1)    # 404, если чата нет
 
     job_id = voice_orchestrator.create_job(user_id)
     background_tasks.add_task(
-        voice_orchestrator.run_pipeline, job_id, audio_bytes, payload.chat_id, user_id
+        voice_orchestrator.run_pipeline,
+        job_id,
+        audio_bytes,
+        payload.chat_id,
+        user_id,
+        model_settings,
+        payload.speak,
     )
 
     return VoiceJobCreatedResponse(job_id=job_id, status=JobStatus.PENDING)

@@ -12,12 +12,24 @@ class TranscribationResult:
 
 
 class AudioService:
-    def __init__(self, language: str = "RU", model_size: str = "base"):
+    def __init__(
+        self,
+        language: str = "RU",
+        model_size: str = "base",
+        compute_type: str = "int8",
+    ):
         self.language = language.lower()
-        self.model = WhisperModel(model_size, device="cpu", compute_type="float32")
+        # int8 на CPU заметно быстрее float32; для коротких голосовых реплик точности хватает.
+        self.model = WhisperModel(model_size, device="cpu", compute_type=compute_type, cpu_threads=0)
 
     def _transcribe(self, audio_bytes: bytes) -> str:
-        segments, _info = self.model.transcribe(io.BytesIO(audio_bytes), language=self.language)
+        segments, _info = self.model.transcribe(
+            io.BytesIO(audio_bytes),
+            language=self.language,
+            beam_size=1,
+            vad_filter=True,
+            condition_on_previous_text=False,
+        )
         return "".join(segment.text for segment in segments).strip()
 
     async def recognize_from_bytes(self, audio_bytes: bytes) -> TranscribationResult:
