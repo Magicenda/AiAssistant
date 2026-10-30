@@ -1,14 +1,5 @@
 export type ChatRole = "user" | "assistant";
 
-export interface ChatAudio {
-  /** Запись в виде data URL. */
-  dataUrl: string;
-  /** MIME-тип, например `audio/webm;codecs=opus`. */
-  type: string;
-  /** Длительность в секундах. */
-  duration: number;
-}
-
 export interface ChatReply {
   /** id исходного сообщения. */
   id: string;
@@ -26,8 +17,6 @@ export interface ChatMessage {
   createdAt?: number;
   /** Цитата, на которую отвечают. */
   replyTo?: ChatReply;
-  /** Голосовое вложение. */
-  audio?: ChatAudio;
 }
 
 export interface Chat {

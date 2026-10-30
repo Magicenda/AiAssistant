@@ -1,4 +1,3 @@
-import { formatDuration } from "@/shared/lib/format-duration";
 import type { Chat } from "@/entities/chat";
 
 const timeFormat = new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" });
@@ -13,12 +12,9 @@ export function chatToMarkdown(chat: Chat) {
     if (message.replyTo) {
       lines.push(`> ${message.replyTo.text.replace(/\n+/g, " ")}`, "");
     }
-    lines.push(
-      message.audio
-        ? `[Голосовое сообщение · ${formatDuration(message.audio.duration)}]`
-        : message.text,
-      "",
-    );
+    // Голосовые сообщения экспортируются как обычный текст: в истории
+    // хранится только расшифровка, аудио нигде не сохраняется.
+    lines.push(message.text, "");
   }
   return lines.join("\n");
 }

@@ -1,13 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Check, Copy, Pause, Play, RefreshCw, Reply, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Check, Copy, Reply, Trash2 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Logo } from "@/shared/ui/logo";
 import { Markdown } from "@/shared/ui/markdown";
 import { cn } from "@/shared/lib/cn";
-import { formatDuration } from "@/shared/lib/format-duration";
-import type { ChatAudio, ChatMessage } from "@/entities/chat";
+import type { ChatMessage } from "@/entities/chat";
 
 const timeFormat = new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" });
 const collapseAfterChars = 480;
@@ -62,51 +61,6 @@ export function AssistantAvatar({ busy = false }: AssistantAvatarProps) {
   );
 }
 
-/** Плеер голосового сообщения ('use client': играет `<audio>` и показывает прогресс). */
-export function VoiceBubble({ audio }: { audio: ChatAudio }) {
-  const ref = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying] = useState(false);
-  const [time, setTime] = useState(0);
-  const progress = audio.duration > 0 ? Math.min(100, (time / audio.duration) * 100) : 0;
-  return (
-    <div className="flex items-center gap-3">
-      <Button
-        type="button"
-        size="icon"
-        variant="ghost"
-        aria-label={playing ? "Пауза" : "Прослушать"}
-        onClick={() => {
-          const el = ref.current;
-          if (!el) return;
-          if (el.paused) void el.play();
-          else el.pause();
-        }}
-        className="pixel-bevel bg-primary-foreground text-primary hover:text-primary size-9 shrink-0"
-      >
-        {playing ? <Pause className="size-4" /> : <Play className="size-4 fill-current" />}
-      </Button>
-      <div className="bg-primary-foreground/25 h-2 min-w-0 flex-1">
-        <div className="bg-primary-foreground h-full" style={{ width: `${progress}%` }} />
-      </div>
-      <span className="text-primary-foreground shrink-0 font-mono text-xs tabular-nums">
-        {formatDuration(playing ? time : audio.duration)}
-      </span>
-      <audio
-        ref={ref}
-        src={audio.dataUrl}
-        preload="metadata"
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onEnded={() => {
-          setPlaying(false);
-          setTime(0);
-        }}
-        onTimeUpdate={event => setTime(event.currentTarget.currentTime)}
-      />
-    </div>
-  );
-}
-
 /** Иконочная кнопка действия над сообщением; `danger` включает тревожный цвет. */
 function ActionButton({
   label,
@@ -145,8 +99,6 @@ export interface MessageBubbleProps {
   onReply?: (message: ChatMessage) => void;
   /** Удалить сообщение. */
   onDelete?: (message: ChatMessage) => void;
-  /** Перегенерировать ответ ассистента. */
-  onRegenerate?: (message: ChatMessage) => void;
   /** Ответ ещё стримится с backend: показываем курсор и «живую» аватарку. */
   streaming?: boolean;
 }
@@ -157,26 +109,25 @@ export interface MessageBubbleProps {
  *
  * @param props - Пропсы пузыря.
  * @returns Разметку сообщения с действиями и временем.
- */ export function MessageBubble({
+ */
+export function MessageBubble({
   message,
   grouped = false,
   lastInGroup = true,
   onReply,
   onDelete,
-  onRegenerate,
   streaming = false,
 }: MessageBubbleProps) {
   const isUser = message.role !== "assistant";
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const isLong =
-    !message.audio &&
-    (message.text.length > collapseAfterChars ||
-      message.text.split("\n").length > collapseAfterLines);
+    message.text.length > collapseAfterChars ||
+    message.text.split("\n").length > collapseAfterLines;
   const collapsed = isLong && !expanded;
 
   async function copy() {
-    if (!(await copyText(message.text || "Голосовое сообщение"))) return;
+    if (!(await copyText(message.text))) return;
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1200);
   }
@@ -189,11 +140,6 @@ export interface MessageBubbleProps {
       {onReply && (
         <ActionButton label="Ответить" onClick={() => onReply(message)}>
           <Reply className="size-4" />
-        </ActionButton>
-      )}
-      {!isUser && onRegenerate && (
-        <ActionButton label="Перегенерировать" onClick={() => onRegenerate(message)}>
-          <RefreshCw className="size-4" />
         </ActionButton>
       )}
       {onDelete && (
@@ -237,47 +183,29 @@ export interface MessageBubbleProps {
         </div>
       )}
 
-      {message.audio ? (
-        <div className="space-y-2">
-          <VoiceBubble audio={message.audio} />
-          {message.text && (
-            <div
-              className={cn(
-                "border-t pt-2",
-                isUser ? "border-primary-foreground/30" : "border-border",
-              )}
-            >
-              <Markdown text={message.text} tone={isUser ? "user" : "assistant"} />
-            </div>
+      <div
+        className={cn(
+          collapsed &&
+            "max-h-56 overflow-hidden [mask-image:linear-gradient(to_bottom,black_70%,transparent)]",
+        )}
+      >
+        <Markdown
+          text={message.text}
+          tone={isUser ? "user" : "assistant"}
+          className={streaming ? "assistant-stream" : undefined}
+        />
+      </div>
+      {isLong && (
+        <button
+          type="button"
+          onClick={() => setExpanded(value => !value)}
+          className={cn(
+            "font-pixel mt-2 text-[0.7rem] underline-offset-4 hover:underline",
+            isUser ? "text-primary-foreground/80" : "text-muted-foreground",
           )}
-        </div>
-      ) : (
-        <>
-          <div
-            className={cn(
-              collapsed &&
-                "max-h-56 overflow-hidden [mask-image:linear-gradient(to_bottom,black_70%,transparent)]",
-            )}
-          >
-            <Markdown
-              text={message.text}
-              tone={isUser ? "user" : "assistant"}
-              className={streaming ? "assistant-stream" : undefined}
-            />
-          </div>
-          {isLong && (
-            <button
-              type="button"
-              onClick={() => setExpanded(value => !value)}
-              className={cn(
-                "font-pixel mt-2 text-[0.7rem] underline-offset-4 hover:underline",
-                isUser ? "text-primary-foreground/80" : "text-muted-foreground",
-              )}
-            >
-              {expanded ? "Свернуть" : "Показать полностью"}
-            </button>
-          )}
-        </>
+        >
+          {expanded ? "Свернуть" : "Показать полностью"}
+        </button>
       )}
     </div>
   );

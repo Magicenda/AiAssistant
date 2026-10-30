@@ -1,6 +1,5 @@
 export type {
   Chat,
-  ChatAudio,
   ChatDto,
   ChatMessage,
   ChatMessageDto,

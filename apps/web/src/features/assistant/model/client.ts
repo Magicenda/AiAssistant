@@ -18,8 +18,6 @@ export interface QueryOptions {
   onDelta?: (text: string) => void;
   /** Цитата, на которую отвечает пользователь; сохраняется на backend. */
   replyTo?: ChatReply;
-  /** Перегенерировать последний ответ без повторного сохранения вопроса. */
-  regenerate?: boolean;
 }
 
 export interface QueryResult {
@@ -136,7 +134,6 @@ export function queryAssistant(
           chat_id: chatId,
           query,
           ...(options.replyTo ? { reply_to: options.replyTo } : {}),
-          ...(options.regenerate ? { regenerate: true } : {}),
           // Без настроек backend использует GigaChat из своего env.
           ...(modelSettings ? { model_settings: modelSettings } : {}),
         },
