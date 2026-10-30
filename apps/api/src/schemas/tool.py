@@ -1,20 +1,17 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, Field, model_validator
 
-
-def _ensure_utc(value: datetime) -> datetime:
-    # модель может прислать время без часового пояса, а в БД колонки с timezone=True
-    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+from core.time import as_moscow
 
 
-AwareDatetime = Annotated[datetime, AfterValidator(_ensure_utc)]
+MoscowDatetime = Annotated[datetime, AfterValidator(as_moscow)]
 
 
 class CreateTaskArgs(BaseModel):
     description: str = Field(description="Что нужно сделать")
-    deadline: AwareDatetime | None = Field(
+    deadline: MoscowDatetime | None = Field(
         default=None,
         description="Срок выполнения в формате ISO 8601, например 2026-10-24T18:00:00. Не указывай, если пользователь не назвал срок",
     )
@@ -22,7 +19,7 @@ class CreateTaskArgs(BaseModel):
 
 class CreateReminderArgs(BaseModel):
     description: str = Field(description="О чём напомнить")
-    remind_at: AwareDatetime = Field(
+    remind_at: MoscowDatetime = Field(
         description="Когда напомнить, формат ISO 8601, например 2026-10-24T09:30:00",
     )
 
@@ -41,7 +38,7 @@ class ListTasksArgs(BaseModel):
 
 class CreateMeetingArgs(BaseModel):
     description: str = Field(description="Тема или описание встречи")
-    appointment: AwareDatetime = Field(
+    appointment: MoscowDatetime = Field(
         description="Дата и время встречи в формате ISO 8601, например 2026-10-25T15:00:00",
     )
 
@@ -54,7 +51,7 @@ class UpdateTaskArgs(BaseModel):
         default=None,
         description="Новый текст задачи. Не указывай, если текст менять не нужно",
     )
-    deadline: AwareDatetime | None = Field(
+    deadline: MoscowDatetime | None = Field(
         default=None,
         description="Новый срок в формате ISO 8601, например 2026-10-24T18:00:00. Не указывай, если срок менять не нужно",
     )
@@ -70,4 +67,11 @@ class UpdateTaskArgs(BaseModel):
         if self.deadline is not None and self.clear_deadline:
             raise ValueError("Нельзя одновременно задать новый срок и убрать срок")
         return self
+
+
+class DeleteTaskArgs(BaseModel):
+    task_id: int = Field(
+        ge=1,
+        description="Номер задачи или напоминания. Если пользователь его не назвал, сначала вызови list_tasks и найди id",
+    )
 

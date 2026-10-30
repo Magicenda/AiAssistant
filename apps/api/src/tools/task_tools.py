@@ -1,6 +1,13 @@
+from core.time import as_moscow
 from db.models import Task, Type
 from db.repository.task_repository import TaskRepository
-from schemas.tool import CreateReminderArgs, CreateTaskArgs, ListTasksArgs, UpdateTaskArgs
+from schemas.tool import (
+    CreateReminderArgs,
+    CreateTaskArgs,
+    DeleteTaskArgs,
+    ListTasksArgs,
+    UpdateTaskArgs,
+)
 from tools.base import Toolkit, tool
 
 
@@ -9,7 +16,7 @@ def _task_to_dict(task: Task) -> dict:
         "id": task.id,
         "kind": task.type.value,
         "description": task.description,
-        "deadline": task.deadline.isoformat() if task.deadline else None,
+        "deadline": as_moscow(task.deadline).isoformat() if task.deadline else None,
     }
 
 
@@ -64,3 +71,18 @@ class TaskToolkit(Toolkit):
             task, args.description, args.deadline, args.clear_deadline
         )
         return _task_to_dict(task)
+
+    @tool(
+        "delete_task",
+        "Удаляет задачу или напоминание пользователя. Вызывай, когда пользователь явно просит "
+        "удалить запись. Если id неизвестен, сначала вызови list_tasks.",
+        DeleteTaskArgs,
+    )
+    async def delete_task(self, args: DeleteTaskArgs) -> dict:
+        task = await self.repository.get_task(self.user_id, args.task_id)
+        if task is None:
+            return {"error": f"Задача с id {args.task_id} не найдена"}
+
+        deleted_task = _task_to_dict(task)
+        await self.repository.delete_task(task)
+        return {"deleted": True, "task": deleted_task}

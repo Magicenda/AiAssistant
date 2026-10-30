@@ -26,7 +26,7 @@ class AudioService:
         segments, _info = self.model.transcribe(
             io.BytesIO(audio_bytes),
             language=self.language,
-            beam_size=1,
+            beam_size=5,
             vad_filter=True,
             condition_on_previous_text=False,
         )

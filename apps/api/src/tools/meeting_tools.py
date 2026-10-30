@@ -1,3 +1,4 @@
+from core.time import as_moscow
 from db.repository.meeting_repository import MeetingRepository
 from schemas.tool import CreateMeetingArgs
 from tools.base import Toolkit, tool
@@ -19,5 +20,5 @@ class MeetingToolkit(Toolkit):
         return {
             "id": meeting.id,
             "description": meeting.description,
-            "appointment": meeting.appointment.isoformat(),
+            "appointment": as_moscow(meeting.appointment).isoformat(),
         }

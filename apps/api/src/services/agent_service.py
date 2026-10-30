@@ -1,6 +1,5 @@
-from datetime import datetime, timezone
-
 from core.config import settings
+from core.time import now_moscow
 from db.models import Message, MessageRole
 from schemas.model_settings import ModelSettings
 from services.chat_service import ChatService
@@ -11,7 +10,8 @@ SYSTEM_PROMPT = (
     "Ты полезный ассистент. Отвечай кратко и по-русски. "
     "Для работы с задачами, напоминаниями и встречами используй инструменты. "
     "Если для вызова не хватает даты или времени, уточни их у пользователя. "
-    "Текущая дата и время (UTC): {now}."
+    "Текущая дата и время (Europe/Moscow, UTC+03:00): {now}. "
+    "Если пользователь не указал другой часовой пояс, считай названное им время московским."
 )
 
 
@@ -45,7 +45,7 @@ class AgentService:
             await self.chat.delete_last_assistant_message(chat_id)
 
         history = await self.chat.get_history(chat_id, limit=settings.history_limit)
-        system = SYSTEM_PROMPT.format(now=datetime.now(timezone.utc).isoformat(timespec="minutes"))
+        system = SYSTEM_PROMPT.format(now=now_moscow().isoformat(timespec="minutes"))
 
         messages = [
             {"role": "system", "content": [{"text": system}]},
@@ -110,4 +110,4 @@ class AgentService:
         return "".join(p.text for p in (msg.content or []) if p.text)
 
 
-    
+

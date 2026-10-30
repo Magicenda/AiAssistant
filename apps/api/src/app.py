@@ -70,7 +70,7 @@ async def lifespan(app: FastAPI):
     app.state.llm = build_llm_client()
     app.state.file_storage = FileStorageService()
     app.state.tts = TTSService()
-    app.state.audio = AudioService(language="ru", model_size="base")
+    app.state.audio = AudioService(language="ru", model_size="small")
     app.state.voice = VoiceGenerationOrchestrator(
         app.state.file_storage, app.state.tts, app.state.audio, app.state.llm, SessionLocal
     )
@@ -119,7 +119,6 @@ async def message_not_found_handler(request: Request, exc: MessageNotFoundError)
 
 @app.exception_handler(GigaChatAuthenticationError)
 async def gigachat_auth_handler(request: Request, exc: GigaChatAuthenticationError):
-    # 502, а не 401: наш токен в порядке, отклонён ключ внешнего провайдера.
     logger.warning("GigaChat отклонил ключ: %s", exc)
     return JSONResponse(status_code=502, content={"detail": GIGACHAT_AUTH_MESSAGE})
 

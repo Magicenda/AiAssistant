@@ -1,8 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum as PyEnum
 
 from sqlalchemy import Boolean, String, DateTime, Integer, Enum as SQLEnum, Text, func, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase
+
+from core.time import now_moscow
 
 
 class BaseModel(DeclarativeBase):
@@ -28,7 +30,7 @@ class User(BaseModel):
     hashed_password: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=now_moscow,
         server_default=func.now()
     )
 
@@ -45,7 +47,7 @@ class Meeting(BaseModel):
     appointment: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=now_moscow,
         server_default=func.now()
     )
 
@@ -66,7 +68,7 @@ class Task(BaseModel):
             DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=now_moscow,
         server_default=func.now()
     )
 
@@ -101,7 +103,7 @@ class Chat(BaseModel):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=now_moscow,
         server_default=func.now(),
     )
     messages: Mapped[list["Message"]] = relationship(
@@ -133,7 +135,7 @@ class Message(BaseModel):
     reply_to: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=now_moscow,
         server_default=func.now(),
     )
 
