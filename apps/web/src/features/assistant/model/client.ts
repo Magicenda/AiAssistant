@@ -1,6 +1,7 @@
 import { ApiError as HttpApiError } from "@/shared/api/http";
 import { ApiError as TransportApiError, apiBlob, apiRequest, parseData } from "@/shared/api";
 import { apiConfig } from "@/shared/config";
+import { getTimeZone } from "@/shared/lib/timezone";
 import { isChatDto, isChatList, isLlmAnswer, type ChatDto, type ChatReply } from "@/entities/chat";
 import { modelRequestSettings } from "@/entities/model-settings";
 import {
@@ -133,6 +134,7 @@ export function queryAssistant(
         body: {
           chat_id: chatId,
           query,
+          timezone: getTimeZone(),
           ...(options.replyTo ? { reply_to: options.replyTo } : {}),
           // Без настроек backend использует GigaChat из своего env.
           ...(modelSettings ? { model_settings: modelSettings } : {}),
@@ -189,6 +191,7 @@ export function askByVoice(
     form.append("chat_id", String(chatId));
     form.append("file", file, file instanceof File ? file.name : "voice.webm");
     form.append("speak", String(speak));
+    form.append("timezone", getTimeZone());
     const settings = modelRequestSettings();
     // Backend ждёт JSON-строку в form-поле: модель та же, что выбрана в настройках.
     if (settings) form.append("model_settings", JSON.stringify(settings));

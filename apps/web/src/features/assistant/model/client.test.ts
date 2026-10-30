@@ -82,7 +82,11 @@ describe("assistant client (API.md contract)", () => {
     expect(result.answer).toBe("Готово");
     const { url, init } = lastCall(fetchMock);
     expect(new URL(url).pathname).toBe("/api/llm/query");
-    expect(JSON.parse(String(init.body))).toEqual({ chat_id: 3, query: "привет" });
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      chat_id: 3,
+      query: "привет",
+      timezone: expect.any(String),
+    });
   });
 
   it("queryAssistant calls onDelta once with the full answer", async () => {
