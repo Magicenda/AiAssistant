@@ -1,4 +1,6 @@
+from collections.abc import Awaitable, Callable
 from datetime import datetime
+from typing import Any
 
 from core.config import settings
 from db.models import Message, MessageRole
@@ -43,6 +45,7 @@ class AgentService:
         reply_to: str | None = None,
         regenerate: bool = False,
         user_timezone: str | None = None,
+        on_delta: Callable[[str], Awaitable[None]] | None = None,
     ) -> str:
         # Перегенерация заменяет последний ответ, а не копит дубли в истории.
         if regenerate:
@@ -74,7 +77,7 @@ class AgentService:
         # наивное время от модели трактуем как локальное время пользователя.
         token = tool_timezone.set(zone)
         try:
-            answer = await self._run_agent_loop(messages, llm, temperature)
+            answer = await self._run_agent_loop(messages, llm, temperature, on_delta)
         finally:
             tool_timezone.reset(token)
             if llm is not self.llm:
@@ -85,28 +88,68 @@ class AgentService:
         await self.chat.add_message(chat_id, "assistant", answer)
         return answer
 
-    async def _run_agent_loop(self, messages: list[dict], llm: LLMClient, temperature: float) -> str:
-        for _ in range(settings.agent_max_steps):
-            response = await llm.create({
-                "messages": messages,
-                "model_options": {"temperature": temperature},
-                "tools": [{"functions": {"specifications": self.tools.specs()}}],
-            })
-            msg = response.messages[-1]
+    async def _run_agent_loop(
+        self,
+        messages: list[dict],
+        llm: LLMClient,
+        temperature: float,
+        on_delta: Callable[[str], Awaitable[None]] | None = None,
+    ) -> str:
+        payload = {
+            "messages": messages,
+            "model_options": {"temperature": temperature},
+            "tools": [{"functions": {"specifications": self.tools.specs()}}],
+        }
 
-            call = self._find_call(msg)
+        for _ in range(settings.agent_max_steps):
+            if on_delta is None:
+                response = await llm.create(payload)
+                msg = response.messages[-1]
+                text = self._text(msg)
+                call = self._find_call(msg)
+                assistant_message = msg.model_dump(exclude_none=True, by_alias=True)
+            else:
+                text, call, assistant_message = await self._stream_step(llm, payload, on_delta)
+
             if call is None:
-                return self._text(msg)          # модель ответила текстом: цикл окончен
+                return text
 
             result = await self.tools.call(call.name, call.arguments)
-
-            messages.append(msg.model_dump(exclude_none=True, by_alias=True))   # просьба вызвать функцию
-            messages.append({                                                   # результат функции
+            messages.append(assistant_message)
+            messages.append({
                 "role": "tool",
                 "content": [{"function_result": {"name": call.name, "result": result}}],
             })
 
         return "Не удалось выполнить задачу за допустимое число шагов."
+
+    @staticmethod
+    async def _stream_step(
+        llm: LLMClient,
+        payload: dict,
+        on_delta: Callable[[str], Awaitable[None]],
+    ) -> tuple[str, Any, dict]:
+        parts: list[str] = []
+        call = None
+        message: dict[str, Any] | None = None
+        async for delta in llm.stream(payload):
+            if delta.text:
+                parts.append(delta.text)
+                await on_delta(delta.text)
+            if delta.function_call is not None:
+                call = delta.function_call
+            if delta.assistant_message is not None:
+                message = delta.assistant_message
+
+        text = "".join(parts)
+        if message is None:
+            message = {"role": "assistant", "content": text}
+            if call is not None:
+                message["function_call"] = {
+                    "name": call.name,
+                    "arguments": call.arguments,
+                }
+        return text, call, message
 
     @staticmethod
     def _find_call(msg):

@@ -172,6 +172,27 @@ username=alice&password=correct-horse-1
 `provider: "local"`; для `local` обязательны `base_url` и `model`. Без поля
 backend использует настройки из env.
 
+### `POST /api/llm/query/stream` — потоковый ответ
+
+Тело как у `/api/llm/query`. Ответ `200` с `Content-Type: text/event-stream`:
+
+```text
+data: {"text":"Готово"}
+
+data: [DONE]
+```
+
+Если ошибка возникла уже после начала потока:
+
+```text
+event: error
+data: {"message":"Не удалось получить ответ"}
+```
+
+Перед первым токеном сервер раз в 15 секунд отправляет SSE-комментарий
+`: ping`, чтобы прокси не закрыли соединение. Вопрос и ответ сохраняются в
+историю так же, как у `/api/llm/query`.
+
 ### `POST /api/llm/query_and_voice`
 То же, что `/query`, плюс озвучка ответа в фоне. Тело то же. Ответ `202`:
 ```json
