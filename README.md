@@ -9,7 +9,8 @@ AiAssistant/
 ├── apps/
 │   ├── api/   # FastAPI backend
 │   └── web/   # Next.js frontend
-├── docker-compose.yml   # PostgreSQL для локальной разработки
+├── docker-compose.yml   # PostgreSQL и backend (FastAPI) в Docker
+├── .env.example   # единый env: backend + frontend
 ├── API.md     # контракт backend API
 └── package.json   # скрипты монорепы
 ```
@@ -22,9 +23,35 @@ backend — uv, frontend — Bun.
 Приложение — в [`apps/api`](apps/api). Полное описание — в
 [`apps/api/README.md`](apps/api/README.md).
 
+### Запуск в Docker
+
+Backend вместе с базой поднимается одной командой из корня:
+
+```bash
+bun run api:up      # docker compose up -d --build api
+bun run api:logs
+bun run api:down
+```
+
+`bun run docker:up` / `bun run docker:down` поднимают и останавливают все
+сервисы (backend + PostgreSQL).
+
+Backend — <http://localhost:8000/docs>, PostgreSQL — `localhost:5434`.
+Все настройки — в едином `.env` в корне монорепы, он создаётся из
+[`.env.example`](.env.example). Файл читают и backend, и frontend, а Docker
+Compose подключает его как `env_file` и берёт из него подстановки `${...}`.
+`DATABASE_URL` и `LLM_BASE_URL` внутри контейнера задаёт
+[`docker-compose.yml`](docker-compose.yml), dev-`JWT_SECRET` — значение по
+умолчанию в нём же. Секреты GigaChat и свой `JWT_SECRET` кладите в корневой
+`.env`.
+Если Ollama или LM Studio запущены на хосте, из контейнера они доступны на
+`http://host.docker.internal:11434/v1` (уже прописано в compose).
+
+### Запуск без Docker
+
 ```bash
 cd apps/api
-cp .env.example .env        # заполните JWT_SECRET и GIGACHAT_*
+cp ../../.env.example ../../.env   # из корня монорепы, если ещё не создан
 uv sync
 uv run uvicorn app:app --app-dir src --reload
 ```
@@ -78,6 +105,9 @@ Next.js 16 (App Router) + Tailwind CSS v4 + shadcn/ui + Prettier + Bun.
 - Настройки модели в интерфейсе: провайдер, адрес API, ключ, модель, температура.
 - История чатов, цитаты, перегенерация, остановка генерации, экспорт в Markdown.
 - Голосовые сообщения: запись в браузере, расшифровка на сервере.
+- Озвучка ответов ассистента (TTS) в голосовом режиме.
+- Голосовой режим: отдельный экран с пиксельным ассистентом и непрерывным диалогом
+  голосом — без клавиатуры.
 - Планировщик: планы, задачи, встречи, напоминания, поиск и календарь.
 - Тёмная пиксельная тема, адаптивная вёрстка, PWA-манифест.
 
@@ -87,27 +117,28 @@ Next.js 16 (App Router) + Tailwind CSS v4 + shadcn/ui + Prettier + Bun.
 
 ```bash
 cd apps/web
-cp .env.example .env.local   # NEXT_PUBLIC_API_URL=http://localhost:8000
 bun install
 ```
 
 Из корня монорепы:
 
 ```bash
+cp .env.example .env   # если ещё не создан: NEXT_PUBLIC_API_URL=http://localhost:8000
 bun run dev:web
 ```
 
 Откройте <http://localhost:3000>, перейдите в **Настройки** и укажите
 провайдера, модель и API-ключ.
 
-Адрес backend задаётся **только** через окружение:
+Адрес backend задаётся **только** через окружение — `NEXT_PUBLIC_API_URL` в
+корневом `.env` монорепы (Next читает его через `next.config.ts`):
 
 ```dotenv
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 Значение инлайнится на этапе сборки; в интерфейсе его менять нельзя.
-Для production установите переменную перед `bun run build:web`.
+Для production установите переменную окружения перед `bun run build:web`.
 
 ### Настройки модели
 
@@ -115,13 +146,13 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 в поле `model_settings`. Backend использует их для вызова модели;
 если настройки не заполнены — применяет свою конфигурацию по умолчанию.
 
-| Поле        | Описание                                                             |
-| ----------- | -------------------------------------------------------------------- |
+| Поле        | Описание                                                              |
+| ----------- | --------------------------------------------------------------------- |
 | Сервис      | `GigaChat` (по умолчанию) или `Локальная модель` (Ollama / LM Studio) |
 | Адрес API   | Base URL без `/chat/completions`; только для локальной модели         |
-| API-ключ    | Ключ локального сервера; обычно не нужен                             |
-| Модель      | Идентификатор локальной модели                                       |
-| Температура | 0–1.5, по умолчанию 0.7                                              |
+| API-ключ    | Ключ локального сервера; обычно не нужен                              |
+| Модель      | Идентификатор локальной модели                                        |
+| Температура | 0–1.5, по умолчанию 0.7                                               |
 
 Для GigaChat ключ хранится на backend в env, в браузер он не попадает.
 Для локальной модели адрес и модель хранятся в localStorage и передаются
@@ -129,19 +160,19 @@ backend с запросом. Не используйте фронтенд с н�
 
 ### Контракт backend API
 
-| Метод    | Путь                                   | Тело / ответ                                                 |
-| -------- | -------------------------------------- | ------------------------------------------------------------ |
-| `GET`    | `/`                                    | health-check, любой `2xx`                                    |
-| `POST`   | `/chat/create_chat`                    | `{ name_chat }` → чат с `chat_id` и `messages`               |
-| `GET`    | `/chat/get_all_chats`                  | чаты пользователя вместе с сообщениями                       |
-| `GET`    | `/chat/get_chat/{chat_id}`             | один чат с историей                                          |
-| `PATCH`  | `/chat/{chat_id}`                      | `{ name_chat?, pinned? }` → обновлённый чат                  |
-| `POST`   | `/chat/add_message/{chat_id}`          | query-параметры `role`, `content` → обновлённый чат          |
-| `DELETE` | `/chat/{chat_id}/message/{message_id}` | удаление сообщения → обновлённый чат                         |
-| `DELETE` | `/chat/{chat_id}/messages`             | очистка истории → обновлённый чат                            |
-| `DELETE` | `/chat/delete_chat/{chat_id}`          | удаление чата на сервере                                     |
+| Метод    | Путь                                   | Тело / ответ                                                  |
+| -------- | -------------------------------------- | ------------------------------------------------------------- |
+| `GET`    | `/`                                    | health-check, любой `2xx`                                     |
+| `POST`   | `/chat/create_chat`                    | `{ name_chat }` → чат с `chat_id` и `messages`                |
+| `GET`    | `/chat/get_all_chats`                  | чаты пользователя вместе с сообщениями                        |
+| `GET`    | `/chat/get_chat/{chat_id}`             | один чат с историей                                           |
+| `PATCH`  | `/chat/{chat_id}`                      | `{ name_chat?, pinned? }` → обновлённый чат                   |
+| `POST`   | `/chat/add_message/{chat_id}`          | query-параметры `role`, `content` → обновлённый чат           |
+| `DELETE` | `/chat/{chat_id}/message/{message_id}` | удаление сообщения → обновлённый чат                          |
+| `DELETE` | `/chat/{chat_id}/messages`             | очистка истории → обновлённый чат                             |
+| `DELETE` | `/chat/delete_chat/{chat_id}`          | удаление чата на сервере                                      |
 | `POST`   | `/llm/query`                           | `{ chat_id, query, model_settings?, reply_to?, regenerate? }` |
-| `POST`   | `/audio/transcribe`                    | multipart `chat_id`, `file` → `{ text }`                     |
+| `POST`   | `/audio/transcribe`                    | multipart `chat_id`, `file` → `{ text }`                      |
 
 `model_settings` — необязательный JSON-объект:
 
@@ -188,32 +219,43 @@ Backend должен разрешать origin фронтенда (`http://local
 - Голос: аудио уходит на `/audio/transcribe`, расшифровка становится вопросом.
   Сам аудиофайл backend не хранит — плеер работает по локальному оверлею в
   localStorage, привязанному к id сообщения.
+- Текстовый чат отвечает без звука: озвучка включается только в голосовом
+  режиме. Движок выбирается в настройках: **браузер** (по умолчанию, системный
+  голос — звук начинается почти сразу, без сети) или **сервер** (Edge TTS, голос
+  стабильнее, но первый звук ждёт синтеза). Серверный вариант отдаёт mp3 потоком
+  через `/api/voice/stream`, поэтому не нужно ждать весь файл.
+- Голосовой режим (`/voice`) ведёт диалог через `/api/voice/ask` с `speak=false`:
+  сервер распознаёт речь и отвечает текстом, а озвучку фронтенд делает сам
+  выбранным движком. Экран показывает расшифровку и ответ по мере готовности и
+  после паузы в речи сам отправляет реплику. После ответа микрофон включается
+  снова, пока включён «Автослушать». Вопрос и ответ сохраняются в том же чате,
+  поэтому разговор можно продолжить текстом — ссылка «Продолжить текстом».
 - Если backend недоступен, сообщение не сохраняется, а в чате показывается ошибка
   с кнопкой «Повторить».
 
-В localStorage остаются только черновики композера, настройки модели и
-голосовые вложения.
+В localStorage остаются только черновики композера, настройки модели, движок
+озвучки и голосовые вложения.
 
 ### Команды
 
 Запускать из корня монорепы:
 
-| Команда              | Что делает                             |
-| -------------------- | -------------------------------------- |
-| `bun run dev:web`    | Next dev server (Turbopack)            |
-| `bun run build:web`  | production build                       |
-| `bun run start:web`  | production server                      |
-| `bun run typecheck:web` | `tsc --noEmit`                      |
-| `bun run lint:web`   | ESLint                                 |
-| `bun run format:web` | форматирование файлов Prettier         |
-| `bun run format:check:web` | проверка форматирования без записи |
-| `bun run test:web`   | тесты фронтенда (Vitest)               |
-| `bun run sync:api`   | установка зависимостей backend         |
-| `bun run dev:api`    | backend dev-сервер с автоперезагрузкой |
-| `bun run start:api`  | backend без автоперезагрузки           |
-| `bun run db:up`      | PostgreSQL в Docker (localhost:5434)   |
-| `bun run db:down`    | остановить контейнер с БД              |
-| `bun run db:logs`    | логи PostgreSQL                        |
+| Команда                    | Что делает                             |
+| -------------------------- | -------------------------------------- |
+| `bun run dev:web`          | Next dev server (Turbopack)            |
+| `bun run build:web`        | production build                       |
+| `bun run start:web`        | production server                      |
+| `bun run typecheck:web`    | `tsc --noEmit`                         |
+| `bun run lint:web`         | ESLint                                 |
+| `bun run format:web`       | форматирование файлов Prettier         |
+| `bun run format:check:web` | проверка форматирования без записи     |
+| `bun run test:web`         | тесты фронтенда (Vitest)               |
+| `bun run sync:api`         | установка зависимостей backend         |
+| `bun run dev:api`          | backend dev-сервер с автоперезагрузкой |
+| `bun run start:api`        | backend без автоперезагрузки           |
+| `bun run db:up`            | PostgreSQL в Docker (localhost:5434)   |
+| `bun run db:down`          | остановить контейнер с БД              |
+| `bun run db:logs`          | логи PostgreSQL                        |
 
 Перед коммитом: `bun run format:web`, затем `bun run typecheck:web` и
 `bun run lint:web` — типы и линтер должны проходить чисто, проверка
@@ -238,16 +280,19 @@ Backend должен разрешать origin фронтенда (`http://local
 apps/web/src/
 ├── app/                    # только роутинг Next.js
 │   ├── (marketing)/        # лендинг
-│   └── (dashboard)/        # чат, планы, задачи, встречи, поиск, настройки
+│   └── (dashboard)/        # чат, голос, планы, задачи, встречи, поиск, настройки
 ├── views/                  # экраны целиком
 ├── widgets/                # header, sidebar
 ├── features/
-│   ├── assistant/          # клиент backend API: чаты, query, транскрипция
+│   ├── assistant/          # клиент backend API: чаты, query, транскрипция, TTS
 │   ├── model-settings/     # форма настроек модели
+│   ├── voice-playback/     # движок синтеза речи (TTS) и настройка
+│   ├── voice-mode/         # голосовой диалог, микрофон и пиксельный ассистент
 │   ├── conversations/      # чат, локальная история, стриминг в UI
 │   └── planner/            # планировщик
 ├── entities/
 │   ├── chat/               # типы чата
+│   ├── voice/              # типы озвучки и выбор движка
 │   └── model-settings/     # типы и localStorage настроек модели
 └── shared/                 # UI-примитивы, утилиты, конфиг, API-клиент
 ```
@@ -257,13 +302,14 @@ apps/web/src/
 
 ### Данные и приватность
 
-| Что                          | Где                                                     |
-| ---------------------------- | ------------------------------------------------------- |
-| Провайдер, модель, API-ключ  | localStorage браузера                                   |
-| Чаты и сообщения             | на backend                                              |
-| Черновики композера          | localStorage браузера                                   |
-| Голосовые вложения           | localStorage браузера + отправка на `/audio/transcribe` |
-| Планировщик                  | на backend                                              |
+| Что                         | Где                                                     |
+| --------------------------- | ------------------------------------------------------- |
+| Провайдер, модель, API-ключ | localStorage браузера                                   |
+| Движок озвучки              | localStorage браузера                                   |
+| Чаты и сообщения            | на backend                                              |
+| Черновики композера         | localStorage браузера                                   |
+| Голосовые вложения          | localStorage браузера + отправка на `/audio/transcribe` |
+| Планировщик                 | на backend                                              |
 
 Backend получает настройки модели с каждым запросом и использует их для
 обращения к провайдеру. Никаких секретов в самом фронтенде нет.
@@ -273,7 +319,12 @@ Backend получает настройки модели с каждым зап�
 - Backend API должен быть доступен из браузера (CORS).
 - Формат SSE зависит от backend; фронтенд поддерживает несколько частых вариантов.
 - Регенерация и удаление отдельных сообщений не меняют историю на сервере.
-- Уведомления и TTS пока не подключены.
+- Уведомления пока не подключены.
+- Серверная озвучка Edge TTS зависит от внешнего сервиса: первый звук обычно
+  через 1–3 секунды, иногда дольше. Для мгновенного голоса выберите браузерный
+  движок в настройках — качество и наличие русского голоса зависят от системы.
+- В голосовом режиме автослушание закрывает микрофон после 8 секунд тишины:
+  нажмите на ассистента, чтобы продолжить.
 - Для микрофона нужен `localhost` или HTTPS.
 
 ### Диагностика

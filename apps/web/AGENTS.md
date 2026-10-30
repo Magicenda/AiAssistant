@@ -16,7 +16,7 @@
 
 ## Backend API
 
-- Адрес backend задаётся **только** через `NEXT_PUBLIC_API_URL` (по умолчанию `http://localhost:8000`). Значение инлайнится на этапе сборки; поля адреса сервера в UI не делать.
+- Адрес backend задаётся **только** через `NEXT_PUBLIC_API_URL` (по умолчанию `http://localhost:8000`); переменная лежит в корневом `.env` монорепы и подгружается в `next.config.ts`. Значение инлайнится на этапе сборки; поля адреса сервера в UI не делать.
 - Запросы к backend инкапсулированы в `features/assistant/model/client.ts`. Не разбрасывать `fetch` по компонентам.
 - Настройки модели (провайдер, base URL, ключ, модель, температура) хранит пользователь в localStorage — `entities/model-settings`. Форма — `features/model-settings`.
 - Эти настройки передаются backend в поле `model_settings` запроса `/llm/query` (JSON). Для GigaChat поле не отправляется — backend использует ключ и модель из env.

@@ -5,19 +5,63 @@ Backend локального AI-ассистента: аутентификаци
 
 FastAPI + SQLAlchemy (async) + Alembic + GigaChat. Пакетный менеджер — uv.
 
-## Запуск
+## Запуск в Docker
+
+Самый простой способ — поднять backend вместе с PostgreSQL из корня монорепы:
+
+```bash
+bun run api:up      # docker compose up -d --build api (поднимет и postgres)
+bun run api:logs    # логи uvicorn
+bun run api:down    # остановить контейнер backend
+```
+
+Или напрямую через Docker Compose:
+
+```bash
+docker compose up -d --build api
+```
+
+Backend будет доступен на <http://localhost:8000>, Swagger —
+<http://localhost:8000/docs>, PostgreSQL — на `localhost:5434`.
+
+Настройки и секреты — в едином `.env` в корне монорепы:
+
+```bash
+cp .env.example .env   # из корня, затем заполните GIGACHAT_CREDENTIALS и JWT_SECRET
+```
+
+Этот файл подключается к контейнеру через `env_file` и он же — единственный
+шаблон настроек: отдельных файлов под Docker нет. `DATABASE_URL` и
+`LLM_BASE_URL` задаёт сам [`docker-compose.yml`](../../docker-compose.yml),
+потому что внутри контейнера база и Ollama/LM Studio на хосте доступны по другим
+адресам. `JWT_SECRET` подставляется в compose из корневого `.env`, а без своей
+переменной работает dev-секрет из compose — только для локальной разработки.
+
+| Что            | Куда                                                                |
+| -------------- | ------------------------------------------------------------------- |
+| Код            | `/app` (образ собирается из [`Dockerfile`](Dockerfile))             |
+| Аудиофайлы     | `apps/api/storage` (bind mount)                                     |
+| Модели Whisper | volume `ai-assistant_whisper-cache`, скачиваются при первом старте  |
+| `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@postgres:5432/ai_assistant` |
+| `LLM_BASE_URL` | `http://host.docker.internal:11434/v1` (Ollama на хосте)            |
+
+Первый запуск занимает несколько минут: скачивается модель Whisper, healthcheck
+ждёт до 3 минут. Пересобрать образ после изменения зависимостей —
+`docker compose build api`.
+
+## Запуск без Docker
 
 Нужен [uv](https://docs.astral.sh/uv/) и Python 3.11+.
 
 ```bash
 cd apps/api
-cp .env.example .env        # заполните JWT_SECRET и GIGACHAT_*
+cp ../../.env.example ../../.env   # из корня монорепы, если ещё не создан
 uv sync
 uv run uvicorn app:app --app-dir src --reload
 ```
 
-`JWT_SECRET` обязателен и должен быть не короче 32 символов
-(`openssl rand -hex 32`).
+Backend читает `.env` из корня монорепы. `JWT_SECRET` обязателен и должен быть
+не короче 32 символов (`openssl rand -hex 32`).
 
 Из корня монорепы:
 
@@ -39,16 +83,16 @@ bun run db:down
 bun run db:logs
 ```
 
-| Параметр | Значение                         |
-| -------- | -------------------------------- |
-| Хост     | `localhost`                      |
-| Порт     | `5434` (снаружи контейнера)      |
-| Пользователь | `postgres`                   |
-| Пароль   | `postgres`                       |
-| База     | `ai_assistant`                   |
+| Параметр     | Значение                    |
+| ------------ | --------------------------- |
+| Хост         | `localhost`                 |
+| Порт         | `5434` (снаружи контейнера) |
+| Пользователь | `postgres`                  |
+| Пароль       | `postgres`                  |
+| База         | `ai_assistant`              |
 
-`DATABASE_URL` в `.env.example` уже указывает на этот контейнер. Подключиться
-клиентом:
+`DATABASE_URL` в корневом `.env.example` уже указывает на этот контейнер.
+Подключиться клиентом:
 
 ```bash
 psql -h localhost -p 5434 -U postgres -d ai_assistant
@@ -81,10 +125,10 @@ apps/api/
 
 Поддерживаются два варианта, переключение — через `LLM_PROVIDER`:
 
-| `LLM_PROVIDER`      | Что использовать                  | Обязательные переменные                            |
-| ------------------- | --------------------------------- | -------------------------------------------------- |
-| `gigachat` (по умолчанию) | GigaChat API                | `GIGACHAT_CREDENTIALS`, `GIGACHAT_SCOPE`, `GIGACHAT_MODEL` |
-| `openai_compatible` | Ollama или LM Studio              | `LLM_BASE_URL`, `LLM_MODEL` (ключ обычно любой)    |
+| `LLM_PROVIDER`            | Что использовать     | Обязательные переменные                                    |
+| ------------------------- | -------------------- | ---------------------------------------------------------- |
+| `gigachat` (по умолчанию) | GigaChat API         | `GIGACHAT_CREDENTIALS`, `GIGACHAT_SCOPE`, `GIGACHAT_MODEL` |
+| `openai_compatible`       | Ollama или LM Studio | `LLM_BASE_URL`, `LLM_MODEL` (ключ обычно любой)            |
 
 Ollama и LM Studio отдают OpenAI-совместимый `/v1/chat/completions`:
 
@@ -100,25 +144,31 @@ LLM_MODEL=qwen2.5:7b
 
 ## Переменные окружения
 
-| Переменная             | Назначение                                  |
-| ---------------------- | ------------------------------------------- |
-| `LLM_PROVIDER`         | `gigachat` или `openai_compatible`          |
-| `DATABASE_URL`         | строка подключения SQLAlchemy (async)       |
-| `GIGACHAT_CREDENTIALS` | ключ авторизации GigaChat                   |
-| `GIGACHAT_SCOPE`       | scope GigaChat                              |
-| `GIGACHAT_MODEL`       | модель GigaChat                             |
-| `LLM_BASE_URL`         | base URL Ollama/LM Studio, включает `/v1`   |
-| `LLM_API_KEY`          | ключ OpenAI-совместимого сервера            |
-| `LLM_MODEL`            | идентификатор модели Ollama/LM Studio       |
-| `LLM_TIMEOUT`          | таймаут запроса к LLM, по умолчанию 120 с   |
-| `JWT_SECRET`           | секрет подписи JWT, минимум 32 символа      |
-| `JWT_ALGORITHM`        | алгоритм JWT, по умолчанию `HS256`          |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | время жизни токена, по умолчанию 60   |
+Все переменные живут в едином `.env` в корне монорепы (шаблон —
+[`.env.example`](../../.env.example)); `apps/api/.env` больше не используется.
+
+| Переменная                    | Назначение                                                 |
+| ----------------------------- | ---------------------------------------------------------- |
+| `LLM_PROVIDER`                | `gigachat` или `openai_compatible`                         |
+| `DATABASE_URL`                | строка подключения SQLAlchemy (async)                      |
+| `GIGACHAT_CREDENTIALS`        | ключ авторизации GigaChat                                  |
+| `GIGACHAT_SCOPE`              | scope GigaChat                                             |
+| `GIGACHAT_MODEL`              | модель GigaChat                                            |
+| `LLM_BASE_URL`                | base URL Ollama/LM Studio, включает `/v1`                  |
+| `LLM_API_KEY`                 | ключ OpenAI-совместимого сервера                           |
+| `LLM_MODEL`                   | идентификатор модели Ollama/LM Studio                      |
+| `LLM_TIMEOUT`                 | таймаут запроса к LLM, по умолчанию 120 с                  |
+| `JWT_SECRET`                  | секрет подписи JWT, минимум 32 символа                     |
+| `JWT_ALGORITHM`               | алгоритм JWT, по умолчанию `HS256`                         |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | время жизни токена, по умолчанию 60                        |
+| `GIGACHAT_VERIFY_SSL_CERTS`   | проверять TLS-сертификаты GigaChat, по умолчанию `false`   |
+| `AGENT_MAX_STEPS`             | сколько шагов может сделать агент, по умолчанию 5          |
+| `HISTORY_LIMIT`               | сколько сообщений истории отдавать модели, по умолчанию 20 |
 
 ## Команды
 
-| Команда                                    | Что делает                     |
-| ------------------------------------------ | ------------------------------ |
+| Команда                                         | Что делает                     |
+| ----------------------------------------------- | ------------------------------ |
 | `uv run uvicorn app:app --app-dir src --reload` | dev-сервер с автоперезагрузкой |
-| `uv sync`                                  | установка зависимостей         |
-| `uv run python -m ...`                     | запуск модулей из окружения    |
+| `uv sync`                                       | установка зависимостей         |
+| `uv run python -m ...`                          | запуск модулей из окружения    |
