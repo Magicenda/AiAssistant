@@ -58,7 +58,7 @@ interface Draft {
  * Форма настроек модели ('use client': черновик в состоянии, пресеты
  * провайдеров, запись в localStorage).
  *
- * @returns Разметку формы с секциями «Модель», «Доступ», «Параметры ответа», «Сервер».
+ * @returns Разметку формы с секциями «Модель», «Доступ», «Сервер» и параметрами локальной модели.
  */
 export function ModelForm() {
   const saved = useSyncExternalStore(
@@ -259,30 +259,33 @@ export function ModelForm() {
         </section>
       )}
 
-      <section className="pixel-panel space-y-4 p-5">
-        <h2 className="font-pixel text-foreground flex items-center gap-2 text-sm">
-          <SlidersHorizontal className="text-primary size-4" />
-          Параметры ответа
-        </h2>
-        <label className={labelClass}>
-          <span className="flex items-center justify-between gap-3">
-            Температура
-            <span className="text-foreground">{settings.temperature.toFixed(2)}</span>
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={1.5}
-            step={0.05}
-            value={settings.temperature}
-            onChange={event => patch({ temperature: Number(event.target.value) })}
-            className="accent-primary w-full"
-          />
-        </label>
-        <p className="text-muted-foreground font-mono text-[0.7rem] leading-relaxed">
-          Меньше — точнее и стабильнее, больше — свободнее и креативнее. Рекомендуется 0.6–0.8.
-        </p>
-      </section>
+      {settings.provider === "local" && (
+        <section className="pixel-panel space-y-4 p-5">
+          <h2 className="font-pixel text-foreground flex items-center gap-2 text-sm">
+            <SlidersHorizontal className="text-primary size-4" />
+            Параметры ответа
+          </h2>
+          <label className={labelClass}>
+            <span className="flex items-center justify-between gap-3">
+              Температура
+              <span className="text-foreground">{settings.temperature.toFixed(2)}</span>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={1.5}
+              step={0.05}
+              value={settings.temperature}
+              onChange={event => patch({ temperature: Number(event.target.value) })}
+              className="accent-primary w-full"
+            />
+          </label>
+          <p className="text-muted-foreground font-mono text-[0.7rem] leading-relaxed">
+            Настройка применяется только к локальной модели. Меньше — точнее и стабильнее, больше —
+            свободнее и креативнее. Рекомендуется 0.6–0.8.
+          </p>
+        </section>
+      )}
 
       <section className="pixel-panel space-y-3 p-5">
         <h2 className="font-pixel text-foreground flex items-center gap-2 text-sm">
