@@ -9,8 +9,6 @@ export interface ProviderPreset {
   baseUrl: string;
   /** Модель по умолчанию; пустая, если её задаёт сервер. */
   model: string;
-  /** Нужен ли API-ключ. */
-  keyRequired: boolean;
   /** Пояснение для пользователя под селектом. */
   note: string;
 }
@@ -22,7 +20,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     label: "GigaChat",
     baseUrl: "",
     model: "",
-    keyRequired: false,
     note: "Модель проекта по умолчанию. Ключ и модель заданы на сервере.",
   },
   {
@@ -30,7 +27,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     label: "Локальная модель",
     baseUrl: "http://localhost:11434/v1",
     model: "",
-    keyRequired: false,
     note: "Ollama или LM Studio: укажите адрес и модель из локального сервера.",
   },
 ];
@@ -80,9 +76,4 @@ export function isLocalAddress(value: string) {
       value.trim(),
     ) || /\.local(?::|\/|$)/i.test(value.trim())
   );
-}
-
-/** Для нелокального адреса требуется API-ключ. */
-export function requiresApiKey(baseUrl: string) {
-  return !isLocalAddress(baseUrl);
 }

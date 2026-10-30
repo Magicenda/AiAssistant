@@ -3,11 +3,9 @@ export {
   PROVIDER_PRESETS,
   isLocalAddress,
   providerFor,
-  requiresApiKey,
   type ModelRequestSettings,
   type ModelSettings,
   type ProviderId,
-  type ProviderPreset,
 } from "./model/types";
 export {
   modelRequestSettings,
