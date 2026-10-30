@@ -19,10 +19,7 @@ function toSearch(query: ProfileQuery): Record<string, string> {
 }
 
 export async function getTasks(query: ProfileQuery = {}): Promise<TaskItemDto[]> {
-  return parseData(
-    await apiRequest("/api/profile/tasks", { search: toSearch(query) }),
-    isTaskList,
-  );
+  return parseData(await apiRequest("/api/profile/tasks", { search: toSearch(query) }), isTaskList);
 }
 
 export async function getReminders(query: ProfileQuery = {}): Promise<TaskItemDto[]> {

@@ -19,8 +19,9 @@ describe("ApiError", () => {
   it("falls back to the status message when detail is null", () => {
     expect(new ApiError(404, null).message).toBe("Не найдено или недоступно");
     expect(new ApiError(413, null).message).toBe("Файл слишком большой (максимум 25 МБ)");
-    expect(new ApiError(401, null).message)
-      .toBe("Требуется вход. Пожалуйста, авторизуйтесь снова.");
+    expect(new ApiError(401, null).message).toBe(
+      "Требуется вход. Пожалуйста, авторизуйтесь снова.",
+    );
   });
 
   it("uses a generic fallback for unknown statuses", () => {
@@ -28,10 +29,12 @@ describe("ApiError", () => {
   });
 
   it("has fixed messages for transport errors", () => {
-    expect(new ApiError(0, "ignored", "network").message)
-      .toBe("Сервис недоступен. Проверьте подключение.");
-    expect(new ApiError(0, "ignored", "timeout").message)
-      .toBe("Превышено время ожидания ответа от сервера");
+    expect(new ApiError(0, "ignored", "network").message).toBe(
+      "Сервис недоступен. Проверьте подключение.",
+    );
+    expect(new ApiError(0, "ignored", "timeout").message).toBe(
+      "Превышено время ожидания ответа от сервера",
+    );
   });
 });
 

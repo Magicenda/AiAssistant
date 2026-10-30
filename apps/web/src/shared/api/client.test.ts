@@ -80,8 +80,9 @@ describe("apiRequest", () => {
     });
 
     const { init } = lastCall(fetchMock);
-    expect((init.headers as Record<string, string>)["Content-Type"])
-      .toBe("application/x-www-form-urlencoded");
+    expect((init.headers as Record<string, string>)["Content-Type"]).toBe(
+      "application/x-www-form-urlencoded",
+    );
     expect(String(init.body)).toBe("username=alice&password=secret");
   });
 
@@ -126,8 +127,7 @@ describe("apiRequest", () => {
     const handler = vi.fn();
     setUnauthorizedHandler(handler);
     setAccessToken("expired");
-    const fetchMock = vi.fn()
-      .mockResolvedValue(jsonResponse({ detail: "Not authenticated" }, 401));
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ detail: "Not authenticated" }, 401));
     vi.stubGlobal("fetch", fetchMock);
 
     const error = await catchError(apiRequest("/api/x"));
@@ -138,14 +138,17 @@ describe("apiRequest", () => {
   it("does not trigger the handler on 401 without a token", async () => {
     const handler = vi.fn();
     setUnauthorizedHandler(handler);
-    const fetchMock = vi.fn()
+    const fetchMock = vi
+      .fn()
       .mockResolvedValue(jsonResponse({ detail: "Invalid credentials" }, 401));
     vi.stubGlobal("fetch", fetchMock);
 
-    const error = await catchError(apiRequest("/api/auth/login", {
-      method: "POST",
-      body: new URLSearchParams({ username: "a", password: "b" }),
-    }));
+    const error = await catchError(
+      apiRequest("/api/auth/login", {
+        method: "POST",
+        body: new URLSearchParams({ username: "a", password: "b" }),
+      }),
+    );
     expect(error.status).toBe(401);
     expect(handler).not.toHaveBeenCalled();
   });
@@ -161,12 +164,13 @@ describe("apiRequest", () => {
 
   it("aborts via AbortController on timeout", async () => {
     vi.useFakeTimers();
-    const fetchMock = vi.fn((_url: string, init: RequestInit) =>
-      new Promise<Response>((_resolve, reject) => {
-        init.signal?.addEventListener("abort", () => {
-          reject(new DOMException("Aborted", "AbortError"));
-        });
-      }),
+    const fetchMock = vi.fn(
+      (_url: string, init: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -177,9 +181,11 @@ describe("apiRequest", () => {
   });
 
   it("returns blobs when parsed as blob", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(new Blob(["audio"], { type: "audio/mpeg" }), { status: 200 }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(new Blob(["audio"], { type: "audio/mpeg" }), { status: 200 }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await apiBlob("/api/voice/jobs/1/audio");
@@ -189,8 +195,7 @@ describe("apiRequest", () => {
 
 describe("parseData", () => {
   const guard = (value: unknown): value is { a: number } =>
-    typeof value === "object" && value !== null &&
-    typeof (value as { a?: unknown }).a === "number";
+    typeof value === "object" && value !== null && typeof (value as { a?: unknown }).a === "number";
 
   it("returns validated data", () => {
     expect(parseData({ a: 1 }, guard)).toEqual({ a: 1 });

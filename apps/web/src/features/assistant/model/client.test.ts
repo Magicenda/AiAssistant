@@ -1,12 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError as HttpApiError } from "@/shared/api/http";
 import { clearAccessToken, setAccessToken } from "@/shared/api";
-import {
-  createRemoteChat,
-  deleteRemoteChat,
-  queryAssistant,
-  transcribeVoice,
-} from "./client";
+import { createRemoteChat, deleteRemoteChat, queryAssistant, transcribeVoice } from "./client";
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -46,9 +41,7 @@ describe("assistant client (API.md contract)", () => {
   });
 
   it("sends the Bearer token on protected calls", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(json({ chat_id: 1, name_chat: "", messages: [] }));
+    const fetchMock = vi.fn().mockResolvedValue(json({ chat_id: 1, name_chat: "", messages: [] }));
     vi.stubGlobal("fetch", fetchMock);
     setAccessToken("tok-123");
 

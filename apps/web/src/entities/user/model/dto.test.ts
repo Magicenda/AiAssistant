@@ -3,11 +3,13 @@ import { isAuthToken, isAuthUser } from "./dto";
 
 describe("isAuthUser", () => {
   it("accepts a valid user", () => {
-    expect(isAuthUser({
-      id: 1,
-      username: "alice",
-      created_at: "2026-10-29T16:05:29+00:00",
-    })).toBe(true);
+    expect(
+      isAuthUser({
+        id: 1,
+        username: "alice",
+        created_at: "2026-10-29T16:05:29+00:00",
+      }),
+    ).toBe(true);
   });
 
   it("rejects invalid shapes", () => {

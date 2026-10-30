@@ -14,16 +14,20 @@ describe("formatDetail", () => {
   });
 
   it("joins a single validation issue with its field name", () => {
-    expect(formatDetail([
-      { loc: ["body", "password"], msg: "String too short", type: "string_too_short" },
-    ])).toBe("password: String too short");
+    expect(
+      formatDetail([
+        { loc: ["body", "password"], msg: "String too short", type: "string_too_short" },
+      ]),
+    ).toBe("password: String too short");
   });
 
   it("joins multiple validation issues", () => {
-    expect(formatDetail([
-      { loc: ["body", "username"], msg: "too short", type: "x" },
-      { loc: ["body", "password"], msg: "too short", type: "x" },
-    ])).toBe("username: too short, password: too short");
+    expect(
+      formatDetail([
+        { loc: ["body", "username"], msg: "too short", type: "x" },
+        { loc: ["body", "password"], msg: "too short", type: "x" },
+      ]),
+    ).toBe("username: too short, password: too short");
   });
 
   it("falls back to null when the array has no valid issues", () => {
