@@ -23,7 +23,14 @@ class GigaChatClient:
     """GigaChat через официальный SDK: payload и ответ остаются в его формате."""
 
     def __init__(self) -> None:
-        self._client = GigaChat()
+        # Значения передаём явно: тогда дефолты из core/config.py работают
+        # и без GIGACHAT_* в окружении.
+        self._client = GigaChat(
+            credentials=settings.gigachat_credentials or None,
+            scope=settings.gigachat_scope,
+            model=settings.gigachat_model,
+            verify_ssl_certs=settings.gigachat_verify_ssl_certs,
+        )
 
     async def create(self, payload: dict) -> Any:
         return await self._client.achat.create(payload)

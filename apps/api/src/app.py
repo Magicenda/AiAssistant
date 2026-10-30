@@ -1,13 +1,17 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager, suppress
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from gigachat.exceptions import AuthenticationError as GigaChatAuthenticationError
 from sqlalchemy import inspect, text
 
+from core.config import MONOREPO_ROOT, settings
 from core.exceptions import (
+    GIGACHAT_AUTH_MESSAGE,
     ChatNotFoundError,
     InvalidCredentialsError,
     MessageNotFoundError,
@@ -27,7 +31,9 @@ from services.orchestrator import VoiceGenerationOrchestrator
 from services.transcribation_service import AudioService
 from services.tts_services import FileStorageService, TTSService
 
-load_dotenv()
+load_dotenv(MONOREPO_ROOT / ".env")
+
+logger = logging.getLogger(__name__)
 
 
 async def _cleanup_loop(orchestrator: VoiceGenerationOrchestrator, interval: int = 60) -> None:
@@ -56,6 +62,11 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(BaseModel.metadata.create_all)
         await _ensure_columns(conn)
+    if settings.llm_provider == "gigachat" and not settings.gigachat_credentials:
+        logger.warning(
+            "GIGACHAT_CREDENTIALS не задан: ответы GigaChat будут отклонены (401). "
+            "Укажите ключ в apps/api/.env или выберите локальную модель в настройках."
+        )
     app.state.llm = build_llm_client()
     app.state.file_storage = FileStorageService()
     app.state.tts = TTSService()
@@ -104,6 +115,13 @@ async def chat_not_found_handler(request: Request, exc: ChatNotFoundError):
 @app.exception_handler(MessageNotFoundError)
 async def message_not_found_handler(request: Request, exc: MessageNotFoundError):
     return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(GigaChatAuthenticationError)
+async def gigachat_auth_handler(request: Request, exc: GigaChatAuthenticationError):
+    # 502, а не 401: наш токен в порядке, отклонён ключ внешнего провайдера.
+    logger.warning("GigaChat отклонил ключ: %s", exc)
+    return JSONResponse(status_code=502, content={"detail": GIGACHAT_AUTH_MESSAGE})
 
 
 app.include_router(auth_router, prefix="/api")

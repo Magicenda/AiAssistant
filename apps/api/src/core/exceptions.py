@@ -19,3 +19,10 @@ class UserAlreadyExistsError(Exception):
 class InvalidCredentialsError(Exception):
     def __init__(self):
         super().__init__("Неверный логин или пароль")
+
+
+# Подсказка для GigaChat 401: ключ пустой/просрочен — это частая ошибка при первом запуске.
+GIGACHAT_AUTH_MESSAGE = (
+    "GigaChat отклонил ключ (401). Проверьте GIGACHAT_CREDENTIALS в apps/api/.env "
+    "и перезапустите backend или выберите локальную модель в настройках."
+)
