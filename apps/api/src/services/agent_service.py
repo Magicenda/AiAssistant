@@ -86,7 +86,6 @@ class AgentService:
         return answer
 
     async def _run_agent_loop(self, messages: list[dict], llm: LLMClient, temperature: float) -> str:
-        print(self.tools.specs())
         for _ in range(settings.agent_max_steps):
             response = await llm.create({
                 "messages": messages,
