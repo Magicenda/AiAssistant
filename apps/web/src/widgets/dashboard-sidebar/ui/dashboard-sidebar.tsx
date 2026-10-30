@@ -3,6 +3,7 @@
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
 import {
+  AudioLines,
   Bell,
   CalendarDays,
   CheckSquare,
@@ -25,6 +26,7 @@ type NavItem = { href: Route; label: string; icon: LucideIcon };
 
 /** Пункт навигации: типобезопасный маршрут, подпись и иконка lucide. */
 const NAV_ITEMS: NavItem[] = [
+  { href: "/voice", label: "Голос", icon: AudioLines },
   { href: "/plans", label: "Планы", icon: CalendarDays },
   { href: "/tasks", label: "Задачи", icon: CheckSquare },
   { href: "/meetings", label: "Встречи", icon: ListTodo },

@@ -59,7 +59,7 @@ import {
   subscribeReplies,
 } from "../model/replies";
 import { buildMessageItems } from "../model/chat-view";
-import { plainText } from "../model/plain-text";
+import { plainText } from "@/shared/lib/plain-text";
 import { MessageBubble, TypingBubble } from "./message-bubble";
 import { ChatList } from "./chat-list";
 import { transcribeVoice } from "@/features/assistant";
@@ -452,6 +452,15 @@ export function Conversation({ sessionId }: ConversationProps) {
           )}
         </div>
         <div className="relative flex shrink-0 items-center gap-2">
+          <Button asChild variant="ghost" size="icon">
+            <Link
+              href={sessionId ? `/voice/${sessionId}` : "/voice"}
+              aria-label="Голосовой режим"
+              title="Голосовой режим"
+            >
+              <AudioLines className="size-5" />
+            </Link>
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -600,6 +609,7 @@ export function Conversation({ sessionId }: ConversationProps) {
               <MessageBubble
                 message={{ id: "live-reply", role: "assistant", text: reply.text }}
                 lastInGroup
+                streaming
               />
             ) : (
               <TypingBubble />

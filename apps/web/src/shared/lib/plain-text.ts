@@ -1,4 +1,4 @@
-/** Убирает markdown-разметку для заголовков, превью и цитат. */
+/** Убирает markdown-разметку для заголовков, превью, цитат и озвучки. */
 export function plainText(value: string) {
   return value
     .replace(/```[\s\S]*?```/g, " ")

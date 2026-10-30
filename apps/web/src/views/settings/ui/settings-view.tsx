@@ -3,6 +3,7 @@ import { ArrowRight, KeyRound, ServerCog } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 import { ModelForm } from "@/features/model-settings";
+import { VoiceSettingsForm } from "@/features/voice-playback";
 
 /** Экран настроек: форма модели и пояснения, как настройки применяются. */
 export function SettingsView() {
@@ -39,6 +40,8 @@ export function SettingsView() {
       </div>
 
       <ModelForm />
+
+      <VoiceSettingsForm />
 
       <div className="flex flex-wrap items-center gap-3 pt-2">
         <Button asChild>

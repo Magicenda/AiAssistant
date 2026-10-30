@@ -13,7 +13,7 @@ import {
   groupChats,
   sortChats,
 } from "../model/chat-list";
-import { plainText } from "../model/plain-text";
+import { plainText } from "@/shared/lib/plain-text";
 import type { Chat } from "@/entities/chat";
 
 /** Превью последнего сообщения для строки списка. */

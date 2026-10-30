@@ -35,11 +35,29 @@ async function copyText(value: string) {
   }
 }
 
-/** Пиксельная аватарка ассистента. */
-export function AssistantAvatar() {
+interface AssistantAvatarProps {
+  /** Ассистент сейчас отвечает: включаем подсветку и бегущую строку развёртки. */
+  busy?: boolean;
+}
+
+/**
+ * Пиксельная аватарка ассистента: плашка-экранчик с ЭЛТ-развёрткой.
+ * В спокойном состоянии развёртка статична, чтобы лента не рябила.
+ *
+ * @param props - Пропсы аватарки.
+ * @returns Разметку аватарки с логотипом и сканлайнами.
+ */
+export function AssistantAvatar({ busy = false }: AssistantAvatarProps) {
   return (
-    <span className="pixel-bevel bg-secondary text-secondary-foreground flex size-9 shrink-0 items-center justify-center">
-      <Logo className="size-5" />
+    <span
+      className={cn(
+        "pixel-bevel bg-secondary text-secondary-foreground relative flex size-9 shrink-0 items-center justify-center",
+        busy && "assistant-signal",
+      )}
+    >
+      {/* Развёртка поверх плашки отсылает к ЭЛТ-экрану — общему мотиву сайта. */}
+      <span className={cn("assistant-scan", busy && "assistant-scan--live")} />
+      <Logo className="relative size-5" />
     </span>
   );
 }
@@ -129,6 +147,8 @@ export interface MessageBubbleProps {
   onDelete?: (message: ChatMessage) => void;
   /** Перегенерировать ответ ассистента. */
   onRegenerate?: (message: ChatMessage) => void;
+  /** Ответ ещё стримится с backend: показываем курсор и «живую» аватарку. */
+  streaming?: boolean;
 }
 
 /**
@@ -137,14 +157,14 @@ export interface MessageBubbleProps {
  *
  * @param props - Пропсы пузыря.
  * @returns Разметку сообщения с действиями и временем.
- */
-export function MessageBubble({
+ */ export function MessageBubble({
   message,
   grouped = false,
   lastInGroup = true,
   onReply,
   onDelete,
   onRegenerate,
+  streaming = false,
 }: MessageBubbleProps) {
   const isUser = message.role !== "assistant";
   const [expanded, setExpanded] = useState(false);
@@ -239,7 +259,11 @@ export function MessageBubble({
                 "max-h-56 overflow-hidden [mask-image:linear-gradient(to_bottom,black_70%,transparent)]",
             )}
           >
-            <Markdown text={message.text} tone={isUser ? "user" : "assistant"} />
+            <Markdown
+              text={message.text}
+              tone={isUser ? "user" : "assistant"}
+              className={streaming ? "assistant-stream" : undefined}
+            />
           </div>
           {isLong && (
             <button
@@ -280,7 +304,11 @@ export function MessageBubble({
 
   return (
     <div className={cn("group mt-3 flex items-end gap-2.5", grouped && "mt-1")}>
-      {lastInGroup ? <AssistantAvatar /> : <span className="size-9 shrink-0" aria-hidden="true" />}
+      {lastInGroup ? (
+        <AssistantAvatar busy={streaming} />
+      ) : (
+        <span className="size-9 shrink-0" aria-hidden="true" />
+      )}
       <div className="flex max-w-[85%] min-w-0 flex-col items-start gap-1 sm:max-w-[75%]">
         {bubble}
         <div className="pl-1">{meta}</div>
@@ -289,15 +317,21 @@ export function MessageBubble({
   );
 }
 
-/** Индикатор «ассистент печатает». */
+/** Индикатор «ассистент печатает»: прыгающие пиксели и подпись в духе терминала. */
 export function TypingBubble() {
   return (
     <div className="mt-3 flex items-end gap-2.5" role="status" aria-live="polite">
-      <AssistantAvatar />
-      <div className="pixel-frame bg-card flex items-center gap-1.5 px-4 py-3">
-        <span className="pixel-blink bg-secondary size-2" />
-        <span className="pixel-blink bg-secondary size-2 [animation-delay:150ms]" />
-        <span className="pixel-blink bg-secondary size-2 [animation-delay:300ms]" />
+      <AssistantAvatar busy />
+      <div className="pixel-frame bg-card relative flex items-center gap-2.5 overflow-hidden px-3 py-2.5">
+        <span className="assistant-scan assistant-scan--live" />
+        <span className="relative flex items-end gap-1">
+          <span className="assistant-typing bg-secondary size-2" />
+          <span className="assistant-typing bg-secondary size-2 [animation-delay:180ms]" />
+          <span className="assistant-typing bg-secondary size-2 [animation-delay:360ms]" />
+        </span>
+        <span className="font-pixel text-muted-foreground relative text-[0.6rem] tracking-[0.15em]">
+          печатает
+        </span>
       </div>
       <span className="sr-only">Ассистент печатает…</span>
     </div>

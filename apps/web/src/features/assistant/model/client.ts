@@ -1,9 +1,15 @@
 import { ApiError as HttpApiError } from "@/shared/api/http";
-import { ApiError as TransportApiError, apiRequest, parseData } from "@/shared/api";
+import { ApiError as TransportApiError, apiBlob, apiRequest, parseData } from "@/shared/api";
 import { apiConfig } from "@/shared/config";
 import { isChatDto, isChatList, isLlmAnswer, type ChatDto, type ChatReply } from "@/entities/chat";
 import { modelRequestSettings } from "@/entities/model-settings";
-import { isTranscript } from "@/entities/voice";
+import {
+  isJobCreated,
+  isSpeechStream,
+  isTranscript,
+  isVoiceJob,
+  type VoiceJob,
+} from "@/entities/voice";
 
 export interface QueryOptions {
   /** Отмена запроса (кнопка «Остановить»). */
@@ -163,4 +169,147 @@ export function transcribeVoice(chatId: number, file: Blob): Promise<string> {
     );
     return data.text.trim();
   });
+}
+
+/**
+ * Запускает полный голосовой цикл (`POST /api/voice/ask`):
+ * распознавание речи, ответ ассистента и озвучка в одном job.
+ *
+ * @param chatId - id чата, в который попадут вопрос и ответ.
+ * @param file - запись с микрофона.
+ * @param speak - синтезировать ли ответ на сервере (голосовой режим озвучивает сам).
+ * @param signal - отмена запроса.
+ * @returns id задачи, за которой нужно следить через `getSpeechJob`.
+ */
+export function askByVoice(
+  chatId: number,
+  file: Blob,
+  speak = true,
+  signal?: AbortSignal,
+): Promise<string> {
+  return request(async () => {
+    const form = new FormData();
+    form.append("chat_id", String(chatId));
+    form.append("file", file, file instanceof File ? file.name : "voice.webm");
+    form.append("speak", String(speak));
+    const settings = modelRequestSettings();
+    // Backend ждёт JSON-строку в form-поле: модель та же, что выбрана в настройках.
+    if (settings) form.append("model_settings", JSON.stringify(settings));
+    const data = parseData(
+      await apiRequest("/api/voice/ask", {
+        method: "POST",
+        form,
+        signal,
+        timeoutMs: apiConfig.timeoutsMs.audioUpload,
+      }),
+      isJobCreated,
+    );
+    return data.job_id;
+  });
+}
+
+/** Создаёт задачу озвучки текста (`POST /api/voice/generate`) и возвращает её id. */
+export function generateSpeech(text: string, signal?: AbortSignal): Promise<string> {
+  return request(async () => {
+    const data = parseData(
+      await apiRequest("/api/voice/generate", {
+        method: "POST",
+        body: { text },
+        signal,
+      }),
+      isJobCreated,
+    );
+    return data.job_id;
+  });
+}
+
+/** Статус задачи озвучки (`GET /api/voice/jobs/{id}`). */
+export function getSpeechJob(jobId: string, signal?: AbortSignal): Promise<VoiceJob> {
+  return request(async () =>
+    parseData(
+      await apiRequest(`/api/voice/jobs/${jobId}`, {
+        signal,
+        timeoutMs: apiConfig.timeoutsMs.jobStatus,
+      }),
+      isVoiceJob,
+    ),
+  );
+}
+
+/** Готовое аудио озвучки (`GET /api/voice/jobs/{id}/audio`); нужен токен, поэтому blob через fetch. */
+export function getSpeechAudio(jobId: string, signal?: AbortSignal): Promise<Blob> {
+  return request(() =>
+    apiBlob(`/api/voice/jobs/${jobId}/audio`, {
+      signal,
+      timeoutMs: apiConfig.timeoutsMs.audioUpload,
+    }),
+  );
+}
+
+/**
+ * Создаёт потоковую озвучку (`POST /api/voice/stream`).
+ * Возвращённую ссылку можно сразу ставить в `<audio src>` — звук пойдёт по мере синтеза.
+ *
+ * @param text - текст ответа.
+ * @param signal - отмена создания ссылки.
+ * @returns Абсолютный URL потока и время его жизни.
+ */
+export function createSpeechStream(
+  text: string,
+  signal?: AbortSignal,
+): Promise<{ url: string; expiresIn: number }> {
+  return request(async () => {
+    const data = parseData(
+      await apiRequest("/api/voice/stream", {
+        method: "POST",
+        body: { text },
+        signal,
+      }),
+      isSpeechStream,
+    );
+    return {
+      url: `${apiConfig.baseUrl}${data.stream_url}`,
+      expiresIn: data.expires_in,
+    };
+  });
+}
+
+/** Ждёт паузу между опросами задачи озвучки; отмена пробрасывается как `AbortError`. */
+function waitForPoll(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const onAbort = () => {
+      globalThis.clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    const timer = globalThis.setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+/**
+ * Озвучивает текст: создаёт job, опрашивает статус и скачивает mp3.
+ *
+ * @param text - текст ответа ассистента.
+ * @param signal - отмена ожидания (например, пользователь нажал «Стоп»).
+ * @returns Аудиофайл для проигрывания через `URL.createObjectURL`.
+ */
+export async function synthesizeSpeech(text: string, signal?: AbortSignal): Promise<Blob> {
+  const jobId = await generateSpeech(text, signal);
+  const deadline = Date.now() + apiConfig.limits.jobPollTimeoutMs;
+  while (Date.now() < deadline) {
+    const job = await getSpeechJob(jobId, signal);
+    if (job.status === "completed") return await getSpeechAudio(jobId, signal);
+    if (job.status === "failed") {
+      throw new HttpApiError(job.error || "Не удалось озвучить ответ.", "speech_failed", 502);
+    }
+    await waitForPoll(apiConfig.limits.jobPollIntervalMs, signal);
+  }
+  throw new HttpApiError("Озвучка не успела подготовиться.", "speech_timeout", 504);
 }

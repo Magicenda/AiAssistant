@@ -142,6 +142,7 @@ export function requestReply(chatId: string, query: string, options: ReplyOption
       }
 
       // Ответ уже сохранён backend'ом вместе с вопросом — перечитываем чат.
+      // В текстовом режиме ответ не озвучивается: голос живёт только в голосовом чате.
       try {
         await refreshChat(chatId);
       } catch (error) {

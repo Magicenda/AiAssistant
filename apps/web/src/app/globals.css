@@ -192,3 +192,324 @@
 .pixel-blink-slow {
   animation: pixel-blink 2s steps(1, end) infinite;
 }
+
+/* Ассистент: аватарка как ЭЛТ-экран и пиксельный индикатор набора.
+   Значения в keyframes держатся полками, поэтому движение идёт кадрами,
+   как в 8-битной игре, а не плавной интерполяцией. */
+.assistant-scan {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-image: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 4px);
+  pointer-events: none;
+}
+
+/* Светящаяся строка развёртки: включается только когда ассистент работает. */
+.assistant-scan::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 0.5rem;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  opacity: 0;
+}
+.assistant-scan--live::after {
+  opacity: 1;
+  animation: assistant-scan 1.2s steps(7, end) infinite;
+}
+
+/* Мигающая подсветка аватарки: сигнал «ассистент отвечает». */
+.assistant-signal {
+  animation: assistant-signal 1.2s steps(2, jump-none) infinite;
+}
+
+/* Квадратики индикатора: прыжок вверх на один кадр, затем пауза. */
+.assistant-typing {
+  animation: assistant-typing 0.9s linear infinite;
+}
+
+/* Курсор в конце стримящегося ответа — как в пиксельном терминале. */
+.assistant-stream > :last-child::after {
+  content: "";
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.9em;
+  margin-left: 0.25rem;
+  vertical-align: text-bottom;
+  background: var(--primary);
+  animation: pixel-blink 1s steps(1, end) infinite;
+}
+
+@keyframes assistant-scan {
+  from {
+    top: -0.5rem;
+  }
+  to {
+    top: 100%;
+  }
+}
+@keyframes assistant-signal {
+  0%,
+  100% {
+    box-shadow:
+      inset 2px 2px 0 rgba(255, 255, 255, 0.16),
+      inset -2px -2px 0 rgba(0, 0, 0, 0.45);
+  }
+  50% {
+    box-shadow:
+      inset 2px 2px 0 rgba(255, 255, 255, 0.16),
+      inset -2px -2px 0 rgba(0, 0, 0, 0.45),
+      0 0 0.75rem var(--primary);
+  }
+}
+@keyframes assistant-typing {
+  0%,
+  32% {
+    transform: translateY(-0.25rem);
+    opacity: 1;
+  }
+  33%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+}
+
+/* Голосовой режим: пиксельный ассистент на экранчике вместо гладкой сферы. */
+.voice-screen {
+  /* Размер зависит от высоты экрана: ассистент не должен выдавливать панель диалога. */
+  width: min(13rem, 42vw, 30vh);
+  height: min(13rem, 42vw, 30vh);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem;
+  background: var(--card);
+  outline: 2px solid transparent;
+  outline-offset: 4px;
+  cursor: pointer;
+}
+
+/* Рамка вокруг ассистента подсказывает фазу: слушает или говорит. */
+.voice-screen:focus-visible {
+  outline-color: var(--ring);
+}
+.voice-screen[data-phase="listening"] {
+  outline-color: var(--secondary);
+}
+.voice-screen[data-phase="speaking"] {
+  outline-color: var(--primary);
+}
+.voice-screen[data-phase="error"] {
+  outline-color: var(--destructive);
+}
+
+.voice-screen__sprite {
+  width: 100%;
+  height: 100%;
+}
+
+.voice-screen__scan {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.14) 0 1px, transparent 1px 4px);
+  pointer-events: none;
+}
+
+.voice-screen__antenna,
+.voice-screen__head {
+  fill: var(--primary);
+}
+.voice-screen__led {
+  fill: var(--secondary);
+}
+.voice-screen__face {
+  fill: #0b0d20;
+}
+.voice-screen__eyes {
+  fill: var(--primary);
+}
+.voice-screen__eyes rect {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.voice-screen__eyes-error {
+  display: none;
+  fill: var(--destructive);
+}
+
+.voice-screen__mouth {
+  --voice-level: 0;
+  transform: scaleY(0.85);
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+.voice-screen__bar {
+  fill: var(--secondary);
+}
+
+/* Покой: ассистент покачивается и изредка моргает. */
+.voice-screen[data-phase="idle"] .voice-screen__sprite {
+  animation: voice-idle 4.8s steps(1, end) infinite;
+}
+.voice-screen[data-phase="idle"] .voice-screen__eyes rect,
+.voice-screen[data-phase="listening"] .voice-screen__eyes rect {
+  animation: voice-blink 5.4s steps(1, end) infinite;
+}
+
+/* Слушает: рот открывается ступенями под громкость микрофона. */
+.voice-screen[data-phase="listening"] .voice-screen__mouth {
+  transform: scaleY(calc(0.9 + var(--voice-level) * 0.7));
+}
+.voice-screen[data-phase="listening"] .voice-screen__led {
+  fill: var(--primary);
+}
+
+/* Говорит: рот работает рывками, лампочка на антенне частит. */
+.voice-screen[data-phase="speaking"] .voice-screen__mouth {
+  animation: voice-talk 0.55s steps(1, end) infinite;
+}
+.voice-screen[data-phase="speaking"] .voice-screen__led {
+  animation: pixel-blink 0.4s steps(1, end) infinite;
+}
+
+/* Думает и распознаёт: по столбикам рта бежит огонёк обработки. */
+.voice-screen[data-phase="thinking"] .voice-screen__bar,
+.voice-screen[data-phase="transcribing"] .voice-screen__bar {
+  animation: voice-scan-bars 1.2s steps(1, end) infinite;
+}
+.voice-screen[data-phase="transcribing"] .voice-screen__bar {
+  animation-duration: 0.7s;
+}
+.voice-screen[data-phase="thinking"] .voice-screen__led,
+.voice-screen[data-phase="transcribing"] .voice-screen__led {
+  fill: var(--primary);
+  animation: pixel-blink 0.6s steps(1, end) infinite;
+}
+.voice-screen__bar:nth-child(2) {
+  animation-delay: 160ms;
+}
+.voice-screen__bar:nth-child(3) {
+  animation-delay: 320ms;
+}
+.voice-screen__bar:nth-child(4) {
+  animation-delay: 480ms;
+}
+.voice-screen__bar:nth-child(5) {
+  animation-delay: 640ms;
+}
+
+/* Ошибка: крестики вместо глаз, приглушённая голова и плоский рот. */
+.voice-screen[data-phase="error"] .voice-screen__eyes {
+  display: none;
+}
+.voice-screen[data-phase="error"] .voice-screen__eyes-error {
+  display: block;
+}
+.voice-screen[data-phase="error"] .voice-screen__head {
+  opacity: 0.55;
+}
+.voice-screen[data-phase="error"] .voice-screen__mouth {
+  transform: scaleY(0.3);
+  opacity: 0.6;
+}
+.voice-screen[data-phase="error"] .voice-screen__led {
+  fill: var(--destructive);
+}
+.voice-screen[data-phase="error"] .voice-screen__led,
+.voice-screen[data-phase="error"] .voice-screen__bar {
+  animation: none;
+}
+
+.voice-bar {
+  height: 0.35rem;
+  opacity: 0.35;
+  background: var(--primary);
+}
+.voice-bar--live {
+  opacity: 0.9;
+  animation: voice-bar 0.9s steps(2, end) infinite;
+}
+.voice-bar--speaking {
+  animation-duration: 0.55s;
+  background: var(--secondary);
+}
+
+@keyframes voice-blink {
+  0%,
+  90% {
+    transform: scaleY(1);
+  }
+  91%,
+  94% {
+    transform: scaleY(0.15);
+  }
+  95%,
+  100% {
+    transform: scaleY(1);
+  }
+}
+@keyframes voice-idle {
+  0%,
+  70% {
+    transform: translateY(0);
+  }
+  71%,
+  85% {
+    transform: translateY(-2%);
+  }
+  86%,
+  100% {
+    transform: translateY(0);
+  }
+}
+@keyframes voice-talk {
+  0%,
+  30% {
+    transform: scaleY(1);
+  }
+  31%,
+  60% {
+    transform: scaleY(0.55);
+  }
+  61%,
+  100% {
+    transform: scaleY(1.25);
+  }
+}
+@keyframes voice-scan-bars {
+  0%,
+  15% {
+    opacity: 1;
+  }
+  16%,
+  100% {
+    opacity: 0.3;
+  }
+}
+@keyframes voice-bar {
+  0%,
+  100% {
+    height: 0.4rem;
+  }
+  50% {
+    height: 1.8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-screen__sprite,
+  .voice-screen__eyes rect,
+  .voice-screen__led,
+  .voice-screen__mouth,
+  .voice-screen__bar,
+  .voice-bar--live,
+  .assistant-scan--live::after,
+  .assistant-signal,
+  .assistant-typing,
+  .assistant-stream > :last-child::after {
+    animation: none !important;
+  }
+}
