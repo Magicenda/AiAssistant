@@ -23,6 +23,7 @@ async def query(request: QueryRequest, service: AgentServiceDep) -> QueryRespons
         request.model_settings,
         reply_to=json.dumps(reply_to, ensure_ascii=False) if reply_to else None,
         regenerate=request.regenerate,
+        user_timezone=request.timezone,
     )
     return QueryResponse(answer=answer)
 
@@ -35,7 +36,10 @@ async def query_and_voice(
     user_id: CurrentUserIdDep,
 ):
     answer = await agent.generate_response(
-        request.chat_id, request.query, request.model_settings
+        request.chat_id,
+        request.query,
+        request.model_settings,
+        user_timezone=request.timezone,
     )
     job_id = orchestrator.create_job(user_id, answer)
     background_tasks.add_task(orchestrator.run_tts_worker, job_id, answer)

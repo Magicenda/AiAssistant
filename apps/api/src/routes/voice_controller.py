@@ -85,6 +85,7 @@ async def ask_by_voice(
         user_id,
         model_settings,
         payload.speak,
+        payload.timezone,
     )
 
     return VoiceJobCreatedResponse(job_id=job_id, status=JobStatus.PENDING)

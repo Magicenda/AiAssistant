@@ -178,11 +178,16 @@ class UserSpeechInputDTO:
             description="JSON-настройки модели, те же, что у /llm/query",
         ),
         speak: bool = Form(True, description="Синтезировать ответ на сервере"),
+        timezone: str | None = Form(
+            None,
+            description="IANA-часовой пояс пользователя, например Europe/Moscow",
+        ),
     ):
         self.chat_id = chat_id
         self.file = file
         self.model_settings_raw = model_settings
         self.speak = speak
+        self.timezone = timezone
         self.original_filename = file.filename
 
         if not file.content_type or not file.content_type.startswith("audio/"):

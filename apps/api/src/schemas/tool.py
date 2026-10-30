@@ -1,12 +1,31 @@
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Annotated, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import AfterValidator, BaseModel, Field, model_validator
 
 
+def resolve_timezone(name: str | None) -> ZoneInfo:
+    """Возвращает часовой пояс по IANA-имени; при ошибке — UTC."""
+    if not name:
+        return ZoneInfo("UTC")
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        return ZoneInfo("UTC")
+
+
+# Модель может вернуть время без смещения. Валидатор аргументов инструмента
+# трактует такое время в часовом поясе пользователя, переданном фронтендом.
+tool_timezone: ContextVar[ZoneInfo] = ContextVar("tool_timezone", default=ZoneInfo("UTC"))
+
+
 def _ensure_utc(value: datetime) -> datetime:
-    # модель может прислать время без часового пояса, а в БД колонки с timezone=True
-    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+    # Модель может прислать время без часового пояса, а в БД колонки с timezone=True.
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=tool_timezone.get())
+    return value.astimezone(timezone.utc)
 
 
 AwareDatetime = Annotated[datetime, AfterValidator(_ensure_utc)]
@@ -16,14 +35,14 @@ class CreateTaskArgs(BaseModel):
     description: str = Field(description="Что нужно сделать")
     deadline: AwareDatetime | None = Field(
         default=None,
-        description="Срок выполнения в формате ISO 8601, например 2026-10-24T18:00:00. Не указывай, если пользователь не назвал срок",
+        description="Срок выполнения в формате ISO 8601 с часовым смещением, например 2026-10-24T18:00:00+03:00. Не указывай, если пользователь не назвал срок",
     )
 
 
 class CreateReminderArgs(BaseModel):
     description: str = Field(description="О чём напомнить")
     remind_at: AwareDatetime = Field(
-        description="Когда напомнить, формат ISO 8601, например 2026-10-24T09:30:00",
+        description="Когда напомнить, ISO 8601 с часовым смещением, например 2026-10-24T09:30:00+03:00",
     )
 
 
@@ -42,7 +61,7 @@ class ListTasksArgs(BaseModel):
 class CreateMeetingArgs(BaseModel):
     description: str = Field(description="Тема или описание встречи")
     appointment: AwareDatetime = Field(
-        description="Дата и время встречи в формате ISO 8601, например 2026-10-25T15:00:00",
+        description="Дата и время встречи в ISO 8601 с часовым смещением, например 2026-10-25T15:00:00+03:00",
     )
 
 
@@ -56,7 +75,7 @@ class UpdateTaskArgs(BaseModel):
     )
     deadline: AwareDatetime | None = Field(
         default=None,
-        description="Новый срок в формате ISO 8601, например 2026-10-24T18:00:00. Не указывай, если срок менять не нужно",
+        description="Новый срок в ISO 8601 с часовым смещением, например 2026-10-24T18:00:00+03:00. Не указывай, если срок менять не нужно",
     )
     clear_deadline: bool = Field(
         default=False,
@@ -70,4 +89,3 @@ class UpdateTaskArgs(BaseModel):
         if self.deadline is not None and self.clear_deadline:
             raise ValueError("Нельзя одновременно задать новый срок и убрать срок")
         return self
-

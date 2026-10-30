@@ -1,8 +1,9 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from core.config import settings
 from db.models import Message, MessageRole
 from schemas.model_settings import ModelSettings
+from schemas.tool import resolve_timezone, tool_timezone
 from services.chat_service import ChatService
 from services.llm_client import LLMClient, build_llm_client
 from tools.base import ToolRegistry
@@ -11,7 +12,9 @@ SYSTEM_PROMPT = (
     "Ты полезный ассистент. Отвечай кратко и по-русски. "
     "Для работы с задачами, напоминаниями и встречами используй инструменты. "
     "Если для вызова не хватает даты или времени, уточни их у пользователя. "
-    "Текущая дата и время (UTC): {now}."
+    "Текущие дата и время пользователя ({timezone}): {now}. "
+    "Все даты и время, которые называет пользователь, трактуй в его часовом поясе. "
+    "В инструменты передавай ISO 8601 с часовым смещением, например 2026-10-24T15:00:00+03:00."
 )
 
 
@@ -39,13 +42,19 @@ class AgentService:
         model_settings: ModelSettings | None = None,
         reply_to: str | None = None,
         regenerate: bool = False,
+        user_timezone: str | None = None,
     ) -> str:
         # Перегенерация заменяет последний ответ, а не копит дубли в истории.
         if regenerate:
             await self.chat.delete_last_assistant_message(chat_id)
 
         history = await self.chat.get_history(chat_id, limit=settings.history_limit)
-        system = SYSTEM_PROMPT.format(now=datetime.now(timezone.utc).isoformat(timespec="minutes"))
+        zone = resolve_timezone(user_timezone)
+        now = datetime.now(zone)
+        system = SYSTEM_PROMPT.format(
+            timezone=zone.key or "UTC",
+            now=now.isoformat(timespec="minutes"),
+        )
 
         messages = [
             {"role": "system", "content": [{"text": system}]},
@@ -61,9 +70,13 @@ class AgentService:
             llm = build_llm_client(model_settings)
         temperature = model_settings.temperature if model_settings else self.temperature
 
+        # Валидаторы аргументов инструментов читают пояс из контекста:
+        # наивное время от модели трактуем как локальное время пользователя.
+        token = tool_timezone.set(zone)
         try:
             answer = await self._run_agent_loop(messages, llm, temperature)
         finally:
+            tool_timezone.reset(token)
             if llm is not self.llm:
                 await llm.aclose()
 
