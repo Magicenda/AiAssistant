@@ -244,3 +244,6 @@ apps/api/*.sqlite3
 
 # macOS
 .DS_Store
+
+# OpenCode local config
+.opencode/
