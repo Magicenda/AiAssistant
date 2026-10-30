@@ -122,8 +122,9 @@ export function MessageBubble({
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const isLong =
-    message.text.length > collapseAfterChars ||
-    message.text.split("\n").length > collapseAfterLines;
+    !streaming &&
+    (message.text.length > collapseAfterChars ||
+      message.text.split("\n").length > collapseAfterLines);
   const collapsed = isLong && !expanded;
 
   async function copy() {
@@ -245,8 +246,13 @@ export function MessageBubble({
   );
 }
 
-/** Индикатор «ассистент печатает»: прыгающие пиксели и подпись в духе терминала. */
-export function TypingBubble() {
+interface TypingBubbleProps {
+  /** Подпись состояния: «печатает» во время стриминга, «сохраняю ответ» после него. */
+  label?: string;
+}
+
+/** Индикатор работы ассистента: прыгающие пиксели и подпись в духе терминала. */
+export function TypingBubble({ label = "печатает" }: TypingBubbleProps) {
   return (
     <div className="mt-3 flex items-end gap-2.5" role="status" aria-live="polite">
       <AssistantAvatar busy />
@@ -258,10 +264,12 @@ export function TypingBubble() {
           <span className="assistant-typing bg-secondary size-2 [animation-delay:360ms]" />
         </span>
         <span className="font-pixel text-muted-foreground relative text-[0.6rem] tracking-[0.15em]">
-          печатает
+          {label}
         </span>
       </div>
-      <span className="sr-only">Ассистент печатает…</span>
+      <span className="sr-only">
+        {label === "печатает" ? "Ассистент печатает…" : "Ответ сохраняется…"}
+      </span>
     </div>
   );
 }

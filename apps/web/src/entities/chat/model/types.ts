@@ -54,7 +54,3 @@ export interface ChatDto {
   messages: ChatMessageDto[];
   pinned?: boolean;
 }
-
-export interface LlmAnswer {
-  answer: string;
-}

@@ -162,7 +162,7 @@ export function Conversation({ sessionId }: ConversationProps) {
     () => (sessionId ? getReply(sessionId) : null),
     () => null,
   );
-  const replyPending = reply?.status === "streaming";
+  const replyPending = reply?.status === "streaming" || reply?.status === "saving";
 
   useEffect(() => {
     void loadChats().catch(cause => {
@@ -549,7 +549,7 @@ export function Conversation({ sessionId }: ConversationProps) {
               </Button>
             </div>
           )}
-          {hydrated && !hasMessages && (!sessionId || chat) && (
+          {hydrated && !hasMessages && !reply && (!sessionId || chat) && (
             <div className="flex flex-1 flex-col items-center justify-center text-center">
               <Logo className="text-primary mb-6 size-12" />
               <h2 className="font-pixel text-foreground text-2xl">Чем помочь?</h2>
@@ -572,7 +572,7 @@ export function Conversation({ sessionId }: ConversationProps) {
             </Fragment>
           ))}
           {/* Вопрос до подтверждения сервером: backend сохранит его вместе с ответом. */}
-          {reply?.query && (
+          {reply && reply.query && reply.status !== "saving" && (
             <MessageBubble
               message={{
                 id: "live-query",
@@ -594,6 +594,7 @@ export function Conversation({ sessionId }: ConversationProps) {
             ) : (
               <TypingBubble />
             ))}
+          {reply?.status === "saving" && <TypingBubble label="сохраняю ответ" />}
           {reply?.status === "error" && (
             <>
               {reply.text && (
@@ -769,7 +770,7 @@ export function Conversation({ sessionId }: ConversationProps) {
                   >
                     <PixelMic className="size-5" />
                   </Button>
-                  {replyPending ? (
+                  {reply?.status === "streaming" ? (
                     <Button
                       type="button"
                       size="icon"
@@ -786,7 +787,7 @@ export function Conversation({ sessionId }: ConversationProps) {
                       type="submit"
                       size="icon"
                       aria-label="Отправить"
-                      disabled={!text.trim() || sending}
+                      disabled={!text.trim() || sending || replyPending}
                     >
                       <ArrowUp className="size-5" />
                     </Button>

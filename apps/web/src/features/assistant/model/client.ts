@@ -1,8 +1,8 @@
 import { ApiError as HttpApiError } from "@/shared/api/http";
-import { ApiError as TransportApiError, apiBlob, apiRequest, parseData } from "@/shared/api";
+import { ApiError as TransportApiError, apiRequest, apiStream, parseData } from "@/shared/api";
 import { apiConfig } from "@/shared/config";
 import { getTimeZone } from "@/shared/lib/timezone";
-import { isChatDto, isChatList, isLlmAnswer, type ChatDto, type ChatReply } from "@/entities/chat";
+import { isChatDto, isChatList, type ChatDto, type ChatReply } from "@/entities/chat";
 import { modelRequestSettings } from "@/entities/model-settings";
 import {
   isJobCreated,
@@ -15,7 +15,7 @@ import {
 export interface QueryOptions {
   /** Отмена запроса (кнопка «Остановить»). */
   signal?: AbortSignal;
-  /** Полный ответ приходит одним JSON, колбэк вызывается один раз. */
+  /** Колбэк получает очередную текстовую дельту из SSE-потока. */
   onDelta?: (text: string) => void;
   /** Цитата, на которую отвечает пользователь; сохраняется на backend. */
   replyTo?: ChatReply;
@@ -35,6 +35,75 @@ async function request<T>(run: () => Promise<T>): Promise<T> {
       throw new HttpApiError(cause.message, code, cause.status);
     }
     throw cause;
+  }
+}
+
+/** Читает SSE-поток и отдаёт текстовые дельты по мере поступления. */
+async function readSse(response: Response, onText: (text: string) => void): Promise<void> {
+  if (!response.body) {
+    throw new HttpApiError("Сервер не вернул поток ответа.", "stream_error", 502);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finished = false;
+
+  const handleBlock = (block: string) => {
+    let event = "message";
+    let data = "";
+    for (const line of block.split("\n")) {
+      if (line.startsWith("event:")) event = line.slice(6).trim();
+      else if (line.startsWith("data:")) {
+        const value = line.slice(5).trimStart();
+        data = data ? `${data}\n${value}` : value;
+      }
+    }
+    if (!data) return;
+    if (data === "[DONE]") {
+      finished = true;
+      return;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(data);
+    } catch {
+      return;
+    }
+
+    if (event === "error") {
+      const message =
+        parsed && typeof parsed === "object" && "message" in parsed
+          ? String((parsed as { message: unknown }).message)
+          : "Не удалось получить ответ.";
+      throw new HttpApiError(message, "stream_error", 502);
+    }
+
+    if (!parsed || typeof parsed !== "object") return;
+    const payload = parsed as Record<string, unknown>;
+    const text = payload.text ?? payload.delta ?? payload.answer;
+    if (typeof text === "string" && text) onText(text);
+  };
+
+  try {
+    while (!finished) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer = (buffer + decoder.decode(value, { stream: true })).replace(/\r\n/g, "\n");
+      let separator = buffer.indexOf("\n\n");
+      while (!finished && separator >= 0) {
+        const block = buffer.slice(0, separator);
+        buffer = buffer.slice(separator + 2);
+        handleBlock(block);
+        separator = buffer.indexOf("\n\n");
+      }
+    }
+    buffer += decoder.decode();
+    if (!finished && buffer.trim()) handleBlock(buffer);
+  } finally {
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
   }
 }
 
@@ -120,7 +189,7 @@ export function deleteRemoteChat(chatId: number): Promise<void> {
   });
 }
 
-/** Отправляет текстовый запрос (`POST /api/llm/query`) и ждёт JSON-ответ. */
+/** Отправляет текстовый запрос (`POST /api/llm/query/stream`) и читает SSE-ответ. */
 export function queryAssistant(
   chatId: number,
   query: string,
@@ -128,27 +197,41 @@ export function queryAssistant(
 ): Promise<QueryResult> {
   return request(async () => {
     const modelSettings = modelRequestSettings();
-    const result = parseData(
-      await apiRequest("/api/llm/query", {
-        method: "POST",
-        body: {
-          chat_id: chatId,
-          query,
-          timezone: getTimeZone(),
-          ...(options.replyTo ? { reply_to: options.replyTo } : {}),
-          // Без настроек backend использует GigaChat из своего env.
-          ...(modelSettings ? { model_settings: modelSettings } : {}),
-        },
-        signal: options.signal,
-        timeoutMs: apiConfig.timeoutsMs.llmQuery,
-      }),
-      isLlmAnswer,
-    );
-    if (!result.answer.trim()) {
+    const stream = await apiStream("/api/llm/query/stream", {
+      method: "POST",
+      body: {
+        chat_id: chatId,
+        query,
+        timezone: getTimeZone(),
+        ...(options.replyTo ? { reply_to: options.replyTo } : {}),
+        // Без настроек backend использует GigaChat из своего env.
+        ...(modelSettings ? { model_settings: modelSettings } : {}),
+      },
+      signal: options.signal,
+      timeoutMs: apiConfig.timeoutsMs.llmQuery,
+    });
+
+    let answer = "";
+    try {
+      await readSse(stream.response, text => {
+        answer += text;
+        options.onDelta?.(text);
+      });
+    } catch (cause) {
+      if (cause instanceof HttpApiError) throw cause;
+      if (cause instanceof DOMException && cause.name === "AbortError") {
+        if (!stream.timedOut()) throw cause;
+        throw new HttpApiError("Превышено время ожидания ответа от сервера.", "timeout", 0);
+      }
+      throw new HttpApiError("Не удалось прочитать ответ сервера.", "stream_error", 502);
+    } finally {
+      stream.close();
+    }
+
+    if (!answer.trim()) {
       throw new HttpApiError("Сервер вернул пустой ответ.", "empty_response", 502);
     }
-    options.onDelta?.(result.answer);
-    return { answer: result.answer };
+    return { answer };
   });
 }
 

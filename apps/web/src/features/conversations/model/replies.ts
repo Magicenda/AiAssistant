@@ -6,8 +6,8 @@ import { appendChatMessage, refreshChat } from "./store";
 
 /** Живое состояние генерации ответа, наблюдаемое через подписку. */
 export interface ReplyState {
-  /** `streaming` — генерация идёт, `error` — завершилась ошибкой. */
-  status: "streaming" | "error";
+  /** `streaming` — генерация идёт, `saving` — ответ сохраняется, `error` — ошибка. */
+  status: "streaming" | "saving" | "error";
   /** Накопленный текст ответа. */
   text: string;
   /** Вопрос, который ещё не подтверждён сервером — для оптимистичного пузыря. */
@@ -136,6 +136,7 @@ export function requestReply(chatId: string, query: string, options: ReplyOption
 
       // Ответ уже сохранён backend'ом вместе с вопросом — перечитываем чат.
       // В текстовом режиме ответ не озвучивается: голос живёт только в голосовом чате.
+      update(chatId, job, { ...job.state, status: "saving", text });
       try {
         await refreshChat(chatId);
       } catch (error) {

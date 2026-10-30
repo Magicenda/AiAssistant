@@ -10,6 +10,17 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
+function sse(...chunks: string[]): Response {
+  return new Response(chunks.join(""), {
+    status: 200,
+    headers: { "Content-Type": "text/event-stream" },
+  });
+}
+
+function textChunk(text: string): string {
+  return `data: ${JSON.stringify({ text })}\n\n`;
+}
+
 function lastCall(mock: ReturnType<typeof vi.fn>) {
   const call = mock.mock.calls.at(-1);
   if (!call) throw new Error("fetch was not called");
@@ -73,15 +84,16 @@ describe("assistant client (API.md contract)", () => {
     await expect(deleteRemoteChat(9)).resolves.toBeUndefined();
   });
 
-  it("queryAssistant posts chat_id+query and returns the JSON answer", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(json({ answer: "Готово" }));
+  it("queryAssistant posts chat_id+query and reads the SSE answer", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(sse(textChunk("Готово"), "data: [DONE]\n\n"));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await queryAssistant(3, "привет");
 
     expect(result.answer).toBe("Готово");
     const { url, init } = lastCall(fetchMock);
-    expect(new URL(url).pathname).toBe("/api/llm/query");
+    expect(new URL(url).pathname).toBe("/api/llm/query/stream");
+    expect((init.headers as Record<string, string>).Accept).toBe("text/event-stream");
     expect(JSON.parse(String(init.body))).toMatchObject({
       chat_id: 3,
       query: "привет",
@@ -89,22 +101,35 @@ describe("assistant client (API.md contract)", () => {
     });
   });
 
-  it("queryAssistant calls onDelta once with the full answer", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(json({ answer: "Ответ" }));
+  it("queryAssistant calls onDelta for every streamed chunk", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(sse(textChunk("От"), textChunk("вет"), "data: [DONE]\n\n"));
     vi.stubGlobal("fetch", fetchMock);
     const onDelta = vi.fn();
 
-    await queryAssistant(1, "q", { onDelta });
+    const result = await queryAssistant(1, "q", { onDelta });
 
-    expect(onDelta).toHaveBeenCalledTimes(1);
-    expect(onDelta).toHaveBeenCalledWith("Ответ");
+    expect(result.answer).toBe("Ответ");
+    expect(onDelta).toHaveBeenCalledTimes(2);
+    expect(onDelta).toHaveBeenNthCalledWith(1, "От");
+    expect(onDelta).toHaveBeenNthCalledWith(2, "вет");
   });
 
-  it("queryAssistant throws on an empty answer", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(json({ answer: "   " }));
+  it("queryAssistant throws on an empty stream", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(sse("data: [DONE]\n\n"));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(queryAssistant(1, "q")).rejects.toBeInstanceOf(HttpApiError);
+  });
+
+  it("queryAssistant surfaces an SSE error event", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(sse('event: error\ndata: {"message":"Модель недоступна"}\n\n'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(queryAssistant(1, "q")).rejects.toThrow("Модель недоступна");
   });
 
   it("queryAssistant propagates external abort as AbortError", async () => {

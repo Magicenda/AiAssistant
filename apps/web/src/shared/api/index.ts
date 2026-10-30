@@ -1,5 +1,5 @@
 export { ApiError, readError, type ApiErrorKind } from "./errors";
-export { apiBlob, apiRequest, parseData, type ApiRequestOptions } from "./client";
+export { apiRequest, apiStream, parseData, type ApiRequestOptions, type ApiStream } from "./client";
 export {
   clearAccessToken,
   getAccessToken,
