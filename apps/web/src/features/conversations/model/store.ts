@@ -42,11 +42,6 @@ export function isChatsLoaded() {
   return loaded;
 }
 
-/** Чат из кэша по id. */
-export function findChat(chatId: string) {
-  return cache.find(item => item.id === chatId) ?? null;
-}
-
 /** Удаляет устаревшее хранилище аудиозаписей: плеера голосовых больше нет. */
 function removeLegacyAudio() {
   try {

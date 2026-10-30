@@ -291,21 +291,6 @@ export function askByVoice(
   });
 }
 
-/** Создаёт задачу озвучки текста (`POST /api/voice/generate`) и возвращает её id. */
-export function generateSpeech(text: string, signal?: AbortSignal): Promise<string> {
-  return request(async () => {
-    const data = parseData(
-      await apiRequest("/api/voice/generate", {
-        method: "POST",
-        body: { text },
-        signal,
-      }),
-      isJobCreated,
-    );
-    return data.job_id;
-  });
-}
-
 /** Статус задачи озвучки (`GET /api/voice/jobs/{id}`). */
 export function getSpeechJob(jobId: string, signal?: AbortSignal): Promise<VoiceJob> {
   return request(async () =>
@@ -316,16 +301,6 @@ export function getSpeechJob(jobId: string, signal?: AbortSignal): Promise<Voice
       }),
       isVoiceJob,
     ),
-  );
-}
-
-/** Готовое аудио озвучки (`GET /api/voice/jobs/{id}/audio`); нужен токен, поэтому blob через fetch. */
-export function getSpeechAudio(jobId: string, signal?: AbortSignal): Promise<Blob> {
-  return request(() =>
-    apiBlob(`/api/voice/jobs/${jobId}/audio`, {
-      signal,
-      timeoutMs: apiConfig.timeoutsMs.audioUpload,
-    }),
   );
 }
 
@@ -355,44 +330,4 @@ export function createSpeechStream(
       expiresIn: data.expires_in,
     };
   });
-}
-
-/** Ждёт паузу между опросами задачи озвучки; отмена пробрасывается как `AbortError`. */
-function waitForPoll(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new DOMException("Aborted", "AbortError"));
-      return;
-    }
-    const onAbort = () => {
-      globalThis.clearTimeout(timer);
-      reject(new DOMException("Aborted", "AbortError"));
-    };
-    const timer = globalThis.setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
-}
-
-/**
- * Озвучивает текст: создаёт job, опрашивает статус и скачивает mp3.
- *
- * @param text - текст ответа ассистента.
- * @param signal - отмена ожидания (например, пользователь нажал «Стоп»).
- * @returns Аудиофайл для проигрывания через `URL.createObjectURL`.
- */
-export async function synthesizeSpeech(text: string, signal?: AbortSignal): Promise<Blob> {
-  const jobId = await generateSpeech(text, signal);
-  const deadline = Date.now() + apiConfig.limits.jobPollTimeoutMs;
-  while (Date.now() < deadline) {
-    const job = await getSpeechJob(jobId, signal);
-    if (job.status === "completed") return await getSpeechAudio(jobId, signal);
-    if (job.status === "failed") {
-      throw new HttpApiError(job.error || "Не удалось озвучить ответ.", "speech_failed", 502);
-    }
-    await waitForPoll(apiConfig.limits.jobPollIntervalMs, signal);
-  }
-  throw new HttpApiError("Озвучка не успела подготовиться.", "speech_timeout", 504);
 }

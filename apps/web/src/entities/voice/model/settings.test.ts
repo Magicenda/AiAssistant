@@ -1,11 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  DEFAULT_VOICE_SETTINGS,
-  readVoiceSettings,
-  resetVoiceSettings,
-  writeVoiceSettings,
-} from "./settings";
+import { DEFAULT_VOICE_SETTINGS, readVoiceSettings, writeVoiceSettings } from "./settings";
 
 const storage = new Map<string, string>();
 
@@ -27,7 +22,6 @@ describe("voice settings", () => {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     });
-    resetVoiceSettings();
   });
 
   afterEach(() => {
@@ -55,11 +49,5 @@ describe("voice settings", () => {
   it("игнорирует устаревшую настройку автозапуска озвучки", () => {
     writeVoiceSettings({ engine: "server", speakReplies: false });
     expect(readVoiceSettings()).toEqual({ engine: "server" });
-  });
-
-  it("сбрасывает настройки к значениям по умолчанию", () => {
-    writeVoiceSettings({ engine: "server" });
-    expect(resetVoiceSettings()).toEqual(DEFAULT_VOICE_SETTINGS);
-    expect(readVoiceSettings().engine).toBe("browser");
   });
 });
