@@ -1,4 +1,11 @@
+import path from "node:path";
+
+import { loadEnvConfig } from "@next/env";
 import type { NextConfig } from "next";
+
+// Единый .env лежит в корне монорепы, а Next ищет файлы только рядом с apps/web.
+// forceReload — чтобы файл прочитался, даже если Next уже обработал env.
+loadEnvConfig(path.resolve(__dirname, "../.."), false, console, true);
 
 const nextConfig: NextConfig = {
   typedRoutes: true,

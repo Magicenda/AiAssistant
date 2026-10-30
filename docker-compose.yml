@@ -19,5 +19,48 @@ services:
       timeout: 5s
       retries: 10
 
+  api:
+    build:
+      context: ./apps/api
+    container_name: ai-assistant-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      # Единый .env монорепы; файла может не быть — тогда работают значения ниже
+      - path: ./.env
+        required: false
+    environment:
+      # Внутри compose-сети база доступна по имени сервиса, а не по localhost:5434
+      DATABASE_URL: ${API_DATABASE_URL:-postgresql+asyncpg://postgres:postgres@postgres:5432/ai_assistant}
+      # Ollama / LM Studio, запущенные на хосте, доступны из контейнера так
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      # environment приоритетнее env_file; значение ниже — только для локальной
+      # разработки. Свой секрет задавайте в корневом .env или переменной окружения.
+      JWT_SECRET: ${JWT_SECRET:-dev-only-jwt-secret-change-me-0123456789abcdef}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    volumes:
+      # Аудиофайлы TTS/транскрибации переживают перезапуск контейнера
+      - ./apps/api/storage:/app/storage
+      # Кэш моделей Whisper, чтобы не скачивать их при каждом старте
+      - whisper-cache:/root/.cache/huggingface
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=3)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 180s
+
 volumes:
   postgres-data:
+  whisper-cache:

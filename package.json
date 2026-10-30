@@ -19,7 +19,12 @@
     "dev:api": "uv run --directory apps/api uvicorn app:app --app-dir src --reload",
     "start:api": "uv run --directory apps/api uvicorn app:app --app-dir src",
     "db:up": "docker compose up -d postgres",
-    "db:down": "docker compose down",
-    "db:logs": "docker compose logs -f postgres"
+    "db:down": "docker compose stop postgres",
+    "db:logs": "docker compose logs -f postgres",
+    "api:up": "docker compose up -d --build api",
+    "api:down": "docker compose stop api",
+    "api:logs": "docker compose logs -f api",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down"
   }
 }

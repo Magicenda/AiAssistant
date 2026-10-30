@@ -1,0 +1,22 @@
+# Локальное окружение и артефакты не нужны внутри образа
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Секреты и локальные настройки попадают в контейнер через env_file, а не в образ
+.env
+.env.*
+
+# Данные, которые живут в volume
+storage/
+*.db
+*.sqlite3
+
+.DS_Store
+.git/
+.gitignore
+Dockerfile
+.dockerignore

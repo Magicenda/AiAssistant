@@ -209,7 +209,8 @@ export function ModelForm() {
             </label>
             <p className="text-muted-foreground font-mono text-[0.7rem] leading-relaxed">
               {PROVIDER_PRESETS.find(item => item.id === settings.provider)?.note} Укажите адрес без
-              /chat/completions — backend добавит путь сам.
+              /chat/completions — backend добавит путь сам. Если backend запущен в Docker, Ollama на
+              хосте доступна по адресу <code>http://host.docker.internal:11434/v1</code>.
             </p>
           </>
         )}
