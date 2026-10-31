@@ -82,7 +82,15 @@ async def lifespan(app: FastAPI):
     app.state.llm = build_llm_client()
     app.state.file_storage = FileStorageService()
     app.state.tts = TTSService()
-    app.state.audio = AudioService(language="ru", model_size="small")
+    app.state.audio = AudioService(
+        language="ru",
+        model_size=settings.whisper_model_size,
+        compute_type=settings.whisper_compute_type,
+        cpu_threads=settings.whisper_cpu_threads,
+        beam_size=settings.whisper_beam_size,
+        max_concurrent=settings.whisper_max_concurrent,
+        vad_min_silence_ms=settings.whisper_vad_min_silence_ms,
+    )
     app.state.voice = VoiceGenerationOrchestrator(
         app.state.file_storage, app.state.tts, app.state.audio, app.state.llm, SessionLocal
     )

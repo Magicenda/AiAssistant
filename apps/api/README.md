@@ -159,6 +159,12 @@ LLM_MODEL=qwen2.5:7b
 | `LLM_API_KEY`                 | ключ OpenAI-совместимого сервера                           |
 | `LLM_MODEL`                   | идентификатор модели Ollama/LM Studio                      |
 | `LLM_TIMEOUT`                 | таймаут запроса к LLM, по умолчанию 120 с                  |
+| `WHISPER_MODEL_SIZE`          | модель распознавания, по умолчанию `small`                 |
+| `WHISPER_COMPUTE_TYPE`        | тип вычислений Whisper, по умолчанию `int8`                |
+| `WHISPER_CPU_THREADS`         | потоки Whisper, по умолчанию 4                             |
+| `WHISPER_BEAM_SIZE`           | ширина поиска Whisper, по умолчанию 1                      |
+| `WHISPER_MAX_CONCURRENT`      | параллельные распознавания, по умолчанию 1                 |
+| `WHISPER_VAD_MIN_SILENCE_MS`  | минимальная удаляемая пауза, по умолчанию 500 мс           |
 | `JWT_SECRET`                  | секрет подписи JWT, минимум 32 символа                     |
 | `JWT_ALGORITHM`               | алгоритм JWT, по умолчанию `HS256`                         |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | время жизни токена, по умолчанию 60                        |
