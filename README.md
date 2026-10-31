@@ -1,378 +1,97 @@
 # AiAssistant
 
-Локальный AI-ассистент: backend на Python и веб-интерфейс на Next.js.
+AI-ассистент с веб-интерфейсом: чаты, голосовой режим и планировщик. Backend на FastAPI, фронтенд на Next.js. Модель подключается через GigaChat или локально через Ollama / LM Studio.
 
-## Структура
+## Стек
 
-```
-AiAssistant/
-├── apps/
-│   ├── api/   # FastAPI backend
-│   └── web/   # Next.js frontend
-├── docker-compose.yml   # PostgreSQL, backend (FastAPI) и frontend (Next.js)
-├── .env.example   # единый env: backend + frontend
-├── API.md     # контракт backend API
-└── package.json   # скрипты монорепы
-```
+- Backend: Python 3.11+, FastAPI, SQLAlchemy (async), Alembic, PostgreSQL
+- Frontend: Next.js 16 (App Router), React 19, Tailwind CSS 4, shadcn/ui
+- Пакетные менеджеры: uv для backend, Bun для frontend
+- Docker Compose для всего стека
 
-Каждое приложение живёт в своей папке `apps/*` со своим пакетным менеджером:
-backend — uv, frontend — Bun.
-
-## Backend
-
-Приложение — в [`apps/api`](apps/api). Полное описание — в
-[`apps/api/README.md`](apps/api/README.md).
-
-### Запуск в Docker
-
-Backend вместе с базой поднимается одной командой из корня:
+## Быстрый старт
 
 ```bash
-bun run api:up      # docker compose up -d --build api
-bun run api:logs
-bun run api:down
+cp .env.example .env
+# заполните GIGACHAT_CREDENTIALS и JWT_SECRET (openssl rand -hex 32)
+bun run docker:up
 ```
 
-`bun run docker:up` / `bun run docker:down` поднимают и останавливают все
-сервисы (frontend + backend + PostgreSQL).
+Интерфейс откроется на <http://localhost:3000>, Swagger на <http://localhost:8000/docs>, PostgreSQL слушает `localhost:5434`.
 
-Backend — <http://localhost:8000/docs>, PostgreSQL — `localhost:5434`.
-Все настройки — в едином `.env` в корне монорепы, он создаётся из
-[`.env.example`](.env.example). Файл читают и backend, и frontend, а Docker
-Compose подключает его как `env_file` и берёт из него подстановки `${...}`.
-`DATABASE_URL` и `LLM_BASE_URL` внутри контейнера задаёт
-[`docker-compose.yml`](docker-compose.yml), dev-`JWT_SECRET` — значение по
-умолчанию в нём же. Секреты GigaChat и свой `JWT_SECRET` кладите в корневой
-`.env`.
-Если Ollama или LM Studio запущены на хосте, из контейнера они доступны на
-`http://host.docker.internal:11434/v1` (уже прописано в compose).
+Первый запуск занимает несколько минут: собираются образы и скачивается модель Whisper.
 
-### Запуск без Docker
+## Запуск без Docker
+
+Backend:
 
 ```bash
-cd apps/api
-cp ../../.env.example ../../.env   # из корня монорепы, если ещё не создан
-uv sync
-uv run uvicorn app:app --app-dir src --reload
+bun run db:up     # PostgreSQL в Docker
+bun run sync:api
+bun run dev:api
 ```
 
-Из корня монорепы:
-
-```bash
-bun run db:up      # PostgreSQL в Docker (localhost:5434)
-bun run sync:api   # установка зависимостей
-bun run dev:api    # dev-сервер с автоперезагрузкой
-```
-
-Запускать нужно из `apps/api`: так `src/` попадает в `sys.path` (импорты без
-префикса `src.`), а папка `storage/` создаётся рядом с приложением.
-
-### База данных
-
-PostgreSQL поднимается из [`docker-compose.yml`](docker-compose.yml) на
-`localhost:5434` (порт снаружи, чтобы не конфликтовать с другими проектами):
-
-```bash
-bun run db:up     # запустить
-bun run db:logs   # логи
-bun run db:down   # остановить
-```
-
-Параметры по умолчанию: пользователь `postgres`, пароль `postgres`, база
-`ai_assistant`. Строка подключения уже прописана в `.env.example`. Подключиться
-клиентом:
-
-```bash
-psql -h localhost -p 5434 -U postgres -d ai_assistant
-```
-
-Провайдер LLM задаётся переменной `LLM_PROVIDER`: `gigachat` (по умолчанию)
-или `openai_compatible` для Ollama / LM Studio. Подробности — в
-[`apps/api/README.md`](apps/api/README.md#llm-провайдеры).
-
-## Frontend
-
-Frontend локального AI-ассистента: чат, голосовые сообщения и планировщик.
-Next.js 16 (App Router) + Tailwind CSS v4 + shadcn/ui + Prettier + Bun.
-
-**Это только фронтенд.** Запросы к модели, стриминг ответов и распознавание
-речи выполняет внешний backend. Фронтенд не вызывает LLM-провайдеров
-напрямую и не содержит серверной логики.
-
-### Возможности
-
-- Чат с backend: потоковый ответ по SSE.
-- Настройки модели в интерфейсе: провайдер, адрес API, ключ, модель, температура.
-- История чатов, цитаты, остановка генерации, экспорт в Markdown.
-- Голосовые сообщения: запись в браузере, расшифровка на сервере.
-- Озвучка ответов ассистента (TTS) в голосовом режиме.
-- Голосовой режим: отдельный экран с пиксельным ассистентом и непрерывным диалогом
-  голосом — без клавиатуры.
-- Планировщик: планы, задачи, встречи, напоминания, поиск и календарь.
-- Тёмная пиксельная тема, адаптивная вёрстка, PWA-манифест.
-
-### Запуск в Docker
-
-Frontend собирается в отдельный образ ([`apps/web/Dockerfile`](apps/web/Dockerfile),
-Next.js standalone) и вместе с backend и базой поднимается из корня:
-
-```bash
-bun run web:up      # docker compose up -d --build web
-bun run web:logs
-bun run web:down
-```
-
-`bun run docker:up` поднимает весь стек: frontend, backend и PostgreSQL.
-Интерфейс — <http://localhost:3000>, backend — <http://localhost:8000>.
-Порт задаётся `WEB_PORT` в корневом `.env`.
-
-`NEXT_PUBLIC_API_URL` передаётся в образ как build arg: адрес зашивается в
-бандл при сборке, поэтому после его изменения frontend нужно пересобрать
-(`bun run web:up`). Браузер ходит в API с хоста, поэтому значение должно быть
-доступно снаружи, а не только из compose-сети.
-
-### Запуск без Docker
-
-Нужен [Bun](https://bun.sh) 1.4.4+ и запущенный backend ассистента.
+Frontend:
 
 ```bash
 cd apps/web
 bun install
 ```
 
-Из корня монорепы:
+Дальше из корня:
 
 ```bash
-cp .env.example .env   # если ещё не создан: NEXT_PUBLIC_API_URL=http://localhost:8000
 bun run dev:web
 ```
 
-Откройте <http://localhost:3000>, перейдите в **Настройки** и укажите
-провайдера, модель и API-ключ.
+Понадобятся Bun 1.4.4+, Python 3.11+ и [uv](https://docs.astral.sh/uv/). Рабочая директория backend — `apps/api`, поэтому `storage/` появляется рядом с ним.
 
-Адрес backend задаётся **только** через окружение — `NEXT_PUBLIC_API_URL` в
-корневом `.env` монорепы (Next читает его через `next.config.ts`):
+## Настройки
 
-```dotenv
-NEXT_PUBLIC_API_URL=http://localhost:8000
-```
+Все переменные лежат в одном `.env` в корне, его читают и backend, и frontend. Шаблон с комментариями — [`.env.example`](.env.example). Главное:
 
-Значение инлайнится на этапе сборки; в интерфейсе его менять нельзя.
-Для production установите переменную окружения перед `bun run build:web`.
+- `GIGACHAT_CREDENTIALS` — ключ GigaChat, `JWT_SECRET` — подпись токенов входа. В Docker без своего секрета подставляется dev-значение из compose.
+- `LLM_PROVIDER` — `gigachat` или `openai_compatible`. Для локальной модели также нужны `LLM_BASE_URL` и `LLM_MODEL`.
+- `NEXT_PUBLIC_API_URL` — адрес backend для браузера. Значение вшивается в бандл при сборке, поэтому после изменения frontend нужно пересобрать.
 
-### Настройки модели
+Провайдера, модель и температуру можно переопределить в настройках интерфейса. Они сохраняются в браузере и уходят на backend вместе с запросом.
 
-Хранятся в localStorage браузера и передаются backend вместе с запросом
-в поле `model_settings`. Backend использует их для вызова модели;
-если настройки не заполнены — применяет свою конфигурацию по умолчанию.
+## Команды
 
-| Поле        | Описание                                                              |
-| ----------- | --------------------------------------------------------------------- |
-| Сервис      | `GigaChat` (по умолчанию) или `Локальная модель` (Ollama / LM Studio) |
-| Адрес API   | Base URL без `/chat/completions`; только для локальной модели         |
-| API-ключ    | Ключ локального сервера; обычно не нужен                              |
-| Модель      | Идентификатор локальной модели                                        |
-| Температура | 0–1.5, по умолчанию 0.7; только для локальной модели                  |
+Запускать из корня монорепы.
 
-Для GigaChat ключ хранится на backend в env, в браузер он не попадает.
-Для локальной модели адрес и модель хранятся в localStorage и передаются
-backend с запросом. Не используйте фронтенд с недоверенным backend.
+| Команда                 | Что делает                       |
+| ----------------------- | -------------------------------- |
+| `bun run dev:web`       | frontend с горячей перезагрузкой |
+| `bun run dev:api`       | backend с автоперезагрузкой      |
+| `bun run docker:up`     | весь стек в Docker               |
+| `bun run db:up`         | только PostgreSQL                |
+| `bun run test:web`      | тесты frontend (Vitest)          |
+| `bun run typecheck:web` | проверка типов                   |
+| `bun run lint:web`      | ESLint                           |
+| `bun run format:web`    | форматирование кода и README     |
 
-### Контракт backend API
+Перед коммитом достаточно `format:web`, `typecheck:web` и `lint:web`.
 
-| Метод    | Путь                                   | Тело / ответ                                                |
-| -------- | -------------------------------------- | ----------------------------------------------------------- |
-| `GET`    | `/`                                    | health-check, любой `2xx`                                   |
-| `POST`   | `/chat/create_chat`                    | `{ name_chat }` → чат с `chat_id` и `messages`              |
-| `GET`    | `/chat/get_all_chats`                  | чаты пользователя вместе с сообщениями                      |
-| `GET`    | `/chat/get_chat/{chat_id}`             | один чат с историей                                         |
-| `PATCH`  | `/chat/{chat_id}`                      | `{ name_chat?, pinned? }` → обновлённый чат                 |
-| `POST`   | `/chat/add_message/{chat_id}`          | query-параметры `role`, `content` → обновлённый чат         |
-| `DELETE` | `/chat/{chat_id}/message/{message_id}` | удаление сообщения → обновлённый чат                        |
-| `DELETE` | `/chat/{chat_id}/messages`             | очистка истории → обновлённый чат                           |
-| `DELETE` | `/chat/delete_chat/{chat_id}`          | удаление чата на сервере                                    |
-| `POST`   | `/llm/query`                           | `{ chat_id, query, timezone?, model_settings?, reply_to? }` |
-| `POST`   | `/llm/query/stream`                    | то же тело → SSE с дельтами текста                          |
-| `POST`   | `/audio/transcribe`                    | multipart `chat_id`, `file` → `{ text }`                    |
-
-`model_settings` — необязательный JSON-объект:
-
-```json
-{
-  "provider": "local",
-  "base_url": "http://localhost:11434/v1",
-  "api_key": "",
-  "model": "qwen2.5:7b",
-  "temperature": 0.7
-}
-```
-
-#### Стриминг
-
-`POST /llm/query/stream` отвечает `text/event-stream`:
-
-```text
-data: {"text":"Готово"}
-
-data: [DONE]
-```
-
-Ошибка после начала потока приходит отдельным событием:
-
-```text
-event: error
-data: {"message":"Не удалось получить ответ"}
-```
-
-Фронтенд читает поток в `features/assistant/model/client.ts` и показывает текст
-по мере поступления. `/llm/query` остаётся обычным JSON-эндпоинтом для
-интеграций.
-
-#### CORS
-
-Backend должен разрешать origin фронтенда (`http://localhost:3000`).
-Для локальной разработки обычно достаточно `allow_origins=["*"]`.
-
-### Как устроена интеграция
-
-- Чаты и сообщения — источник правды на backend; фронтенд держит их кэш в памяти
-  и перечитывает через `/chat/get_all_chats` и `/chat/get_chat/{id}`.
-- Первое сообщение в новом диалоге создаёт чат на backend (`/chat/create_chat`),
-  после чего приложение переходит на `/chat/{chat_id}`.
-- Каждый запрос идёт в `/llm/query` с `chat_id`; backend сам сохраняет вопрос и
-  ответ в историю, поэтому после ответа фронтенд перечитывает чат.
-- Цитата ответа передаётся в `reply_to` и хранится на backend.
-- Браузер передаёт в `timezone` свой IANA-часовой пояс (`Europe/Moscow` и т.п.),
-  поэтому названное пользователем время трактуется в его часовом поясе, а не в UTC.
-- Переименование, закрепление, удаление сообщений и очистка истории — отдельные
-  запросы к backend, локальных копий чатов больше нет.
-- Голос: аудио уходит на `/audio/transcribe`, расшифровка становится вопросом.
-  Аудиофайл нигде не сохраняется: в истории чата остаётся только текст, поэтому
-  записанные голосовые сообщения нельзя проиграть повторно.
-- Текстовый чат отвечает без звука: озвучка включается только в голосовом
-  режиме. Движок выбирается в настройках: **браузер** (по умолчанию, системный
-  голос — звук начинается почти сразу, без сети) или **сервер** (Edge TTS, голос
-  стабильнее, но первый звук ждёт синтеза). Серверный вариант отдаёт mp3 потоком
-  через `/api/voice/stream`, поэтому не нужно ждать весь файл.
-- Голосовой режим (`/voice`) ведёт диалог через `/api/voice/ask` с `speak=false`:
-  сервер распознаёт речь и отвечает текстом, а озвучку фронтенд делает сам
-  выбранным движком. Экран показывает расшифровку и ответ по мере готовности и
-  после паузы в речи сам отправляет реплику. После ответа микрофон включается
-  снова, пока включён «Автослушать». Вопрос и ответ сохраняются в том же чате,
-  поэтому разговор можно продолжить текстом — ссылка «Продолжить текстом».
-- Если backend недоступен, сообщение не сохраняется, а в чате показывается ошибка
-  с кнопкой «Повторить».
-
-В localStorage остаются только черновики композера, настройки модели и движок
-озвучки.
-
-### Команды
-
-Запускать из корня монорепы:
-
-| Команда                    | Что делает                             |
-| -------------------------- | -------------------------------------- |
-| `bun run dev:web`          | Next dev server (Turbopack)            |
-| `bun run build:web`        | production build                       |
-| `bun run start:web`        | production server                      |
-| `bun run typecheck:web`    | `tsc --noEmit`                         |
-| `bun run lint:web`         | ESLint                                 |
-| `bun run format:web`       | форматирование файлов Prettier         |
-| `bun run format:check:web` | проверка форматирования без записи     |
-| `bun run test:web`         | тесты фронтенда (Vitest)               |
-| `bun run sync:api`         | установка зависимостей backend         |
-| `bun run dev:api`          | backend dev-сервер с автоперезагрузкой |
-| `bun run start:api`        | backend без автоперезагрузки           |
-| `bun run db:up`            | PostgreSQL в Docker (localhost:5434)   |
-| `bun run db:down`          | остановить контейнер с БД              |
-| `bun run db:logs`          | логи PostgreSQL                        |
-| `bun run web:up`           | frontend в Docker (localhost:3000)     |
-| `bun run web:down`         | остановить контейнер с frontend        |
-| `bun run web:logs`         | логи frontend                          |
-| `bun run api:up`           | backend в Docker (с PostgreSQL)        |
-| `bun run api:down`         | остановить контейнер с backend         |
-| `bun run api:logs`         | логи backend                           |
-| `bun run docker:up`        | весь стек в Docker                     |
-| `bun run docker:down`      | остановить и удалить контейнеры        |
-
-Перед коммитом: `bun run format:web`, затем `bun run typecheck:web` и
-`bun run lint:web` — типы и линтер должны проходить чисто, проверка
-форматирования — зелёная.
-
-### Стиль кода
-
-Форматирование — Prettier, конфиг в `apps/web/.prettierrc.json`: ширина
-строки 100, стрелочные функции с одним аргументом — без скобок, плагин
-`prettier-plugin-tailwindcss` сортирует Tailwind-классы. Стилистические
-правила ESLint, конфликтующие с Prettier, отключены через
-`eslint-config-prettier`.
-
-Комментарии и JSDoc — на русском в едином стиле: комментарий объясняет
-«зачем», а не «что»; полные предложения, без закомментированного кода и шума.
-Полные правила — в скилле
-[`.opencode/skills/russian-comments/SKILL.md`](.opencode/skills/russian-comments/SKILL.md).
-
-### Структура
+## Структура
 
 ```
-apps/web/src/
-├── app/                    # только роутинг Next.js
-│   ├── (marketing)/        # лендинг
-│   └── (dashboard)/        # чат, голос, планы, задачи, встречи, поиск, настройки
-├── views/                  # экраны целиком
-├── widgets/                # header, sidebar
-├── features/
-│   ├── assistant/          # клиент backend API: чаты, query, транскрипция, TTS
-│   ├── model-settings/     # форма настроек модели
-│   ├── voice-playback/     # движок синтеза речи (TTS) и настройка
-│   ├── voice-mode/         # голосовой диалог, микрофон и пиксельный ассистент
-│   ├── conversations/      # чат, история и стриминг в UI
-│   └── planner/            # планировщик
-├── entities/
-│   ├── chat/               # типы чата
-│   ├── voice/              # типы озвучки и выбор движка
-│   └── model-settings/     # типы и localStorage настроек модели
-└── shared/                 # UI-примитивы, утилиты, конфиг, API-клиент
+apps/api/   FastAPI: авторизация, чаты, LLM, голос, планировщик
+apps/web/   Next.js: лендинг, чат, голосовой режим, планы, настройки
+API.md      контракт API: эндпоинты, SSE, примеры
 ```
 
-Правила для редакторов — в [`apps/web/AGENTS.md`](apps/web/AGENTS.md).
-Зависимости слоёв: `app → views → widgets → features → entities → shared`.
+Слои фронтенда: `app → views → widgets → features → entities → shared`. Подробнее — в [`apps/web/AGENTS.md`](apps/web/AGENTS.md).
 
-### Данные и приватность
+## Что стоит знать
 
-| Что                         | Где                                 |
-| --------------------------- | ----------------------------------- |
-| Провайдер, модель, API-ключ | localStorage браузера               |
-| Движок озвучки              | localStorage браузера               |
-| Чаты и сообщения            | на backend                          |
-| Черновики композера         | localStorage браузера               |
-| Голосовые сообщения         | только текст расшифровки на backend |
-| Планировщик                 | на backend                          |
+- Чаты, задачи, напоминания и встречи хранятся на backend. В localStorage остаются только настройки модели, движок озвучки и черновики ввода.
+- Ответы приходят потоком через `/api/llm/query/stream` (SSE). Голос идёт через `/api/audio/transcribe` и `/api/voice/*`.
+- Микрофон работает только на `localhost` или HTTPS.
+- Для GigaChat ключ остаётся на backend. Если выбрать локальную модель, её адрес и ключ передаются с каждым запросом.
 
-Backend получает настройки модели с каждым запросом и использует их для
-обращения к провайдеру. Никаких секретов в самом фронтенде нет.
+## Документация
 
-### Ограничения
-
-- Backend API должен быть доступен из браузера (CORS).
-- Уведомления пока не подключены.
-- Серверная озвучка Edge TTS зависит от внешнего сервиса: первый звук обычно
-  через 1–3 секунды, иногда дольше. Для мгновенного голоса выберите браузерный
-  движок в настройках — качество и наличие русского голоса зависят от системы.
-- В голосовом режиме автослушание закрывает микрофон после 8 секунд тишины:
-  нажмите на ассистента, чтобы продолжить.
-- Для микрофона нужен `localhost` или HTTPS.
-
-### Диагностика
-
-- **«Не удалось связаться с сервером ассистента»** — проверьте, что backend
-  запущен и `NEXT_PUBLIC_API_URL` указывает на него.
-- **CORS-ошибка в консоли** — разрешите origin фронтенда на backend.
-- **Модель не отвечает / 401** — проверьте настройки модели на `/settings`:
-  адрес API, ключ и название модели должны совпадать с тем, что даёт провайдер.
-- **Ответ не стримится** — проверьте, что фронтенд обращается к
-  `/llm/query/stream`, а backend отвечает `Content-Type: text/event-stream`.
-- **404 при запросе** — фронтенд пересоздаст серверный чат; если не помогает,
-  проверьте `/chat/create_chat`.
-- **Голос не расшифровывается** — проверьте `/audio/transcribe` и размер файла
-  (до 25 МБ на стороне типового backend).
+- [API.md](API.md) — эндпоинты, авторизация, стриминг, примеры запросов.
+- [apps/api/README.md](apps/api/README.md) — backend: запуск, LLM-провайдеры, переменные окружения.
+- [apps/web/AGENTS.md](apps/web/AGENTS.md) — правила разработки фронтенда.
