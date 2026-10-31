@@ -11,7 +11,6 @@ export { isJobCreated, isSpeechStream, isTranscript, isVoiceJob } from "./model/
 export {
   DEFAULT_VOICE_SETTINGS,
   readVoiceSettings,
-  resetVoiceSettings,
   subscribeVoiceSettings,
   writeVoiceSettings,
 } from "./model/settings";

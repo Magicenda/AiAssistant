@@ -1,7 +1,8 @@
 import { ApiError as HttpApiError } from "@/shared/api/http";
-import { ApiError as TransportApiError, apiBlob, apiRequest, parseData } from "@/shared/api";
+import { ApiError as TransportApiError, apiRequest, apiStream, parseData } from "@/shared/api";
 import { apiConfig } from "@/shared/config";
-import { isChatDto, isChatList, isLlmAnswer, type ChatDto, type ChatReply } from "@/entities/chat";
+import { getTimeZone } from "@/shared/lib/timezone";
+import { isChatDto, isChatList, type ChatDto, type ChatReply } from "@/entities/chat";
 import { modelRequestSettings } from "@/entities/model-settings";
 import {
   isJobCreated,
@@ -14,12 +15,10 @@ import {
 export interface QueryOptions {
   /** Отмена запроса (кнопка «Остановить»). */
   signal?: AbortSignal;
-  /** Полный ответ приходит одним JSON, колбэк вызывается один раз. */
+  /** Колбэк получает очередную текстовую дельту из SSE-потока. */
   onDelta?: (text: string) => void;
   /** Цитата, на которую отвечает пользователь; сохраняется на backend. */
   replyTo?: ChatReply;
-  /** Перегенерировать последний ответ без повторного сохранения вопроса. */
-  regenerate?: boolean;
 }
 
 export interface QueryResult {
@@ -36,6 +35,75 @@ async function request<T>(run: () => Promise<T>): Promise<T> {
       throw new HttpApiError(cause.message, code, cause.status);
     }
     throw cause;
+  }
+}
+
+/** Читает SSE-поток и отдаёт текстовые дельты по мере поступления. */
+async function readSse(response: Response, onText: (text: string) => void): Promise<void> {
+  if (!response.body) {
+    throw new HttpApiError("Сервер не вернул поток ответа.", "stream_error", 502);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finished = false;
+
+  const handleBlock = (block: string) => {
+    let event = "message";
+    let data = "";
+    for (const line of block.split("\n")) {
+      if (line.startsWith("event:")) event = line.slice(6).trim();
+      else if (line.startsWith("data:")) {
+        const value = line.slice(5).trimStart();
+        data = data ? `${data}\n${value}` : value;
+      }
+    }
+    if (!data) return;
+    if (data === "[DONE]") {
+      finished = true;
+      return;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(data);
+    } catch {
+      return;
+    }
+
+    if (event === "error") {
+      const message =
+        parsed && typeof parsed === "object" && "message" in parsed
+          ? String((parsed as { message: unknown }).message)
+          : "Не удалось получить ответ.";
+      throw new HttpApiError(message, "stream_error", 502);
+    }
+
+    if (!parsed || typeof parsed !== "object") return;
+    const payload = parsed as Record<string, unknown>;
+    const text = payload.text ?? payload.delta ?? payload.answer;
+    if (typeof text === "string" && text) onText(text);
+  };
+
+  try {
+    while (!finished) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer = (buffer + decoder.decode(value, { stream: true })).replace(/\r\n/g, "\n");
+      let separator = buffer.indexOf("\n\n");
+      while (!finished && separator >= 0) {
+        const block = buffer.slice(0, separator);
+        buffer = buffer.slice(separator + 2);
+        handleBlock(block);
+        separator = buffer.indexOf("\n\n");
+      }
+    }
+    buffer += decoder.decode();
+    if (!finished && buffer.trim()) handleBlock(buffer);
+  } finally {
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
   }
 }
 
@@ -121,7 +189,7 @@ export function deleteRemoteChat(chatId: number): Promise<void> {
   });
 }
 
-/** Отправляет текстовый запрос (`POST /api/llm/query`) и ждёт JSON-ответ. */
+/** Отправляет текстовый запрос (`POST /api/llm/query/stream`) и читает SSE-ответ. */
 export function queryAssistant(
   chatId: number,
   query: string,
@@ -129,27 +197,41 @@ export function queryAssistant(
 ): Promise<QueryResult> {
   return request(async () => {
     const modelSettings = modelRequestSettings();
-    const result = parseData(
-      await apiRequest("/api/llm/query", {
-        method: "POST",
-        body: {
-          chat_id: chatId,
-          query,
-          ...(options.replyTo ? { reply_to: options.replyTo } : {}),
-          ...(options.regenerate ? { regenerate: true } : {}),
-          // Без настроек backend использует GigaChat из своего env.
-          ...(modelSettings ? { model_settings: modelSettings } : {}),
-        },
-        signal: options.signal,
-        timeoutMs: apiConfig.timeoutsMs.llmQuery,
-      }),
-      isLlmAnswer,
-    );
-    if (!result.answer.trim()) {
+    const stream = await apiStream("/api/llm/query/stream", {
+      method: "POST",
+      body: {
+        chat_id: chatId,
+        query,
+        timezone: getTimeZone(),
+        ...(options.replyTo ? { reply_to: options.replyTo } : {}),
+        // Без настроек backend использует GigaChat из своего env.
+        ...(modelSettings ? { model_settings: modelSettings } : {}),
+      },
+      signal: options.signal,
+      timeoutMs: apiConfig.timeoutsMs.llmQuery,
+    });
+
+    let answer = "";
+    try {
+      await readSse(stream.response, text => {
+        answer += text;
+        options.onDelta?.(text);
+      });
+    } catch (cause) {
+      if (cause instanceof HttpApiError) throw cause;
+      if (cause instanceof DOMException && cause.name === "AbortError") {
+        if (!stream.timedOut()) throw cause;
+        throw new HttpApiError("Превышено время ожидания ответа от сервера.", "timeout", 0);
+      }
+      throw new HttpApiError("Не удалось прочитать ответ сервера.", "stream_error", 502);
+    } finally {
+      stream.close();
+    }
+
+    if (!answer.trim()) {
       throw new HttpApiError("Сервер вернул пустой ответ.", "empty_response", 502);
     }
-    options.onDelta?.(result.answer);
-    return { answer: result.answer };
+    return { answer };
   });
 }
 
@@ -192,6 +274,7 @@ export function askByVoice(
     form.append("chat_id", String(chatId));
     form.append("file", file, file instanceof File ? file.name : "voice.webm");
     form.append("speak", String(speak));
+    form.append("timezone", getTimeZone());
     const settings = modelRequestSettings();
     // Backend ждёт JSON-строку в form-поле: модель та же, что выбрана в настройках.
     if (settings) form.append("model_settings", JSON.stringify(settings));
@@ -201,21 +284,6 @@ export function askByVoice(
         form,
         signal,
         timeoutMs: apiConfig.timeoutsMs.audioUpload,
-      }),
-      isJobCreated,
-    );
-    return data.job_id;
-  });
-}
-
-/** Создаёт задачу озвучки текста (`POST /api/voice/generate`) и возвращает её id. */
-export function generateSpeech(text: string, signal?: AbortSignal): Promise<string> {
-  return request(async () => {
-    const data = parseData(
-      await apiRequest("/api/voice/generate", {
-        method: "POST",
-        body: { text },
-        signal,
       }),
       isJobCreated,
     );
@@ -233,16 +301,6 @@ export function getSpeechJob(jobId: string, signal?: AbortSignal): Promise<Voice
       }),
       isVoiceJob,
     ),
-  );
-}
-
-/** Готовое аудио озвучки (`GET /api/voice/jobs/{id}/audio`); нужен токен, поэтому blob через fetch. */
-export function getSpeechAudio(jobId: string, signal?: AbortSignal): Promise<Blob> {
-  return request(() =>
-    apiBlob(`/api/voice/jobs/${jobId}/audio`, {
-      signal,
-      timeoutMs: apiConfig.timeoutsMs.audioUpload,
-    }),
   );
 }
 
@@ -272,44 +330,4 @@ export function createSpeechStream(
       expiresIn: data.expires_in,
     };
   });
-}
-
-/** Ждёт паузу между опросами задачи озвучки; отмена пробрасывается как `AbortError`. */
-function waitForPoll(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new DOMException("Aborted", "AbortError"));
-      return;
-    }
-    const onAbort = () => {
-      globalThis.clearTimeout(timer);
-      reject(new DOMException("Aborted", "AbortError"));
-    };
-    const timer = globalThis.setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
-}
-
-/**
- * Озвучивает текст: создаёт job, опрашивает статус и скачивает mp3.
- *
- * @param text - текст ответа ассистента.
- * @param signal - отмена ожидания (например, пользователь нажал «Стоп»).
- * @returns Аудиофайл для проигрывания через `URL.createObjectURL`.
- */
-export async function synthesizeSpeech(text: string, signal?: AbortSignal): Promise<Blob> {
-  const jobId = await generateSpeech(text, signal);
-  const deadline = Date.now() + apiConfig.limits.jobPollTimeoutMs;
-  while (Date.now() < deadline) {
-    const job = await getSpeechJob(jobId, signal);
-    if (job.status === "completed") return await getSpeechAudio(jobId, signal);
-    if (job.status === "failed") {
-      throw new HttpApiError(job.error || "Не удалось озвучить ответ.", "speech_failed", 502);
-    }
-    await waitForPoll(apiConfig.limits.jobPollIntervalMs, signal);
-  }
-  throw new HttpApiError("Озвучка не успела подготовиться.", "speech_timeout", 504);
 }

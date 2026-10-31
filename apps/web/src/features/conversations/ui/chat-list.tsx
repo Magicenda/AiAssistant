@@ -20,7 +20,6 @@ import type { Chat } from "@/entities/chat";
 function preview(chat: Chat) {
   const last = chat.messages.at(-1);
   if (!last) return "Пока нет сообщений";
-  if (last.audio) return "Голосовое сообщение";
   return plainText(last.text.split("\n").find(line => line.trim()) ?? last.text);
 }
 

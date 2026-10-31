@@ -9,10 +9,8 @@ import {
   getChat,
   updateRemoteChat,
 } from "@/features/assistant";
-import { attachAudio, removeAudio, saveMessageAudio, takeQueuedAudio } from "./audio";
-
 // Чаты и сообщения — на backend. В памяти держим кэш для синхронного рендера,
-// а localStorage используем только для черновиков и голосовых вложений.
+// а localStorage используем только для черновиков и настроек.
 const event = "chats-change";
 const empty: Chat[] = [];
 
@@ -44,16 +42,21 @@ export function isChatsLoaded() {
   return loaded;
 }
 
-/** Чат из кэша по id. */
-export function findChat(chatId: string) {
-  return cache.find(item => item.id === chatId) ?? null;
+/** Удаляет устаревшее хранилище аудиозаписей: плеера голосовых больше нет. */
+function removeLegacyAudio() {
+  try {
+    localStorage.removeItem("assistant-audio-v1");
+  } catch {
+    /* Приватный режим или запрет storage: очистка не критична. */
+  }
 }
 
 /** Загружает все чаты с backend и заменяет кэш. */
 export async function loadChats(): Promise<Chat[]> {
   const dtos = await getAllChats();
-  cache = dtos.map(chatDtoToDomain).map(attachAudio);
+  cache = dtos.map(chatDtoToDomain);
   loaded = true;
+  removeLegacyAudio();
   emit();
   return cache;
 }
@@ -80,37 +83,25 @@ export async function setChatPinned(chatId: string, pinned: boolean) {
 /** Удаляет чат вместе с историей. */
 export async function deleteChat(chatId: string) {
   await deleteRemoteChat(Number(chatId));
-  removeAudio(chatId);
   cache = cache.filter(item => item.id !== chatId);
   emit();
 }
 
 /** Удаляет одно сообщение. */
 export async function deleteChatMessage(chatId: string, messageId: string) {
-  const chat = chatDtoToDomain(await deleteRemoteMessage(Number(chatId), Number(messageId)));
-  removeAudio(chatId, messageId);
-  put(chat);
+  put(chatDtoToDomain(await deleteRemoteMessage(Number(chatId), Number(messageId))));
 }
 
 /** Очищает историю чата, оставляя сам чат. */
 export async function clearChatMessages(chatId: string) {
-  const chat = chatDtoToDomain(await clearRemoteChat(Number(chatId)));
-  removeAudio(chatId);
-  put(chat);
+  put(chatDtoToDomain(await clearRemoteChat(Number(chatId))));
 }
 
 /** Перечитывает один чат с backend (после ответа ассистента). */
 export async function refreshChat(chatId: string): Promise<Chat | null> {
   const chat = chatDtoToDomain(await getChat(Number(chatId)));
-  // Голосовое пришло раньше сообщения: привязываем его к последнему вопросу.
-  const lastUser = [...chat.messages].reverse().find(message => message.role === "user");
-  if (lastUser) {
-    const audio = takeQueuedAudio(chatId, lastUser.text);
-    if (audio) saveMessageAudio(chatId, lastUser.id, audio);
-  }
-  const withAudio = attachAudio(chat);
-  put(withAudio);
-  return withAudio;
+  put(chat);
+  return chat;
 }
 
 /** Сохраняет сообщение вручную — для частичного ответа после остановки. */
@@ -119,7 +110,7 @@ export async function appendChatMessage(
   role: "user" | "assistant",
   text: string,
 ): Promise<Chat> {
-  const chat = attachAudio(chatDtoToDomain(await addRemoteMessage(Number(chatId), role, text)));
+  const chat = chatDtoToDomain(await addRemoteMessage(Number(chatId), role, text));
   put(chat);
   return chat;
 }

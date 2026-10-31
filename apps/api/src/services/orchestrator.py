@@ -108,12 +108,22 @@ class VoiceGenerationOrchestrator:
         user_id: int,
         model_settings: ModelSettings | None = None,
         speak: bool = True,
+        user_timezone: str | None = None,
     ) -> None:
         """Полный цикл: речь пользователя -> текст -> ответ агента -> аудио ответа."""
         entry = self._jobs[job_id]
         try:
             await asyncio.wait_for(
-                self._run_stages(job_id, entry, audio_bytes, chat_id, user_id, model_settings, speak),
+                self._run_stages(
+                    job_id,
+                    entry,
+                    audio_bytes,
+                    chat_id,
+                    user_id,
+                    model_settings,
+                    speak,
+                    user_timezone,
+                ),
                 PIPELINE_TIMEOUT_SECONDS,
             )
         except Exception as e:
@@ -128,6 +138,7 @@ class VoiceGenerationOrchestrator:
         user_id: int,
         model_settings: ModelSettings | None = None,
         speak: bool = True,
+        user_timezone: str | None = None,
     ) -> None:
         job = entry.result
 
@@ -142,7 +153,10 @@ class VoiceGenerationOrchestrator:
         async with self.session_factory() as session:
             agent = build_agent_service(self.llm, session, user_id)
             job.agent_reply_text = await agent.generate_response(
-                chat_id, transcription.text, model_settings
+                chat_id,
+                transcription.text,
+                model_settings,
+                user_timezone=user_timezone,
             )
             await session.commit()
 

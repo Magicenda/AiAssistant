@@ -1,10 +1,15 @@
 import { AuthForm } from "@/features/auth";
+import { AuthShell } from "./auth-shell";
 
+/** Экран входа в аккаунт. */
 export function SignInView() {
   return (
-    <section className="w-full max-w-sm space-y-6">
-      <h1 className="text-center text-2xl font-bold">Вход</h1>
+    <AuthShell
+      eyebrow="Вход"
+      title="С возвращением"
+      text="Войдите, чтобы продолжить работу с чатом и планировщиком."
+    >
       <AuthForm mode="sign-in" />
-    </section>
+    </AuthShell>
   );
 }

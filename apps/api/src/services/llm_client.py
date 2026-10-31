@@ -1,6 +1,9 @@
 """Клиенты LLM с единым интерфейсом для GigaChat и OpenAI-совместимых серверов."""
 
+from __future__ import annotations
+
 import json
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -15,6 +18,8 @@ class LLMClient(Protocol):
     """Минимальный интерфейс, который использует AgentService."""
 
     async def create(self, payload: dict) -> Any: ...
+
+    def stream(self, payload: dict) -> AsyncIterator[StreamDelta]: ...
 
     async def aclose(self) -> None: ...
 
@@ -37,6 +42,30 @@ class GigaChatClient:
     async def create(self, payload: dict) -> Any:
         return await self._client.achat.create(payload)
 
+    async def stream(self, payload: dict) -> AsyncIterator["StreamDelta"]:
+        call_name = ""
+        call_arguments: Any = None
+        assistant_parts: list[dict] = []
+
+        async for chunk in self._client.achat.stream(payload):
+            for message in chunk.messages or []:
+                for part in message.content or []:
+                    if part.text:
+                        assistant_parts.append(part.model_dump(exclude_none=True, by_alias=True))
+                        yield StreamDelta(text=part.text)
+                    if part.function_call:
+                        assistant_parts.append(part.model_dump(exclude_none=True, by_alias=True))
+                        call_name = part.function_call.name or call_name
+                        call_arguments = _merge_arguments(
+                            call_arguments, part.function_call.arguments
+                        )
+
+        if call_name:
+            yield StreamDelta(
+                function_call=_FunctionCall(call_name, call_arguments),
+                assistant_message={"role": "assistant", "content": assistant_parts},
+            )
+
     async def aclose(self) -> None:
         await self._client.aclose()
 
@@ -52,6 +81,15 @@ class _TextPart:
 class _FunctionCall:
     name: str
     arguments: dict | None
+
+
+@dataclass
+class StreamDelta:
+    """Один шаг потока: текст, финальный вызов инструмента или готовое сообщение."""
+
+    text: str = ""
+    function_call: _FunctionCall | None = None
+    assistant_message: dict | None = None
 
 
 @dataclass
@@ -99,6 +137,84 @@ class OpenAICompatibleClient:
         )
         response.raise_for_status()
         return self._from_response(response.json())
+
+    async def stream(self, payload: dict) -> AsyncIterator[StreamDelta]:
+        request = self._to_request(payload)
+        request["stream"] = True
+        call_name = ""
+        call_arguments = ""
+        text_parts: list[str] = []
+
+        async with self._http.stream(
+            "POST",
+            f"{self._base_url}/chat/completions",
+            json=request,
+            headers={"Authorization": f"Bearer {self._api_key}"},
+        ) as response:
+            response.raise_for_status()
+            if "text/event-stream" not in (response.headers.get("content-type") or ""):
+                # Некоторые OpenAI-совместимые серверы игнорируют stream=true.
+                completion = self._from_response(await response.json())
+                message = completion.messages[-1]
+                if message.content:
+                    text = "".join(part.text for part in message.content)
+                    text_parts.append(text)
+                    yield StreamDelta(text=text)
+                if message.function_call:
+                    yield StreamDelta(
+                        function_call=message.function_call,
+                        assistant_message={
+                            "role": "assistant",
+                            "content": "".join(text_parts) or None,
+                            "function_call": {
+                                "name": message.function_call.name,
+                                "arguments": message.function_call.arguments,
+                            },
+                        },
+                    )
+                return
+
+            async for line in response.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    event = json.loads(data)
+                except ValueError:
+                    continue
+                choices = event.get("choices") or []
+                if not choices:
+                    continue
+                delta = (choices[0] or {}).get("delta") or {}
+                text = delta.get("content")
+                if text:
+                    text_parts.append(text)
+                    yield StreamDelta(text=text)
+                for tool_call in delta.get("tool_calls") or []:
+                    function = tool_call.get("function") or {}
+                    if function.get("name"):
+                        call_name = function["name"]
+                    fragment = function.get("arguments")
+                    if isinstance(fragment, str):
+                        call_arguments = (
+                            (call_arguments if isinstance(call_arguments, str) else "")
+                            + fragment
+                        )
+                    elif fragment is not None:
+                        call_arguments = _merge_arguments(call_arguments, fragment)
+
+        if call_name:
+            arguments = _parse_arguments(call_arguments or "{}")
+            yield StreamDelta(
+                function_call=_FunctionCall(call_name, arguments),
+                assistant_message={
+                    "role": "assistant",
+                    "content": "".join(text_parts) or None,
+                    "function_call": {"name": call_name, "arguments": arguments},
+                },
+            )
 
     async def aclose(self) -> None:
         await self._http.aclose()
@@ -249,6 +365,15 @@ def _parse_arguments(raw: Any) -> dict:
     except (TypeError, ValueError):
         return {}
     return parsed if isinstance(parsed, dict) else {}
+
+
+def _merge_arguments(current: Any, incoming: Any) -> Any:
+    """Склеивает аргументы вызова инструмента, приходящие частями."""
+    if incoming is None:
+        return current
+    if isinstance(current, dict) and isinstance(incoming, dict):
+        return {**current, **incoming}
+    return incoming
 
 
 def build_llm_client(model_settings: ModelSettings | None = None) -> LLMClient:

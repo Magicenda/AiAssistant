@@ -6,7 +6,6 @@ import type {
   ChatMessageDto,
   ChatMessageRole,
   ChatReplyDto,
-  LlmAnswer,
 } from "./types";
 
 const ROLES: ReadonlySet<string> = new Set(["user", "assistant", "system", "tool"]);
@@ -47,11 +46,6 @@ export function isChatDto(value: unknown): value is ChatDto {
 
 export function isChatList(value: unknown): value is ChatDto[] {
   return Array.isArray(value) && value.every(isChatDto);
-}
-
-export function isLlmAnswer(value: unknown): value is LlmAnswer {
-  if (!value || typeof value !== "object") return false;
-  return typeof (value as Record<string, unknown>).answer === "string";
 }
 
 function messageDtoToDomain(dto: ChatMessageDto): ChatMessage {

@@ -2,31 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type VoiceClip = {
-  /** Аудио в виде data URL — хранится вместе с сообщением чата. */
-  dataUrl: string;
-  /** MIME-тип записи, например `audio/webm;codecs=opus`. */
-  type: string;
-  /** Длительность в секундах. */
-  duration: number;
-};
-
 type Status = "idle" | "starting" | "recording" | "stopping";
-
-function readAsDataUrl(blob: Blob) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error("Не удалось прочитать запись."));
-    reader.readAsDataURL(blob);
-  });
-}
 
 /**
  * Управляет записью голоса ('use client': `MediaRecorder` и таймер длительности).
  *
  * @returns Статус, текст ошибки, длительность и методы `start`/`stop`;
- *   `stop` резолвится записанным фрагментом или `null`, если запись не удалась.
+ *   `stop` резолвится записанным Blob или `null`, если запись не удалась.
  */
 export function useAudioRecording() {
   const [status, setStatus] = useState<Status>("idle");
@@ -41,7 +23,7 @@ export function useAudioRecording() {
   // Счётчик «поколений»: колбэки устаревшего старта не должны трогать состояние.
   const generation = useRef(0);
   const starting = useRef(false);
-  const resolveStop = useRef<((clip: VoiceClip | null) => void) | null>(null);
+  const resolveStop = useRef<((clip: Blob | null) => void) | null>(null);
 
   const clearTimer = useCallback(() => {
     if (timer.current !== null) {
@@ -126,7 +108,6 @@ export function useAudioRecording() {
         releaseStream();
         recorder.current = null;
         setStatus("idle");
-        const duration = Math.round((Date.now() - startedAt.current) / 100) / 10;
         const done = resolveStop.current;
         resolveStop.current = null;
         if (failed || !done) return;
@@ -137,12 +118,7 @@ export function useAudioRecording() {
           done(null);
           return;
         }
-        readAsDataUrl(blob)
-          .then(dataUrl => done({ dataUrl, type, duration }))
-          .catch(() => {
-            setError("Не удалось сохранить запись.");
-            done(null);
-          });
+        done(blob);
       };
       active.start(1000);
     } catch (cause) {
@@ -162,7 +138,7 @@ export function useAudioRecording() {
   }
 
   function stop() {
-    return new Promise<VoiceClip | null>(resolve => {
+    return new Promise<Blob | null>(resolve => {
       if (recorder.current?.state !== "recording") {
         resolve(null);
         return;

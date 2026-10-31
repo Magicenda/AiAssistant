@@ -112,7 +112,7 @@ function planGroups(items: Entry[], now: Date): PlanGroup[] {
       buckets.overdue.push(item);
       continue;
     }
-    const day = item.date.slice(0, 10);
+    const day = dateKey(new Date(item.date));
     if (day === today) buckets.today.push(item);
     else if (day === tomorrow) buckets.tomorrow.push(item);
     else if (day < weekEnd) buckets.week.push(item);
@@ -231,6 +231,16 @@ export function Planner({ section }: PlannerProps) {
   }
 
   const today = dateKey(now);
+  const currentNow = now;
+
+  /** Переключает месяц и переносит выбранную дату внутрь нового месяца. */
+  function changeMonth(next: Date) {
+    setMonth(next);
+    const currentMonth =
+      next.getFullYear() === currentNow.getFullYear() && next.getMonth() === currentNow.getMonth();
+    setSelected(currentMonth ? today : dateKey(next));
+  }
+
   const kindForSection: EntryKind | undefined =
     section === "tasks"
       ? "task"
@@ -252,12 +262,13 @@ export function Planner({ section }: PlannerProps) {
         return item.title.toLocaleLowerCase("ru").includes(query.trim().toLocaleLowerCase("ru"));
       }
       if (section === "plans") {
-        if (calendar) return item.date?.slice(0, 10) === selected;
-        if (period === "today") return item.date?.slice(0, 10) === today;
-        if (period === "tomorrow") return item.date?.slice(0, 10) === dateKey(addDays(now, 1));
+        const day = item.date === null ? null : dateKey(new Date(item.date));
+        if (calendar) return day === selected;
+        if (period === "today") return day === today;
+        if (period === "tomorrow") return day === dateKey(addDays(now, 1));
         if (period === "week") {
           const end = addDays(now, 7);
-          return item.date !== null && item.date.slice(0, 10) >= today && new Date(item.date) < end;
+          return item.date !== null && day !== null && day >= today && new Date(item.date) < end;
         }
       }
       return true;
@@ -410,17 +421,16 @@ export function Planner({ section }: PlannerProps) {
                   variant="ghost"
                   size="icon"
                   aria-label="Предыдущий месяц"
-                  onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+                  onClick={() =>
+                    changeMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))
+                  }
                 >
                   <ChevronLeft className="size-4" />
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    setMonth(new Date(now.getFullYear(), now.getMonth(), 1));
-                    setSelected(today);
-                  }}
+                  onClick={() => changeMonth(new Date(now.getFullYear(), now.getMonth(), 1))}
                 >
                   Сегодня
                 </Button>
@@ -428,7 +438,9 @@ export function Planner({ section }: PlannerProps) {
                   variant="ghost"
                   size="icon"
                   aria-label="Следующий месяц"
-                  onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+                  onClick={() =>
+                    changeMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))
+                  }
                 >
                   <ChevronRight className="size-4" />
                 </Button>
@@ -448,7 +460,7 @@ export function Planner({ section }: PlannerProps) {
                 day.setDate(start.getDate() + index);
                 const key = dateKey(day);
                 const count = calendarEntries.filter(
-                  item => item.date?.slice(0, 10) === key,
+                  item => item.date !== null && dateKey(new Date(item.date)) === key,
                 ).length;
                 return (
                   <Button
@@ -457,7 +469,12 @@ export function Planner({ section }: PlannerProps) {
                     aria-pressed={selected === key}
                     aria-label={`${day.toLocaleDateString("ru-RU")}, записей: ${count}`}
                     aria-current={key === today ? "date" : undefined}
-                    onClick={() => setSelected(key)}
+                    onClick={() => {
+                      setSelected(key);
+                      if (day.getMonth() !== month.getMonth()) {
+                        setMonth(new Date(day.getFullYear(), day.getMonth(), 1));
+                      }
+                    }}
                     className={cn(
                       "border-border h-11 min-w-0 flex-col gap-1 border-t p-0 font-mono text-xs sm:h-12",
                       day.getMonth() !== month.getMonth() && "text-muted-foreground/50",

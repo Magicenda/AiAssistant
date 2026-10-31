@@ -1,36 +1,63 @@
-from datetime import datetime
+from contextvars import ContextVar
+from datetime import datetime, timezone
 from typing import Annotated, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import AfterValidator, BaseModel, Field, model_validator
 
-from core.time import as_moscow
+
+def resolve_timezone(name: str | None) -> ZoneInfo:
+    """Возвращает часовой пояс по IANA-имени; при ошибке — UTC."""
+    if not name:
+        return ZoneInfo("UTC")
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        return ZoneInfo("UTC")
 
 
-MoscowDatetime = Annotated[datetime, AfterValidator(as_moscow)]
+# Модель может вернуть время без смещения. Валидатор аргументов инструмента
+# трактует такое время в часовом поясе пользователя, переданном фронтендом.
+tool_timezone: ContextVar[ZoneInfo] = ContextVar("tool_timezone", default=ZoneInfo("UTC"))
+
+
+def _ensure_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=tool_timezone.get())
+    return value.astimezone(timezone.utc)
+
+
+AwareDatetime = Annotated[datetime, AfterValidator(_ensure_utc)]
 
 
 class CreateTaskArgs(BaseModel):
     description: str = Field(description="Что нужно сделать")
-    deadline: MoscowDatetime = Field(
+    deadline: AwareDatetime = Field(
         description=(
-            "Обязательный срок выполнения в формате ISO 8601, например "
-            "2026-10-24T18:00:00. Если дата или время неизвестны, сначала уточни их у пользователя "
-            "и не вызывай create_task"
+            "Обязательный срок выполнения в ISO 8601 с часовым смещением, например "
+            "2026-10-24T18:00:00+03:00. Если дата или время неизвестны, сначала уточни их "
+            "у пользователя и не вызывай create_task"
         ),
     )
 
 
 class CreateReminderArgs(BaseModel):
     description: str = Field(description="О чём напомнить")
-    remind_at: MoscowDatetime = Field(
-        description="Когда напомнить, формат ISO 8601, например 2026-10-24T09:30:00",
+    remind_at: AwareDatetime = Field(
+        description=(
+            "Когда напомнить, ISO 8601 с часовым смещением, "
+            "например 2026-10-24T09:30:00+03:00"
+        ),
     )
 
 
 class ListTasksArgs(BaseModel):
     kind: Literal["task", "notify"] | None = Field(
         default=None,
-        description="Фильтр: task - только задачи, notify - только напоминания. Без значения вернутся и те и другие",
+        description=(
+            "Фильтр: task - только задачи, notify - только напоминания. "
+            "Без значения вернутся и те и другие"
+        ),
     )
     only_upcoming: bool = Field(
         default=False,
@@ -41,23 +68,33 @@ class ListTasksArgs(BaseModel):
 
 class CreateMeetingArgs(BaseModel):
     description: str = Field(description="Тема или описание встречи")
-    appointment: MoscowDatetime = Field(
-        description="Дата и время встречи в формате ISO 8601, например 2026-10-25T15:00:00",
+    appointment: AwareDatetime = Field(
+        description=(
+            "Дата и время встречи в ISO 8601 с часовым смещением, "
+            "например 2026-10-25T15:00:00+03:00"
+        ),
     )
 
 
 class UpdateTaskArgs(BaseModel):
     task_id: int = Field(
-        description="Номер задачи. Если пользователь его не назвал, сначала вызови list_tasks с kind=task и найди id",
+        description=(
+            "Номер задачи. Если пользователь его не назвал, сначала вызови list_tasks "
+            "с kind=task и найди id"
+        ),
     )
     description: str | None = Field(
         default=None,
         description="Новый текст задачи. Не указывай, если текст менять не нужно",
     )
-    deadline: MoscowDatetime | None = Field(
+    deadline: AwareDatetime | None = Field(
         default=None,
-        description="Новый срок в формате ISO 8601, например 2026-10-24T18:00:00. Не указывай, если срок менять не нужно",
+        description=(
+            "Новый срок в ISO 8601 с часовым смещением, например "
+            "2026-10-24T18:00:00+03:00. Не указывай, если срок менять не нужно"
+        ),
     )
+
     @model_validator(mode="after")
     def _require_change(self):
         if self.description is None and self.deadline is None:
@@ -77,11 +114,11 @@ class UpdateReminderArgs(BaseModel):
         default=None,
         description="Новый текст напоминания. Не указывай, если текст менять не нужно",
     )
-    remind_at: MoscowDatetime | None = Field(
+    remind_at: AwareDatetime | None = Field(
         default=None,
         description=(
-            "Новое время напоминания в формате ISO 8601, например 2026-11-01T15:00:00. "
-            "Не указывай, если время менять не нужно"
+            "Новое время напоминания в ISO 8601 с часовым смещением, например "
+            "2026-11-01T15:00:00+03:00. Не указывай, если время менять не нужно"
         ),
     )
 
@@ -95,6 +132,8 @@ class UpdateReminderArgs(BaseModel):
 class DeleteTaskArgs(BaseModel):
     task_id: int = Field(
         ge=1,
-        description="Номер задачи или напоминания. Если пользователь его не назвал, сначала вызови list_tasks и найди id",
+        description=(
+            "Номер задачи или напоминания. Если пользователь его не назвал, "
+            "сначала вызови list_tasks и найди id"
+        ),
     )
-

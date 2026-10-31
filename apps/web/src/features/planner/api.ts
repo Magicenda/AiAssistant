@@ -8,13 +8,11 @@ import {
 
 export interface ProfileQuery {
   limit?: number;
-  only_upcoming?: boolean;
 }
 
 function toSearch(query: ProfileQuery): Record<string, string> {
   const search: Record<string, string> = {};
   if (query.limit !== undefined) search.limit = String(query.limit);
-  if (query.only_upcoming !== undefined) search.only_upcoming = String(query.only_upcoming);
   return search;
 }
 

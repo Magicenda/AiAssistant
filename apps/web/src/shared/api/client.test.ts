@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiBlob, apiRequest, parseData } from "./client";
+import { apiRequest, parseData } from "./client";
 import { ApiError } from "./errors";
 import { clearAccessToken, setAccessToken, setUnauthorizedHandler } from "./token";
 
@@ -178,18 +178,6 @@ describe("apiRequest", () => {
     const assertion = expect(promise).rejects.toMatchObject({ kind: "timeout", status: 0 });
     await vi.advanceTimersByTimeAsync(1000);
     await assertion;
-  });
-
-  it("returns blobs when parsed as blob", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(new Blob(["audio"], { type: "audio/mpeg" }), { status: 200 }),
-      );
-    vi.stubGlobal("fetch", fetchMock);
-
-    const result = await apiBlob("/api/voice/jobs/1/audio");
-    expect(result).toBeInstanceOf(Blob);
   });
 });
 

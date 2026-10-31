@@ -1,23 +1,27 @@
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from core.time import MOSCOW_TZ, as_moscow
-from schemas.tool import CreateMeetingArgs, CreateReminderArgs
+from schemas.tool import CreateMeetingArgs, CreateReminderArgs, tool_timezone
 
 
 def test_naive_tool_time_is_treated_as_moscow_time():
-    args = CreateReminderArgs(description="Позвонить", remind_at="2026-10-30T15:00:00")
+    token = tool_timezone.set(ZoneInfo("Europe/Moscow"))
+    try:
+        args = CreateReminderArgs(description="Позвонить", remind_at="2026-10-30T15:00:00")
+    finally:
+        tool_timezone.reset(token)
 
-    assert args.remind_at == datetime(2026, 10, 30, 15, 0, tzinfo=MOSCOW_TZ)
-    assert args.remind_at.utcoffset().total_seconds() == 3 * 60 * 60
+    assert args.remind_at == datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc)
 
 
-def test_aware_tool_time_is_converted_to_moscow_time():
+def test_aware_tool_time_is_normalized_to_utc():
     args = CreateMeetingArgs(
         description="Встреча",
         appointment="2026-10-30T12:00:00Z",
     )
 
-    assert args.appointment == datetime(2026, 10, 30, 15, 0, tzinfo=MOSCOW_TZ)
+    assert args.appointment == datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc)
 
 
 def test_repository_normalizer_treats_naive_time_as_moscow():

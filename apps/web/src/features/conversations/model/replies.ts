@@ -6,16 +6,14 @@ import { appendChatMessage, refreshChat } from "./store";
 
 /** Живое состояние генерации ответа, наблюдаемое через подписку. */
 export interface ReplyState {
-  /** `streaming` — генерация идёт, `error` — завершилась ошибкой. */
-  status: "streaming" | "error";
+  /** `streaming` — генерация идёт, `saving` — ответ сохраняется, `error` — ошибка. */
+  status: "streaming" | "saving" | "error";
   /** Накопленный текст ответа. */
   text: string;
   /** Вопрос, который ещё не подтверждён сервером — для оптимистичного пузыря. */
   query?: string;
   /** Цитата, приложенная к вопросу. */
   replyTo?: ChatReply;
-  /** Ответ перегенерируется, а не отправляется впервые. */
-  regenerate?: boolean;
   /** Сообщение об ошибке для показа в чате. */
   error?: string;
   /** Машинный код ошибки из `ApiError`. */
@@ -25,8 +23,6 @@ export interface ReplyState {
 interface ReplyOptions {
   /** Цитата, на которую отвечает пользователь. */
   replyTo?: ChatReply;
-  /** Перегенерировать последний ответ без повторного сохранения вопроса. */
-  regenerate?: boolean;
 }
 
 interface Job {
@@ -78,8 +74,8 @@ export function getReply(chatId: string): ReplyState | null {
  * Отправляет вопрос на backend и стримит ответ.
  *
  * @param chatId - id чата на backend.
- * @param query - текст вопроса; при `regenerate` backend берёт его из истории.
- * @param options - цитата и режим перегенерации.
+ * @param query - текст вопроса.
+ * @param options - цитата, приложенная к вопросу.
  */
 export function requestReply(chatId: string, query: string, options: ReplyOptions = {}) {
   const previous = jobs.get(chatId);
@@ -94,10 +90,8 @@ export function requestReply(chatId: string, query: string, options: ReplyOption
     state: {
       status: "streaming",
       text: "",
-      // При перегенерации вопрос уже в истории — второй пузырь не нужен.
-      query: options.regenerate ? undefined : trimmed,
+      query: trimmed,
       replyTo: options.replyTo,
-      regenerate: options.regenerate,
     },
     keepPartial: false,
   };
@@ -126,7 +120,6 @@ export function requestReply(chatId: string, query: string, options: ReplyOption
         signal,
         onDelta,
         replyTo: options.replyTo,
-        regenerate: options.regenerate,
       });
 
       if (jobs.get(chatId) !== job) return;
@@ -143,6 +136,7 @@ export function requestReply(chatId: string, query: string, options: ReplyOption
 
       // Ответ уже сохранён backend'ом вместе с вопросом — перечитываем чат.
       // В текстовом режиме ответ не озвучивается: голос живёт только в голосовом чате.
+      update(chatId, job, { ...job.state, status: "saving", text });
       try {
         await refreshChat(chatId);
       } catch (error) {
@@ -179,7 +173,7 @@ export function requestReply(chatId: string, query: string, options: ReplyOption
         error: networkMessage(error),
         code: error instanceof ApiError ? error.code : "network_error",
       });
-      // При перегенерации backend мог успеть удалить прошлый ответ — синхронизируем.
+      // Backend мог успеть сохранить часть истории — синхронизируем кэш.
       void refreshChat(chatId).catch(() => undefined);
     }
   })();

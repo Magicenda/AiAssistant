@@ -48,14 +48,6 @@ export function writeVoiceSettings(value: unknown): VoiceSettings {
   return settings;
 }
 
-/** Возвращает настройки озвучки к значениям по умолчанию. */
-export function resetVoiceSettings(): VoiceSettings {
-  localStorage.removeItem(storageKey);
-  cached = { ...DEFAULT_VOICE_SETTINGS };
-  window.dispatchEvent(new Event(event));
-  return { ...DEFAULT_VOICE_SETTINGS };
-}
-
 /** Подписка на изменения настроек озвучки; возвращает функцию отписки. */
 export function subscribeVoiceSettings(listener: () => void) {
   const wrapped = () => {

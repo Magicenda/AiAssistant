@@ -9,7 +9,6 @@ import {
   LoaderCircle,
   RotateCcw,
   Save,
-  Server,
   SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
@@ -18,14 +17,12 @@ import { useState, useSyncExternalStore, type FormEvent } from "react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { cn } from "@/shared/lib/cn";
-import { getApiUrl } from "@/shared/lib/api-url";
 import {
   DEFAULT_MODEL_SETTINGS,
   PROVIDER_PRESETS,
   isLocalAddress,
   providerFor,
   readModelSettings,
-  requiresApiKey,
   resetModelSettings,
   subscribeModelSettings,
   writeModelSettings,
@@ -58,7 +55,7 @@ interface Draft {
  * Форма настроек модели ('use client': черновик в состоянии, пресеты
  * провайдеров, запись в localStorage).
  *
- * @returns Разметку формы с секциями «Модель», «Доступ», «Параметры ответа», «Сервер».
+ * @returns Разметку формы с секциями «Модель», «Доступ», «Сервер» и параметрами локальной модели.
  */
 export function ModelForm() {
   const saved = useSyncExternalStore(
@@ -88,6 +85,7 @@ export function ModelForm() {
 
   function patch(value: Partial<Draft>) {
     setDraft({ ...settings, ...value });
+    setFeedback(null);
   }
 
   function applyProvider(id: ProviderId) {
@@ -180,16 +178,10 @@ export function ModelForm() {
               <Input
                 required
                 value={settings.model}
-                list="model-options"
                 placeholder="например, qwen2.5:7b"
                 onChange={event => patch({ model: event.target.value })}
                 spellCheck={false}
               />
-              <datalist id="model-options">
-                {PROVIDER_PRESETS.filter(preset => preset.model).map(preset => (
-                  <option key={preset.id} value={preset.model} />
-                ))}
-              </datalist>
             </label>
           )}
         </div>
@@ -259,46 +251,33 @@ export function ModelForm() {
         </section>
       )}
 
-      <section className="pixel-panel space-y-4 p-5">
-        <h2 className="font-pixel text-foreground flex items-center gap-2 text-sm">
-          <SlidersHorizontal className="text-primary size-4" />
-          Параметры ответа
-        </h2>
-        <label className={labelClass}>
-          <span className="flex items-center justify-between gap-3">
-            Температура
-            <span className="text-foreground">{settings.temperature.toFixed(2)}</span>
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={1.5}
-            step={0.05}
-            value={settings.temperature}
-            onChange={event => patch({ temperature: Number(event.target.value) })}
-            className="accent-primary w-full"
-          />
-        </label>
-        <p className="text-muted-foreground font-mono text-[0.7rem] leading-relaxed">
-          Меньше — точнее и стабильнее, больше — свободнее и креативнее. Рекомендуется 0.6–0.8.
-        </p>
-      </section>
-
-      <section className="pixel-panel space-y-3 p-5">
-        <h2 className="font-pixel text-foreground flex items-center gap-2 text-sm">
-          <Server className="text-primary size-4" />
-          Сервер
-        </h2>
-        <p className="text-muted-foreground font-mono text-xs leading-relaxed">
-          Backend задаётся переменной окружения{" "}
-          <code className="bg-white/10 px-1 py-0.5">NEXT_PUBLIC_API_URL</code> и сейчас равен{" "}
-          <code className="bg-white/10 px-1 py-0.5">{getApiUrl()}</code>. Стриминг ответов и
-          распознавание речи выполняет сервер.
-        </p>
-        <p className="text-muted-foreground font-mono text-[0.7rem] leading-relaxed">
-          Если модель не заполнена, backend использует свою конфигурацию по умолчанию.
-        </p>
-      </section>
+      {settings.provider === "local" && (
+        <section className="pixel-panel space-y-4 p-5">
+          <h2 className="font-pixel text-foreground flex items-center gap-2 text-sm">
+            <SlidersHorizontal className="text-primary size-4" />
+            Параметры ответа
+          </h2>
+          <label className={labelClass}>
+            <span className="flex items-center justify-between gap-3">
+              Температура
+              <span className="text-foreground">{settings.temperature.toFixed(2)}</span>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={1.5}
+              step={0.05}
+              value={settings.temperature}
+              onChange={event => patch({ temperature: Number(event.target.value) })}
+              className="accent-primary w-full"
+            />
+          </label>
+          <p className="text-muted-foreground font-mono text-[0.7rem] leading-relaxed">
+            Настройка применяется только к локальной модели. Меньше — точнее и стабильнее, больше —
+            свободнее и креативнее. Рекомендуется 0.6–0.8.
+          </p>
+        </section>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button
@@ -318,11 +297,6 @@ export function ModelForm() {
         {changed && (
           <span className="text-secondary font-mono text-[0.7rem] tracking-wider uppercase">
             Есть несохранённые изменения
-          </span>
-        )}
-        {settings.provider === "local" && !requiresApiKey(settings.baseUrl) && (
-          <span className="text-muted-foreground font-mono text-[0.7rem] tracking-wider uppercase">
-            Ключ для этого сервиса не нужен
           </span>
         )}
       </div>

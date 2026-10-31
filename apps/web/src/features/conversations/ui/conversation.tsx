@@ -48,7 +48,6 @@ import {
   setChatPinned,
   subscribeChats,
 } from "../model/store";
-import { queueAudio } from "../model/audio";
 import { readDraft, removeDraft, writeDraft } from "../model/drafts";
 import { downloadChat } from "../model/export-chat";
 import {
@@ -82,7 +81,7 @@ function titleFrom(value: string) {
 
 /** Превью цитируемого сообщения для блока ответа. */
 function replySnippet(value: string) {
-  const text = plainText(value) || "Голосовое сообщение";
+  const text = plainText(value);
   return text.length > 140 ? `${text.slice(0, 140)}…` : text;
 }
 
@@ -151,7 +150,6 @@ export function Conversation({ sessionId }: ConversationProps) {
   const [confirmAction, setConfirmAction] = useState<"clear" | "delete" | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
-  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const audio = useAudioRecording();
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -164,7 +162,7 @@ export function Conversation({ sessionId }: ConversationProps) {
     () => (sessionId ? getReply(sessionId) : null),
     () => null,
   );
-  const replyPending = reply?.status === "streaming";
+  const replyPending = reply?.status === "streaming" || reply?.status === "saving";
 
   useEffect(() => {
     void loadChats().catch(cause => {
@@ -188,12 +186,7 @@ export function Conversation({ sessionId }: ConversationProps) {
 
   const chat = sessionId ? (chats.find(item => item.id === sessionId) ?? null) : null;
   const messages = chat?.messages ?? [];
-  // Пока backend перегенерирует ответ, старый прячем, чтобы не было двух ответов.
-  const visibleMessages =
-    regeneratingId && replyPending
-      ? messages.filter(message => message.id !== regeneratingId)
-      : messages;
-  const items = buildMessageItems(visibleMessages);
+  const items = buildMessageItems(messages);
   const hasMessages = messages.length > 0;
   const lastUserText = [...messages].reverse().find(message => message.role === "user")?.text ?? "";
 
@@ -237,7 +230,6 @@ export function Conversation({ sessionId }: ConversationProps) {
     try {
       let chatId = sessionId;
       if (!chatId) chatId = (await createChat(titleFrom(value))).id;
-      setRegeneratingId(null);
       setText("");
       writeDraft(draftId, "");
       setReplyTo(null);
@@ -263,14 +255,6 @@ export function Conversation({ sessionId }: ConversationProps) {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Не удалось удалить сообщение.");
     }
-  }
-
-  /** Просит backend заменить последний ответ новым. */
-  function regenerateMessage(message: ChatMessage) {
-    if (!sessionId || !lastUserText.trim()) return;
-    cancelReplies(sessionId);
-    setRegeneratingId(message.id);
-    requestReply(sessionId, lastUserText, { regenerate: true });
   }
 
   /** Удаляет чат на backend и его локальный черновик. */
@@ -362,7 +346,7 @@ export function Conversation({ sessionId }: ConversationProps) {
     event.currentTarget.form?.requestSubmit();
   }
 
-  /** Завершает запись, отправляет аудио на транскрипцию и сохраняет сообщение. */
+  /** Завершает запись, расшифровывает её и отправляет текст в чат. */
   async function handleStop() {
     const clip = await audio.stop();
     if (!clip) return;
@@ -374,21 +358,21 @@ export function Conversation({ sessionId }: ConversationProps) {
     let chatId = sessionId;
     let createdId: string | null = null;
     try {
+      // Чат нужен только как id для распознавания: показываем его после успеха,
+      // чтобы при ошибке не оставалось пустого диалога и лишнего перехода.
       if (!chatId) {
         const created = await createChat("Голос");
         chatId = created.id;
         createdId = created.id;
-        router.push(`/chat/${chatId}`);
       }
-      const blob = await (await fetch(clip.dataUrl)).blob();
-      const transcript = (await transcribeVoice(Number(chatId), blob)).trim();
+      const transcript = (await transcribeVoice(Number(chatId), clip)).trim();
       if (!transcript) {
         if (createdId) await deleteChat(createdId);
         setNotice("Речь не распознана. Попробуйте записать ещё раз.");
         return;
       }
       if (createdId) void renameChat(chatId, titleFrom(transcript)).catch(() => undefined);
-      queueAudio(chatId, transcript, clip);
+      if (chatId !== sessionId) router.push(`/chat/${chatId}`);
       requestReply(chatId, transcript, {
         replyTo: replySnapshot
           ? {
@@ -399,10 +383,11 @@ export function Conversation({ sessionId }: ConversationProps) {
           : undefined,
       });
     } catch (cause) {
+      if (createdId) void deleteChat(createdId).catch(() => undefined);
       setNotice(
         cause instanceof Error
-          ? `Аудио сохранено, но расшифровать не удалось: ${cause.message}`
-          : "Аудио сохранено, но сервер распознавания недоступен.",
+          ? `Не удалось распознать запись: ${cause.message}`
+          : "Не удалось распознать запись: сервер распознавания недоступен.",
       );
     } finally {
       setTranscribing(false);
@@ -564,7 +549,7 @@ export function Conversation({ sessionId }: ConversationProps) {
               </Button>
             </div>
           )}
-          {hydrated && !hasMessages && (!sessionId || chat) && (
+          {hydrated && !hasMessages && !reply && (!sessionId || chat) && (
             <div className="flex flex-1 flex-col items-center justify-center text-center">
               <Logo className="text-primary mb-6 size-12" />
               <h2 className="font-pixel text-foreground text-2xl">Чем помочь?</h2>
@@ -574,7 +559,7 @@ export function Conversation({ sessionId }: ConversationProps) {
             </div>
           )}
 
-          {items.map((item, index) => (
+          {items.map(item => (
             <Fragment key={item.message.id}>
               {item.separator && <DateSeparator label={item.separator} />}
               <MessageBubble
@@ -583,16 +568,11 @@ export function Conversation({ sessionId }: ConversationProps) {
                 lastInGroup={item.lastInGroup}
                 onReply={setReplyTo}
                 onDelete={deleteMessage}
-                onRegenerate={
-                  item.message.role === "assistant" && index === items.length - 1
-                    ? regenerateMessage
-                    : undefined
-                }
               />
             </Fragment>
           ))}
           {/* Вопрос до подтверждения сервером: backend сохранит его вместе с ответом. */}
-          {reply?.query && (
+          {reply && reply.query && reply.status !== "saving" && (
             <MessageBubble
               message={{
                 id: "live-query",
@@ -614,6 +594,7 @@ export function Conversation({ sessionId }: ConversationProps) {
             ) : (
               <TypingBubble />
             ))}
+          {reply?.status === "saving" && <TypingBubble label="сохраняю ответ" />}
           {reply?.status === "error" && (
             <>
               {reply.text && (
@@ -638,7 +619,6 @@ export function Conversation({ sessionId }: ConversationProps) {
                       onClick={() =>
                         requestReply(sessionId, reply.query ?? lastUserText, {
                           replyTo: reply.replyTo,
-                          regenerate: reply.regenerate,
                         })
                       }
                     >
@@ -714,7 +694,7 @@ export function Conversation({ sessionId }: ConversationProps) {
                   {replyTo.role === "assistant" ? "Ассистент" : "Вы"}
                 </span>
                 <p className="text-muted-foreground line-clamp-2 font-mono text-xs">
-                  {replyTo.text || "Голосовое сообщение"}
+                  {replyTo.text}
                 </p>
               </div>
               <Button
@@ -790,7 +770,7 @@ export function Conversation({ sessionId }: ConversationProps) {
                   >
                     <PixelMic className="size-5" />
                   </Button>
-                  {replyPending ? (
+                  {reply?.status === "streaming" ? (
                     <Button
                       type="button"
                       size="icon"
@@ -807,7 +787,7 @@ export function Conversation({ sessionId }: ConversationProps) {
                       type="submit"
                       size="icon"
                       aria-label="Отправить"
-                      disabled={!text.trim() || sending}
+                      disabled={!text.trim() || sending || replyPending}
                     >
                       <ArrowUp className="size-5" />
                     </Button>

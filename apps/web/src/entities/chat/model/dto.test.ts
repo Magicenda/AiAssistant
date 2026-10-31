@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chatDtoToDomain, isChatDto, isChatList, isChatMessageDto, isLlmAnswer } from "./dto";
+import { chatDtoToDomain, isChatDto, isChatList, isChatMessageDto } from "./dto";
 
 const message = {
   id: 10,
@@ -31,11 +31,6 @@ describe("chat DTO guards", () => {
   it("rejects lists with invalid items", () => {
     expect(isChatList([chat, { ...chat, messages: [{}] }])).toBe(false);
     expect(isChatList("hidden")).toBe(false);
-  });
-
-  it("validates llm answers", () => {
-    expect(isLlmAnswer({ answer: "ok" })).toBe(true);
-    expect(isLlmAnswer({})).toBe(false);
   });
 });
 

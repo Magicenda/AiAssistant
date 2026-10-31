@@ -1,10 +1,15 @@
 import { AuthForm } from "@/features/auth";
+import { AuthShell } from "./auth-shell";
 
+/** Экран регистрации. */
 export function SignUpView() {
   return (
-    <section className="w-full max-w-sm space-y-6">
-      <h1 className="text-center text-2xl font-bold">Регистрация</h1>
+    <AuthShell
+      eyebrow="Регистрация"
+      title="Создать аккаунт"
+      text="Зарегистрируйтесь, чтобы хранить чаты и записи планировщика."
+    >
       <AuthForm mode="sign-up" />
-    </section>
+    </AuthShell>
   );
 }
