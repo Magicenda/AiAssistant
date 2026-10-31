@@ -36,7 +36,7 @@ bun run api:down
 `bun run docker:up` / `bun run docker:down` поднимают и останавливают все
 сервисы (backend + PostgreSQL).
 
-Backend — <http://localhost:8000/docs>, PostgreSQL — `localhost:5434`.
+Backend — [http://localhost:8000/docs](http://localhost:8000/docs), PostgreSQL — `localhost:5434`.
 Все настройки — в едином `.env` в корне монорепы, он создаётся из
 [`.env.example`](.env.example). Файл читают и backend, и frontend, а Docker
 Compose подключает его как `env_file` и берёт из него подстановки `${...}`.
@@ -127,7 +127,7 @@ cp .env.example .env   # если ещё не создан: NEXT_PUBLIC_API_URL=
 bun run dev:web
 ```
 
-Откройте <http://localhost:3000>, перейдите в **Настройки** и укажите
+Откройте [http://localhost:3000](http://localhost:3000), перейдите в **Настройки** и укажите
 провайдера, модель и API-ключ.
 
 Адрес backend задаётся **только** через окружение — `NEXT_PUBLIC_API_URL` в
@@ -146,13 +146,13 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 в поле `model_settings`. Backend использует их для вызова модели;
 если настройки не заполнены — применяет свою конфигурацию по умолчанию.
 
-| Поле        | Описание                                                              |
-| ----------- | --------------------------------------------------------------------- |
-| Сервис      | `GigaChat` (по умолчанию) или `Локальная модель` (Ollama / LM Studio) |
-| Адрес API   | Base URL без `/chat/completions`; только для локальной модели         |
-| API-ключ    | Ключ локального сервера; обычно не нужен                              |
-| Модель      | Идентификатор локальной модели                                        |
-| Температура | 0–1.5, по умолчанию 0.7                                               |
+| Поле               | Описание                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| Сервис           | `GigaChat` (по умолчанию) или `Локальная модель` (Ollama / LM Studio) |
+| Адрес API         | Base URL без `/chat/completions`; только для локальной модели             |
+| API-ключ           | Ключ локального сервера; обычно не нужен                             |
+| Модель           | Идентификатор локальной модели                                             |
+| Температура | 0–1.5, по умолчанию 0.7                                                                    |
 
 Для GigaChat ключ хранится на backend в env, в браузер он не попадает.
 Для локальной модели адрес и модель хранятся в localStorage и передаются
@@ -160,19 +160,19 @@ backend с запросом. Не используйте фронтенд с н�
 
 ### Контракт backend API
 
-| Метод    | Путь                                   | Тело / ответ                                                  |
-| -------- | -------------------------------------- | ------------------------------------------------------------- |
-| `GET`    | `/`                                    | health-check, любой `2xx`                                     |
-| `POST`   | `/chat/create_chat`                    | `{ name_chat }` → чат с `chat_id` и `messages`                |
-| `GET`    | `/chat/get_all_chats`                  | чаты пользователя вместе с сообщениями                        |
-| `GET`    | `/chat/get_chat/{chat_id}`             | один чат с историей                                           |
-| `PATCH`  | `/chat/{chat_id}`                      | `{ name_chat?, pinned? }` → обновлённый чат                   |
-| `POST`   | `/chat/add_message/{chat_id}`          | query-параметры `role`, `content` → обновлённый чат           |
-| `DELETE` | `/chat/{chat_id}/message/{message_id}` | удаление сообщения → обновлённый чат                          |
-| `DELETE` | `/chat/{chat_id}/messages`             | очистка истории → обновлённый чат                             |
-| `DELETE` | `/chat/delete_chat/{chat_id}`          | удаление чата на сервере                                      |
-| `POST`   | `/llm/query`                           | `{ chat_id, query, model_settings?, reply_to?, regenerate? }` |
-| `POST`   | `/audio/transcribe`                    | multipart `chat_id`, `file` → `{ text }`                      |
+| Метод | Путь                                 | Тело / ответ                                                           |
+| ---------- | ---------------------------------------- | ------------------------------------------------------------------------------- |
+| `GET`    | `/`                                    | health-check, любой `2xx`                                                |
+| `POST`   | `/chat/create_chat`                    | `{ name_chat }` → чат с `chat_id` и `messages`                      |
+| `GET`    | `/chat/get_all_chats`                  | чаты пользователя вместе с сообщениями        |
+| `GET`    | `/chat/get_chat/{chat_id}`             | один чат с историей                                             |
+| `PATCH`  | `/chat/{chat_id}`                      | `{ name_chat?, pinned? }` → обновлённый чат                    |
+| `POST`   | `/chat/add_message/{chat_id}`          | query-параметры `role`, `content` → обновлённый чат |
+| `DELETE` | `/chat/{chat_id}/message/{message_id}` | удаление сообщения → обновлённый чат            |
+| `DELETE` | `/chat/{chat_id}/messages`             | очистка истории → обновлённый чат                  |
+| `DELETE` | `/chat/delete_chat/{chat_id}`          | удаление чата на сервере                                   |
+| `POST`   | `/llm/query`                           | `{ chat_id, query, model_settings?, reply_to?, regenerate? }`                 |
+| `POST`   | `/audio/transcribe`                    | multipart `chat_id`, `file` → `{ text }`                                 |
 
 `model_settings` — необязательный JSON-объект:
 
@@ -240,22 +240,22 @@ Backend должен разрешать origin фронтенда (`http://local
 
 Запускать из корня монорепы:
 
-| Команда                    | Что делает                             |
-| -------------------------- | -------------------------------------- |
-| `bun run dev:web`          | Next dev server (Turbopack)            |
-| `bun run build:web`        | production build                       |
-| `bun run start:web`        | production server                      |
-| `bun run typecheck:web`    | `tsc --noEmit`                         |
-| `bun run lint:web`         | ESLint                                 |
-| `bun run format:web`       | форматирование файлов Prettier         |
-| `bun run format:check:web` | проверка форматирования без записи     |
-| `bun run test:web`         | тесты фронтенда (Vitest)               |
-| `bun run sync:api`         | установка зависимостей backend         |
-| `bun run dev:api`          | backend dev-сервер с автоперезагрузкой |
-| `bun run start:api`        | backend без автоперезагрузки           |
-| `bun run db:up`            | PostgreSQL в Docker (localhost:5434)   |
-| `bun run db:down`          | остановить контейнер с БД              |
-| `bun run db:logs`          | логи PostgreSQL                        |
+| Команда               | Что делает                                               |
+| ---------------------------- | ----------------------------------------------------------------- |
+| `bun run dev:web`          | Next dev server (Turbopack)                                       |
+| `bun run build:web`        | production build                                                  |
+| `bun run start:web`        | production server                                                 |
+| `bun run typecheck:web`    | `tsc --noEmit`                                                  |
+| `bun run lint:web`         | ESLint                                                            |
+| `bun run format:web`       | форматирование файлов Prettier                |
+| `bun run format:check:web` | проверка форматирования без записи |
+| `bun run test:web`         | тесты фронтенда (Vitest)                            |
+| `bun run sync:api`         | установка зависимостей backend               |
+| `bun run dev:api`          | backend dev-сервер с автоперезагрузкой    |
+| `bun run start:api`        | backend без автоперезагрузки                   |
+| `bun run db:up`            | PostgreSQL в Docker (localhost:5434)                             |
+| `bun run db:down`          | остановить контейнер с БД                   |
+| `bun run db:logs`          | логи PostgreSQL                                               |
 
 Перед коммитом: `bun run format:web`, затем `bun run typecheck:web` и
 `bun run lint:web` — типы и линтер должны проходить чисто, проверка
@@ -302,14 +302,14 @@ apps/web/src/
 
 ### Данные и приватность
 
-| Что                         | Где                                                     |
-| --------------------------- | ------------------------------------------------------- |
-| Провайдер, модель, API-ключ | localStorage браузера                                   |
-| Движок озвучки              | localStorage браузера                                   |
-| Чаты и сообщения            | на backend                                              |
-| Черновики композера         | localStorage браузера                                   |
-| Голосовые вложения          | localStorage браузера + отправка на `/audio/transcribe` |
-| Планировщик                 | на backend                                              |
+| Что                                         | Где                                                                      |
+| ---------------------------------------------- | --------------------------------------------------------------------------- |
+| Провайдер, модель, API-ключ | localStorage браузера                                               |
+| Движок озвучки                    | localStorage браузера                                               |
+| Чаты и сообщения                 | на backend                                                                |
+| Черновики композера          | localStorage браузера                                               |
+| Голосовые вложения            | localStorage браузера + отправка на `/audio/transcribe` |
+| Планировщик                         | на backend                                                                |
 
 Backend получает настройки модели с каждым запросом и использует их для
 обращения к провайдеру. Никаких секретов в самом фронтенде нет.
