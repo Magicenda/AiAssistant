@@ -27,6 +27,9 @@
     "web:up": "docker compose up -d --build web",
     "web:down": "docker compose stop web",
     "web:logs": "docker compose logs -f web",
+    "nginx:up": "docker compose up -d nginx",
+    "nginx:down": "docker compose stop nginx",
+    "nginx:logs": "docker compose logs -f nginx",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down"
   }

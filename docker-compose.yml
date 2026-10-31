@@ -65,7 +65,9 @@ services:
     build:
       context: ./apps/web
       args:
-        # Инлайнится в бандл при сборке; браузер обращается к API на хосте
+        # Инлайнится в бандл при сборке. Для прода в .env укажите внешний адрес
+        # nginx, например https://ai.example.com — тогда браузер ходит в /api
+        # того же домена. После изменения значения web нужно пересобрать.
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     container_name: ai-assistant-web
     restart: unless-stopped
@@ -90,6 +92,30 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+
+  # Единственная публичная точка входа в production. Локально web и api
+  # остаются доступны на 127.0.0.1 для отладки, наружу смотрит только nginx.
+  nginx:
+    image: nginx:stable-alpine
+    container_name: ai-assistant-nginx
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+      web:
+        condition: service_started
+    ports:
+      # В проде обычно 80; HTTP_PORT меняется, если 80 занят или стоит
+      # внешний TLS-прокси.
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - ./deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   postgres-data:

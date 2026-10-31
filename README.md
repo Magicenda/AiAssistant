@@ -21,12 +21,34 @@ bun run docker:up
 
 Первый запуск занимает несколько минут: собираются образы и скачивается модель Whisper.
 
+Nginx входит в compose и слушает <http://localhost> (порт 80): он отдаёт frontend и проксирует `/api/*` в backend.
+
+## Деплой в прод
+
+На сервере достаточно Docker с compose-плагином:
+
+```bash
+git clone <репозиторий> AiAssistant
+cd AiAssistant
+cp .env.example .env
+docker compose up -d --build
+```
+
+В `.env` для прода обязательно:
+
+- `NEXT_PUBLIC_API_URL` — публичный адрес сайта, например `https://ai.example.com`. Значение вшивается в бандл при сборке, поэтому после его изменения выполните `docker compose up -d --build` ещё раз.
+- `JWT_SECRET` — случайная строка (`openssl rand -hex 32`).
+- `GIGACHAT_CREDENTIALS` или настройки локальной модели.
+- `POSTGRES_PASSWORD`, если база доступна не только внутри compose.
+
+Наружу смотрит только контейнер `nginx` (порт `HTTP_PORT`, по умолчанию 80). Frontend, backend и PostgreSQL опубликованы на `127.0.0.1` и из интернета недоступны. Конфиг nginx — [`deploy/nginx/default.conf`](deploy/nginx/default.conf)
+
 ## Запуск без Docker
 
 Backend:
 
 ```bash
-bun run db:up     # PostgreSQL в Docker
+bun run db:up
 bun run sync:api
 bun run dev:api
 ```
@@ -65,6 +87,7 @@ bun run dev:web
 | `bun run dev:web`       | frontend с горячей перезагрузкой |
 | `bun run dev:api`       | backend с автоперезагрузкой      |
 | `bun run docker:up`     | весь стек в Docker               |
+| `bun run nginx:logs`    | логи публичного nginx            |
 | `bun run db:up`         | только PostgreSQL                |
 | `bun run test:web`      | тесты frontend (Vitest)          |
 | `bun run typecheck:web` | проверка типов                   |
