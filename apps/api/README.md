@@ -154,6 +154,7 @@ LLM_MODEL=qwen2.5:7b
 | `GIGACHAT_CREDENTIALS`        | ключ авторизации GigaChat                                  |
 | `GIGACHAT_SCOPE`              | scope GigaChat                                             |
 | `GIGACHAT_MODEL`              | модель GigaChat                                            |
+| `GIGACHAT_MAX_RETRIES`        | повторы временных ошибок GigaChat, по умолчанию 1          |
 | `LLM_BASE_URL`                | base URL Ollama/LM Studio, включает `/v1`                  |
 | `LLM_API_KEY`                 | ключ OpenAI-совместимого сервера                           |
 | `LLM_MODEL`                   | идентификатор модели Ollama/LM Studio                      |

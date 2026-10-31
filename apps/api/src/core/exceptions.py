@@ -26,3 +26,5 @@ GIGACHAT_AUTH_MESSAGE = (
     "GigaChat отклонил ключ (401). Проверьте GIGACHAT_CREDENTIALS в apps/api/.env "
     "и перезапустите backend или выберите локальную модель в настройках."
 )
+
+GIGACHAT_TIMEOUT_MESSAGE = "GigaChat не ответил вовремя. Попробуйте отправить запрос ещё раз."

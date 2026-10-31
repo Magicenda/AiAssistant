@@ -48,7 +48,7 @@ class CreateMeetingArgs(BaseModel):
 
 class UpdateTaskArgs(BaseModel):
     task_id: int = Field(
-        description="Номер задачи или напоминания. Если пользователь его не назвал, сначала вызови list_tasks и найди id",
+        description="Номер задачи. Если пользователь его не назвал, сначала вызови list_tasks с kind=task и найди id",
     )
     description: str | None = Field(
         default=None,
@@ -62,6 +62,33 @@ class UpdateTaskArgs(BaseModel):
     def _require_change(self):
         if self.description is None and self.deadline is None:
             raise ValueError("Укажи хотя бы одно поле для изменения: description или deadline")
+        return self
+
+
+class UpdateReminderArgs(BaseModel):
+    reminder_id: int = Field(
+        ge=1,
+        description=(
+            "Номер напоминания. Если пользователь его не назвал, сначала вызови list_tasks "
+            "с kind=notify и найди id"
+        ),
+    )
+    description: str | None = Field(
+        default=None,
+        description="Новый текст напоминания. Не указывай, если текст менять не нужно",
+    )
+    remind_at: MoscowDatetime | None = Field(
+        default=None,
+        description=(
+            "Новое время напоминания в формате ISO 8601, например 2026-11-01T15:00:00. "
+            "Не указывай, если время менять не нужно"
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _require_change(self):
+        if self.description is None and self.remind_at is None:
+            raise ValueError("Укажи хотя бы одно поле для изменения: description или remind_at")
         return self
 
 

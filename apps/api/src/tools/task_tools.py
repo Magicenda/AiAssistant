@@ -6,6 +6,7 @@ from schemas.tool import (
     CreateTaskArgs,
     DeleteTaskArgs,
     ListTasksArgs,
+    UpdateReminderArgs,
     UpdateTaskArgs,
 )
 from tools.base import Toolkit, tool
@@ -60,17 +61,37 @@ class TaskToolkit(Toolkit):
 
     @tool(
         "update_task",
-        "Изменяет существующую задачу или напоминание: текст и/или срок. Вызывай, когда "
-        "пользователь просит изменить, перенести или переименовать запись. Если id неизвестен, "
-        "сначала вызови list_tasks.",
+        "Изменяет существующую задачу: текст и/или срок. Для изменения напоминания используй "
+        "update_reminder. Если id задачи неизвестен, сначала вызови list_tasks с kind=task.",
         UpdateTaskArgs,
     )
     async def update_task(self, args: UpdateTaskArgs) -> dict:
         task = await self.repository.get_task(self.user_id, args.task_id)
         if task is None:
             return {"error": f"Задача с id {args.task_id} не найдена"}
+        if task.type != Type.TASK:
+            return {"error": f"Запись с id {args.task_id} является напоминанием; используй update_reminder"}
         task = await self.repository.update_task(task, args.description, args.deadline)
         return _task_to_dict(task)
+
+    @tool(
+        "update_reminder",
+        "Изменяет существующее напоминание: текст и/или время. Вызывай, когда пользователь просит "
+        "перенести или переименовать напоминание. Если id неизвестен, сначала вызови list_tasks "
+        "с kind=notify. Если новое время названо без даты или дата без времени, уточни недостающую "
+        "часть до вызова инструмента.",
+        UpdateReminderArgs,
+    )
+    async def update_reminder(self, args: UpdateReminderArgs) -> dict:
+        reminder = await self.repository.get_task(self.user_id, args.reminder_id)
+        if reminder is None or reminder.type != Type.NOTIFY:
+            return {"error": f"Напоминание с id {args.reminder_id} не найдено"}
+        reminder = await self.repository.update_task(
+            reminder,
+            args.description,
+            args.remind_at,
+        )
+        return _task_to_dict(reminder)
 
     @tool(
         "delete_task",

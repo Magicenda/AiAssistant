@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     gigachat_scope: str = "GIGACHAT_API_PERS"
     gigachat_model: str = "GigaChat-2"
     gigachat_verify_ssl_certs: bool = False
+    gigachat_max_retries: int = Field(default=1, ge=0, le=3)
 
 
 settings = Settings()

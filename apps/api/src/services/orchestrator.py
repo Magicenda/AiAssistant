@@ -5,10 +5,11 @@ import uuid
 from dataclasses import dataclass, field
 from uuid import UUID
 
+import httpx
 from gigachat.exceptions import AuthenticationError as GigaChatAuthenticationError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from core.exceptions import GIGACHAT_AUTH_MESSAGE
+from core.exceptions import GIGACHAT_AUTH_MESSAGE, GIGACHAT_TIMEOUT_MESSAGE
 from schemas import JobStatus, AssistantVoiceJobResult
 from schemas.model_settings import ModelSettings
 from services.agent_factory import build_agent_service
@@ -166,6 +167,9 @@ class VoiceGenerationOrchestrator:
             message = str(exc)
         elif isinstance(exc, GigaChatAuthenticationError):
             message = GIGACHAT_AUTH_MESSAGE
+        elif isinstance(exc, httpx.TimeoutException):
+            logger.warning("GigaChat не ответил до истечения таймаута: %s", exc)
+            message = GIGACHAT_TIMEOUT_MESSAGE
         elif isinstance(exc, TimeoutError):
             message = "Превышено время обработки"
         else:
