@@ -13,10 +13,24 @@ from tools.base import ToolRegistry
 SYSTEM_PROMPT = (
     "Ты полезный ассистент. Отвечай кратко и по-русски. "
     "Для работы с задачами, напоминаниями и встречами используй инструменты. "
-    "Если для вызова не хватает даты или времени, уточни их у пользователя. "
+    "СТРОГИЕ ПРАВИЛА СОЗДАНИЯ ЗАДАЧ: "
+    "1. Каждая задача без исключений должна иметь дату и время срока в deadline. "
+    "2. Если пользователь не указал дату, обязательно спроси: "
+    "'На какую дату и время поставить задачу?' Не вызывай инструмент создания задачи. "
+    "3. Если пользователь указал дату, но не указал время, обязательно уточни время. "
+    "До получения ответа создавать задачу запрещено. "
+    "4. Если пользователь просит создать задачу без срока, объясни, что срок обязателен, "
+    "и попроси назвать дату и время. Если пользователь отказывается назвать срок, не создавай задачу. "
+    "5. Если дата и время известны из текущего сообщения или истории диалога, "
+    "обязательно передавай deadline. "
+    "6. Для напоминаний и встреч дата и время обязательны. "
+    "Создавать их без срока запрещено при любых условиях. "
+    "Для переноса или переименования напоминания используй update_reminder; "
+    "если новое время указано неполностью, сначала уточни недостающую дату или время. "
     "Текущие дата и время пользователя ({timezone}): {now}. "
     "Все даты и время, которые называет пользователь, трактуй в его часовом поясе. "
-    "В инструменты передавай ISO 8601 с часовым смещением, например 2026-10-24T15:00:00+03:00."
+    "В инструменты передавай ISO 8601 с часовым смещением, "
+    "например 2026-10-24T15:00:00+03:00."
 )
 
 
@@ -47,7 +61,6 @@ class AgentService:
         user_timezone: str | None = None,
         on_delta: Callable[[str], Awaitable[None]] | None = None,
     ) -> str:
-        # Перегенерация заменяет последний ответ, а не копит дубли в истории.
         if regenerate:
             await self.chat.delete_last_assistant_message(chat_id)
 
@@ -63,18 +76,14 @@ class AgentService:
             {"role": "system", "content": [{"text": system}]},
             *map(to_llm_message, history),
         ]
-        # При перегенерации вопрос уже есть в истории — второй раз его не добавляем.
         if not regenerate or not history or history[-1].role != MessageRole.USER:
             messages.append({"role": "user", "content": [{"text": user_input}]})
 
-        # Для локальной модели клиент строит только этот запрос; GigaChat общий.
         llm = self.llm
         if model_settings is not None and model_settings.provider == "local":
             llm = build_llm_client(model_settings)
         temperature = model_settings.temperature if model_settings else self.temperature
 
-        # Валидаторы аргументов инструментов читают пояс из контекста:
-        # наивное время от модели трактуем как локальное время пользователя.
         token = tool_timezone.set(zone)
         try:
             answer = await self._run_agent_loop(messages, llm, temperature, on_delta)
@@ -162,7 +171,4 @@ class AgentService:
 
     @staticmethod
     def _text(msg) -> str:
-        return "".join(p.text for p in (msg.content or []) if p.text)
-
-
-    
+        return "".join(part.text for part in (msg.content or []) if part.text)

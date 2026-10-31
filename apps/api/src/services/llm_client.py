@@ -34,6 +34,8 @@ class GigaChatClient:
             credentials=settings.gigachat_credentials or None,
             scope=settings.gigachat_scope,
             model=settings.gigachat_model,
+            timeout=settings.llm_timeout,
+            max_retries=settings.gigachat_max_retries,
             verify_ssl_certs=settings.gigachat_verify_ssl_certs,
         )
 

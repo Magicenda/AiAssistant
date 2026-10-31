@@ -22,7 +22,6 @@ tool_timezone: ContextVar[ZoneInfo] = ContextVar("tool_timezone", default=ZoneIn
 
 
 def _ensure_utc(value: datetime) -> datetime:
-    # Модель может прислать время без часового пояса, а в БД колонки с timezone=True.
     if value.tzinfo is None:
         value = value.replace(tzinfo=tool_timezone.get())
     return value.astimezone(timezone.utc)
@@ -33,23 +32,32 @@ AwareDatetime = Annotated[datetime, AfterValidator(_ensure_utc)]
 
 class CreateTaskArgs(BaseModel):
     description: str = Field(description="Что нужно сделать")
-    deadline: AwareDatetime | None = Field(
-        default=None,
-        description="Срок выполнения в формате ISO 8601 с часовым смещением, например 2026-10-24T18:00:00+03:00. Не указывай, если пользователь не назвал срок",
+    deadline: AwareDatetime = Field(
+        description=(
+            "Обязательный срок выполнения в ISO 8601 с часовым смещением, например "
+            "2026-10-24T18:00:00+03:00. Если дата или время неизвестны, сначала уточни их "
+            "у пользователя и не вызывай create_task"
+        ),
     )
 
 
 class CreateReminderArgs(BaseModel):
     description: str = Field(description="О чём напомнить")
     remind_at: AwareDatetime = Field(
-        description="Когда напомнить, ISO 8601 с часовым смещением, например 2026-10-24T09:30:00+03:00",
+        description=(
+            "Когда напомнить, ISO 8601 с часовым смещением, "
+            "например 2026-10-24T09:30:00+03:00"
+        ),
     )
 
 
 class ListTasksArgs(BaseModel):
     kind: Literal["task", "notify"] | None = Field(
         default=None,
-        description="Фильтр: task - только задачи, notify - только напоминания. Без значения вернутся и те и другие",
+        description=(
+            "Фильтр: task - только задачи, notify - только напоминания. "
+            "Без значения вернутся и те и другие"
+        ),
     )
     only_upcoming: bool = Field(
         default=False,
@@ -61,13 +69,19 @@ class ListTasksArgs(BaseModel):
 class CreateMeetingArgs(BaseModel):
     description: str = Field(description="Тема или описание встречи")
     appointment: AwareDatetime = Field(
-        description="Дата и время встречи в ISO 8601 с часовым смещением, например 2026-10-25T15:00:00+03:00",
+        description=(
+            "Дата и время встречи в ISO 8601 с часовым смещением, "
+            "например 2026-10-25T15:00:00+03:00"
+        ),
     )
 
 
 class UpdateTaskArgs(BaseModel):
     task_id: int = Field(
-        description="Номер задачи или напоминания. Если пользователь его не назвал, сначала вызови list_tasks и найди id",
+        description=(
+            "Номер задачи. Если пользователь его не назвал, сначала вызови list_tasks "
+            "с kind=task и найди id"
+        ),
     )
     description: str | None = Field(
         default=None,
@@ -75,17 +89,51 @@ class UpdateTaskArgs(BaseModel):
     )
     deadline: AwareDatetime | None = Field(
         default=None,
-        description="Новый срок в ISO 8601 с часовым смещением, например 2026-10-24T18:00:00+03:00. Не указывай, если срок менять не нужно",
-    )
-    clear_deadline: bool = Field(
-        default=False,
-        description="true, если пользователь просит убрать срок у задачи",
+        description=(
+            "Новый срок в ISO 8601 с часовым смещением, например "
+            "2026-10-24T18:00:00+03:00. Не указывай, если срок менять не нужно"
+        ),
     )
 
     @model_validator(mode="after")
     def _require_change(self):
-        if self.description is None and self.deadline is None and not self.clear_deadline:
-            raise ValueError("Укажи хотя бы одно поле для изменения: description, deadline или clear_deadline")
-        if self.deadline is not None and self.clear_deadline:
-            raise ValueError("Нельзя одновременно задать новый срок и убрать срок")
+        if self.description is None and self.deadline is None:
+            raise ValueError("Укажи хотя бы одно поле для изменения: description или deadline")
         return self
+
+
+class UpdateReminderArgs(BaseModel):
+    reminder_id: int = Field(
+        ge=1,
+        description=(
+            "Номер напоминания. Если пользователь его не назвал, сначала вызови list_tasks "
+            "с kind=notify и найди id"
+        ),
+    )
+    description: str | None = Field(
+        default=None,
+        description="Новый текст напоминания. Не указывай, если текст менять не нужно",
+    )
+    remind_at: AwareDatetime | None = Field(
+        default=None,
+        description=(
+            "Новое время напоминания в ISO 8601 с часовым смещением, например "
+            "2026-11-01T15:00:00+03:00. Не указывай, если время менять не нужно"
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _require_change(self):
+        if self.description is None and self.remind_at is None:
+            raise ValueError("Укажи хотя бы одно поле для изменения: description или remind_at")
+        return self
+
+
+class DeleteTaskArgs(BaseModel):
+    task_id: int = Field(
+        ge=1,
+        description=(
+            "Номер задачи или напоминания. Если пользователь его не назвал, "
+            "сначала вызови list_tasks и найди id"
+        ),
+    )

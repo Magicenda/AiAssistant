@@ -1,9 +1,11 @@
 import { AuthGate } from "@/features/auth";
+import { ReminderNotifications } from "@/features/reminder-notifications";
 import { DashboardSidebar } from "@/widgets/dashboard-sidebar";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGate>
+      <ReminderNotifications />
       <div className="bg-background relative isolate min-h-dvh">
         <div className="min-h-dvh lg:flex lg:items-start">
           <DashboardSidebar />

@@ -51,7 +51,7 @@ function readLevel(analyser: AnalyserNode) {
  */
 export function useVoiceRecorder({
   onComplete,
-  silenceMs = 1200,
+  silenceMs = 1800,
   noSpeechMs = 8000,
   maxMs = 60_000,
 }: VoiceRecorderOptions): VoiceRecorder {
