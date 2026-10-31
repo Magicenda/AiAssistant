@@ -28,7 +28,9 @@ class TaskToolkit(Toolkit):
     @tool(
         "create_task",
         "Создаёт задачу (дело, которое нужно сделать). Вызывай, когда пользователь просит "
-        "записать или запомнить задачу. Для напоминания в конкретное время используй create_reminder.",
+        "записать или запомнить задачу. Deadline обязателен всегда. Если дата или время не названы, "
+        "сначала уточни их и пока не вызывай инструмент. Задачу без срока создавать нельзя. "
+        "Для напоминания используй create_reminder.",
         CreateTaskArgs,
     )
     async def create_task(self, args: CreateTaskArgs) -> dict:
@@ -67,9 +69,7 @@ class TaskToolkit(Toolkit):
         task = await self.repository.get_task(self.user_id, args.task_id)
         if task is None:
             return {"error": f"Задача с id {args.task_id} не найдена"}
-        task = await self.repository.update_task(
-            task, args.description, args.deadline, args.clear_deadline
-        )
+        task = await self.repository.update_task(task, args.description, args.deadline)
         return _task_to_dict(task)
 
     @tool(

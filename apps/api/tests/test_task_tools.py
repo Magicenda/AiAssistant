@@ -18,13 +18,11 @@ class FakeTaskRepository:
             return self.task
         return None
 
-    async def update_task(self, task, description, deadline, clear_deadline):
-        self.updated_values = (description, deadline, clear_deadline)
+    async def update_task(self, task, description, deadline):
+        self.updated_values = (description, deadline)
         if description is not None:
             task.description = description
-        if clear_deadline:
-            task.deadline = None
-        elif deadline is not None:
+        if deadline is not None:
             task.deadline = deadline
         return task
 
@@ -57,7 +55,7 @@ def test_update_task_tool_updates_users_task():
     )
 
     assert result["description"] == "Новая задача"
-    assert repository.updated_values == ("Новая задача", None, False)
+    assert repository.updated_values == ("Новая задача", None)
 
 
 def test_delete_task_tool_deletes_users_task():

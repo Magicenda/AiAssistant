@@ -66,6 +66,7 @@ class Task(BaseModel):
     description: Mapped[str] = mapped_column(String(255))
     deadline: Mapped[datetime | None] = mapped_column( 
             DateTime(timezone=True))
+    notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=now_moscow,

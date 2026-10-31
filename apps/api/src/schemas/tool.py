@@ -11,9 +11,12 @@ MoscowDatetime = Annotated[datetime, AfterValidator(as_moscow)]
 
 class CreateTaskArgs(BaseModel):
     description: str = Field(description="Что нужно сделать")
-    deadline: MoscowDatetime | None = Field(
-        default=None,
-        description="Срок выполнения в формате ISO 8601, например 2026-10-24T18:00:00. Не указывай, если пользователь не назвал срок",
+    deadline: MoscowDatetime = Field(
+        description=(
+            "Обязательный срок выполнения в формате ISO 8601, например "
+            "2026-10-24T18:00:00. Если дата или время неизвестны, сначала уточни их у пользователя "
+            "и не вызывай create_task"
+        ),
     )
 
 
@@ -55,17 +58,10 @@ class UpdateTaskArgs(BaseModel):
         default=None,
         description="Новый срок в формате ISO 8601, например 2026-10-24T18:00:00. Не указывай, если срок менять не нужно",
     )
-    clear_deadline: bool = Field(
-        default=False,
-        description="true, если пользователь просит убрать срок у задачи",
-    )
-
     @model_validator(mode="after")
     def _require_change(self):
-        if self.description is None and self.deadline is None and not self.clear_deadline:
-            raise ValueError("Укажи хотя бы одно поле для изменения: description, deadline или clear_deadline")
-        if self.deadline is not None and self.clear_deadline:
-            raise ValueError("Нельзя одновременно задать новый срок и убрать срок")
+        if self.description is None and self.deadline is None:
+            raise ValueError("Укажи хотя бы одно поле для изменения: description или deadline")
         return self
 
 

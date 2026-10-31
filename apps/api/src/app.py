@@ -56,6 +56,18 @@ async def _ensure_columns(conn) -> None:
     if "reply_to" not in message_columns:
         await conn.execute(text("ALTER TABLE messages ADD COLUMN reply_to TEXT"))
 
+    task_columns = await conn.run_sync(
+        lambda sync: {column["name"] for column in inspect(sync).get_columns("tasks")}
+    )
+    if "notified_at" not in task_columns:
+        await conn.execute(text("ALTER TABLE tasks ADD COLUMN notified_at TIMESTAMP WITH TIME ZONE"))
+        await conn.execute(
+            text(
+                "UPDATE tasks SET notified_at = CURRENT_TIMESTAMP "
+                "WHERE type = 'notify' AND deadline <= CURRENT_TIMESTAMP"
+            )
+        )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
