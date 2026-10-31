@@ -3,8 +3,6 @@ export {
   PROVIDER_PRESETS,
   isLocalAddress,
   providerFor,
-  type ModelRequestSettings,
-  type ModelSettings,
   type ProviderId,
 } from "./model/types";
 export {

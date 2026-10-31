@@ -1,11 +1,2 @@
-export type {
-  Chat,
-  ChatDto,
-  ChatMessage,
-  ChatMessageDto,
-  ChatMessageRole,
-  ChatReply,
-  ChatReplyDto,
-  ChatRole,
-} from "./model/types";
-export { chatDtoToDomain, isChatDto, isChatList, isChatMessageDto } from "./model/dto";
+export type { Chat, ChatDto, ChatMessage, ChatMessageDto, ChatReply } from "./model/types";
+export { chatDtoToDomain, isChatDto, isChatList } from "./model/dto";

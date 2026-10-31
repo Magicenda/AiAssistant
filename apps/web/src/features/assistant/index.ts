@@ -12,6 +12,5 @@ export {
   queryAssistant,
   transcribeVoice,
   updateRemoteChat,
-  type QueryOptions,
   type QueryResult,
 } from "./model/client";
