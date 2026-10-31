@@ -5,7 +5,6 @@ import { AuthShell } from "./auth-shell";
 export function SignUpView() {
   return (
     <AuthShell
-      eyebrow="Регистрация"
       title="Создать аккаунт"
       text="Зарегистрируйтесь, чтобы хранить чаты и записи планировщика."
     >

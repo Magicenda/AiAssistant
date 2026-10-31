@@ -5,7 +5,6 @@ import { AuthShell } from "./auth-shell";
 export function SignInView() {
   return (
     <AuthShell
-      eyebrow="Вход"
       title="С возвращением"
       text="Войдите, чтобы продолжить работу с чатом и планировщиком."
     >
