@@ -10,7 +10,9 @@ export const apiConfig = {
     jobStatus: 10_000,
   },
   limits: {
+    audioMaxBytes: 25 * 1024 * 1024,
     jobPollIntervalMs: 300,
     jobPollTimeoutMs: 3 * 60 * 1000,
+    jobTtlMs: 15 * 60 * 1000,
   },
 } as const;

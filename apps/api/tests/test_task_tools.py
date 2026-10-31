@@ -3,7 +3,7 @@ from datetime import datetime
 
 from core.time import MOSCOW_TZ
 from db.models import Task, Type
-from schemas.tool import DeleteTaskArgs, UpdateReminderArgs, UpdateTaskArgs
+from schemas.tool import DeleteTaskArgs, ListRemindersArgs, UpdateReminderArgs, UpdateTaskArgs
 from tools.task_tools import TaskToolkit
 
 
@@ -12,6 +12,7 @@ class FakeTaskRepository:
         self.task = task
         self.deleted_task = None
         self.updated_values = None
+        self.list_values = None
 
     async def get_task(self, user_id: int, task_id: int) -> Task | None:
         if self.task is not None and self.task.user_id == user_id and self.task.id == task_id:
@@ -28,6 +29,12 @@ class FakeTaskRepository:
 
     async def delete_task(self, task: Task) -> None:
         self.deleted_task = task
+
+    async def list_tasks(self, user_id, limit, kind, only_upcoming):
+        self.list_values = (user_id, limit, kind, only_upcoming)
+        if self.task is not None and self.task.user_id == user_id and self.task.type == kind:
+            return [self.task]
+        return []
 
 
 def make_task() -> Task:
@@ -53,7 +60,29 @@ def make_reminder() -> Task:
 def test_task_toolkit_exposes_update_and_delete_tools():
     names = {tool.name for tool in TaskToolkit(FakeTaskRepository(None), 42).tools()}
 
-    assert {"update_task", "update_reminder", "delete_task"} <= names
+    assert {"list_reminders", "update_task", "update_reminder", "delete_task"} <= names
+
+
+def test_list_reminders_tool_returns_only_users_reminders():
+    repository = FakeTaskRepository(make_reminder())
+    toolkit = TaskToolkit(repository, user_id=42)
+
+    result = asyncio.run(
+        toolkit.list_reminders(ListRemindersArgs(limit=10, only_upcoming=True))
+    )
+
+    assert result == {
+        "count": 1,
+        "reminders": [
+            {
+                "id": 8,
+                "kind": "notify",
+                "description": "Старое напоминание",
+                "deadline": "2026-11-01T12:00:00+03:00",
+            }
+        ],
+    }
+    assert repository.list_values == (42, 10, Type.NOTIFY, True)
 
 
 def test_update_task_tool_updates_users_task():
