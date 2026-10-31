@@ -66,6 +66,19 @@ class ListTasksArgs(BaseModel):
     limit: int = Field(default=20, ge=1, le=50, description="Сколько записей вернуть, не больше 50")
 
 
+class ListRemindersArgs(BaseModel):
+    only_upcoming: bool = Field(
+        default=False,
+        description="true — вернуть только напоминания со сроком в будущем",
+    )
+    limit: int = Field(
+        default=20,
+        ge=1,
+        le=50,
+        description="Сколько напоминаний вернуть, не больше 50",
+    )
+
+
 class CreateMeetingArgs(BaseModel):
     description: str = Field(description="Тема или описание встречи")
     appointment: AwareDatetime = Field(
@@ -106,8 +119,8 @@ class UpdateReminderArgs(BaseModel):
     reminder_id: int = Field(
         ge=1,
         description=(
-            "Номер напоминания. Если пользователь его не назвал, сначала вызови list_tasks "
-            "с kind=notify и найди id"
+            "Номер напоминания. Если пользователь его не назвал, сначала вызови "
+            "list_reminders и найди id"
         ),
     )
     description: str | None = Field(

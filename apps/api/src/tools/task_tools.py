@@ -5,6 +5,7 @@ from schemas.tool import (
     CreateReminderArgs,
     CreateTaskArgs,
     DeleteTaskArgs,
+    ListRemindersArgs,
     ListTasksArgs,
     UpdateReminderArgs,
     UpdateTaskArgs,
@@ -60,6 +61,26 @@ class TaskToolkit(Toolkit):
         return {"count": len(tasks), "tasks": [_task_to_dict(t) for t in tasks]}
 
     @tool(
+        "list_reminders",
+        "Возвращает напоминания текущего пользователя. Вызывай, когда пользователь спрашивает, "
+        "какие у него напоминания, просит показать ближайшие напоминания или когда нужно найти "
+        "id напоминания перед изменением. Для поиска только будущих напоминаний передай "
+        "only_upcoming=true.",
+        ListRemindersArgs,
+    )
+    async def list_reminders(self, args: ListRemindersArgs) -> dict:
+        reminders = await self.repository.list_tasks(
+            self.user_id,
+            args.limit,
+            Type.NOTIFY,
+            args.only_upcoming,
+        )
+        return {
+            "count": len(reminders),
+            "reminders": [_task_to_dict(reminder) for reminder in reminders],
+        }
+
+    @tool(
         "update_task",
         "Изменяет существующую задачу: текст и/или срок. Для изменения напоминания используй "
         "update_reminder. Если id задачи неизвестен, сначала вызови list_tasks с kind=task.",
@@ -77,8 +98,8 @@ class TaskToolkit(Toolkit):
     @tool(
         "update_reminder",
         "Изменяет существующее напоминание: текст и/или время. Вызывай, когда пользователь просит "
-        "перенести или переименовать напоминание. Если id неизвестен, сначала вызови list_tasks "
-        "с kind=notify. Если новое время названо без даты или дата без времени, уточни недостающую "
+        "перенести или переименовать напоминание. Если id неизвестен, сначала вызови "
+        "list_reminders. Если новое время названо без даты или дата без времени, уточни недостающую "
         "часть до вызова инструмента.",
         UpdateReminderArgs,
     )
