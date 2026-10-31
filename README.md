@@ -1,97 +1,89 @@
 # AiAssistant
 
-AI-ассистент с веб-интерфейсом: чаты, голосовой режим и планировщик. Backend на FastAPI, фронтенд на Next.js. Модель подключается через GigaChat или локально через Ollama / LM Studio.
+Веб-ассистент с текстовым и голосовым режимами, задачами, встречами и напоминаниями.
+Backend — FastAPI, frontend — Next.js. Поддерживаются GigaChat, Ollama и LM Studio.
 
-## Стек
+## Возможности
 
-- Backend: Python 3.11+, FastAPI, SQLAlchemy (async), Alembic, PostgreSQL
-- Frontend: Next.js 16 (App Router), React 19, Tailwind CSS 4, shadcn/ui
-- Пакетные менеджеры: uv для backend, Bun для frontend
-- Docker Compose для всего стека
+- потоковый текстовый чат через SSE;
+- распознавание речи через Whisper и озвучка ответов;
+- задачи с обязательным сроком, встречи и напоминания;
+- уведомления за 30 минут до срока, пока приложение открыто;
+- создание, поиск, изменение и удаление записей через агента;
+- авторизация, часовые пояса и раздельные данные пользователей.
 
-## Быстрый старт
+## Запуск в Docker
 
 ```bash
 cp .env.example .env
-# заполните GIGACHAT_CREDENTIALS и JWT_SECRET (openssl rand -hex 32)
-bun run docker:up
 ```
 
-Интерфейс откроется на <http://localhost:3000>, Swagger на <http://localhost:8000/docs>, PostgreSQL слушает `localhost:5434`.
+Укажите в `.env` ключ GigaChat и секрет JWT:
 
-Первый запуск занимает несколько минут: собираются образы и скачивается модель Whisper.
-
-## Запуск без Docker
-
-Backend:
+```dotenv
+GIGACHAT_CREDENTIALS=ваш_ключ
+JWT_SECRET=случайная_строка_не_короче_32_символов
+```
 
 ```bash
-bun run db:up     # PostgreSQL в Docker
+docker compose up -d --build
+```
+
+- приложение: <http://localhost:3000>;
+- Swagger: <http://localhost:8000/docs>;
+- PostgreSQL: `localhost:5434`.
+
+Первый запуск может занять несколько минут: загружается модель Whisper.
+
+## Локальная разработка
+
+Нужны Bun 1.4.4+, Python 3.11+, [uv](https://docs.astral.sh/uv/) и Docker.
+
+```bash
+cp .env.example .env
+bun run db:up
 bun run sync:api
+cd apps/web && bun install && cd ../..
+```
+
+Запустите в разных терминалах:
+
+```bash
 bun run dev:api
-```
-
-Frontend:
-
-```bash
-cd apps/web
-bun install
-```
-
-Дальше из корня:
-
-```bash
 bun run dev:web
 ```
 
-Понадобятся Bun 1.4.4+, Python 3.11+ и [uv](https://docs.astral.sh/uv/). Рабочая директория backend — `apps/api`, поэтому `storage/` появляется рядом с ним.
+Для SQLite без Docker задайте:
 
-## Настройки
-
-Все переменные лежат в одном `.env` в корне, его читают и backend, и frontend. Шаблон с комментариями — [`.env.example`](.env.example). Главное:
-
-- `GIGACHAT_CREDENTIALS` — ключ GigaChat, `JWT_SECRET` — подпись токенов входа. В Docker без своего секрета подставляется dev-значение из compose.
-- `LLM_PROVIDER` — `gigachat` или `openai_compatible`. Для локальной модели также нужны `LLM_BASE_URL` и `LLM_MODEL`.
-- `NEXT_PUBLIC_API_URL` — адрес backend для браузера. Значение вшивается в бандл при сборке, поэтому после изменения frontend нужно пересобрать.
-
-Провайдера, модель и температуру можно переопределить в настройках интерфейса. Они сохраняются в браузере и уходят на backend вместе с запросом.
-
-## Команды
-
-Запускать из корня монорепы.
-
-| Команда                 | Что делает                       |
-| ----------------------- | -------------------------------- |
-| `bun run dev:web`       | frontend с горячей перезагрузкой |
-| `bun run dev:api`       | backend с автоперезагрузкой      |
-| `bun run docker:up`     | весь стек в Docker               |
-| `bun run db:up`         | только PostgreSQL                |
-| `bun run test:web`      | тесты frontend (Vitest)          |
-| `bun run typecheck:web` | проверка типов                   |
-| `bun run lint:web`      | ESLint                           |
-| `bun run format:web`    | форматирование кода и README     |
-
-Перед коммитом достаточно `format:web`, `typecheck:web` и `lint:web`.
-
-## Структура
-
-```
-apps/api/   FastAPI: авторизация, чаты, LLM, голос, планировщик
-apps/web/   Next.js: лендинг, чат, голосовой режим, планы, настройки
-API.md      контракт API: эндпоинты, SSE, примеры
+```dotenv
+DATABASE_URL=sqlite+aiosqlite:///./assistant.db
 ```
 
-Слои фронтенда: `app → views → widgets → features → entities → shared`. Подробнее — в [`apps/web/AGENTS.md`](apps/web/AGENTS.md).
+Все настройки описаны в [`.env.example`](.env.example). Для локальной LLM используйте
+`LLM_PROVIDER=openai_compatible` вместе с `LLM_BASE_URL` и `LLM_MODEL`.
 
-## Что стоит знать
+## Полезные команды
 
-- Чаты, задачи, напоминания и встречи хранятся на backend. В localStorage остаются только настройки модели, движок озвучки и черновики ввода.
-- Ответы приходят потоком через `/api/llm/query/stream` (SSE). Голос идёт через `/api/audio/transcribe` и `/api/voice/*`.
-- Микрофон работает только на `localhost` или HTTPS.
-- Для GigaChat ключ остаётся на backend. Если выбрать локальную модель, её адрес и ключ передаются с каждым запросом.
+```bash
+bun run docker:up        # запустить весь стек
+bun run docker:down      # остановить весь стек
+bun run test:web         # тесты frontend
+bun run typecheck:web    # проверка TypeScript
+bun run lint:web         # ESLint
+bun run format:web       # Prettier
+```
 
-## Документация
+## Структура и документация
 
-- [API.md](API.md) — эндпоинты, авторизация, стриминг, примеры запросов.
-- [apps/api/README.md](apps/api/README.md) — backend: запуск, LLM-провайдеры, переменные окружения.
-- [apps/web/AGENTS.md](apps/web/AGENTS.md) — правила разработки фронтенда.
+```text
+apps/api/   FastAPI, база данных, LLM, инструменты агента, Whisper и TTS
+apps/web/   Next.js, чат, голосовой режим, планировщик и настройки
+API.md      HTTP API, SSE и примеры запросов
+```
+
+- [API.md](API.md) — контракт API;
+- [apps/api/README.md](apps/api/README.md) — настройка backend;
+- [apps/web/AGENTS.md](apps/web/AGENTS.md) — архитектура frontend.
+
+Микрофон работает только на `localhost` или HTTPS. Системные уведомления требуют разрешения
+браузера; для доставки при закрытом приложении понадобится Web Push.
