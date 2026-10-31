@@ -8,6 +8,7 @@ import type { NextConfig } from "next";
 loadEnvConfig(path.resolve(__dirname, "../.."), false, console, true);
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   typedRoutes: true,
   poweredByHeader: false,
   async headers() {

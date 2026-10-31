@@ -1,0 +1,22 @@
+# Зависимости и артефакты сборки не нужны внутри образа: всё ставится заново
+node_modules/
+.next/
+*.tsbuildinfo
+next-env.d.ts
+bun.lockb
+
+# Секреты и локальные настройки попадают в контейнер через compose
+.env
+.env.*
+
+.git/
+.gitignore
+.DS_Store
+.DS_Store?
+
+# Документация и служебные файлы
+AGENTS.md
+README.md
+
+Dockerfile
+.dockerignore

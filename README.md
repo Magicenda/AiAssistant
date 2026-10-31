@@ -9,7 +9,7 @@ AiAssistant/
 ├── apps/
 │   ├── api/   # FastAPI backend
 │   └── web/   # Next.js frontend
-├── docker-compose.yml   # PostgreSQL и backend (FastAPI) в Docker
+├── docker-compose.yml   # PostgreSQL, backend (FastAPI) и frontend (Next.js)
 ├── .env.example   # единый env: backend + frontend
 ├── API.md     # контракт backend API
 └── package.json   # скрипты монорепы
@@ -34,7 +34,7 @@ bun run api:down
 ```
 
 `bun run docker:up` / `bun run docker:down` поднимают и останавливают все
-сервисы (backend + PostgreSQL).
+сервисы (frontend + backend + PostgreSQL).
 
 Backend — <http://localhost:8000/docs>, PostgreSQL — `localhost:5434`.
 Все настройки — в едином `.env` в корне монорепы, он создаётся из
@@ -111,7 +111,27 @@ Next.js 16 (App Router) + Tailwind CSS v4 + shadcn/ui + Prettier + Bun.
 - Планировщик: планы, задачи, встречи, напоминания, поиск и календарь.
 - Тёмная пиксельная тема, адаптивная вёрстка, PWA-манифест.
 
-### Быстрый старт
+### Запуск в Docker
+
+Frontend собирается в отдельный образ ([`apps/web/Dockerfile`](apps/web/Dockerfile),
+Next.js standalone) и вместе с backend и базой поднимается из корня:
+
+```bash
+bun run web:up      # docker compose up -d --build web
+bun run web:logs
+bun run web:down
+```
+
+`bun run docker:up` поднимает весь стек: frontend, backend и PostgreSQL.
+Интерфейс — <http://localhost:3000>, backend — <http://localhost:8000>.
+Порт задаётся `WEB_PORT` в корневом `.env`.
+
+`NEXT_PUBLIC_API_URL` передаётся в образ как build arg: адрес зашивается в
+бандл при сборке, поэтому после его изменения frontend нужно пересобрать
+(`bun run web:up`). Браузер ходит в API с хоста, поэтому значение должно быть
+доступно снаружи, а не только из compose-сети.
+
+### Запуск без Docker
 
 Нужен [Bun](https://bun.sh) 1.4.4+ и запущенный backend ассистента.
 
@@ -266,6 +286,14 @@ Backend должен разрешать origin фронтенда (`http://local
 | `bun run db:up`            | PostgreSQL в Docker (localhost:5434)   |
 | `bun run db:down`          | остановить контейнер с БД              |
 | `bun run db:logs`          | логи PostgreSQL                        |
+| `bun run web:up`           | frontend в Docker (localhost:3000)     |
+| `bun run web:down`         | остановить контейнер с frontend        |
+| `bun run web:logs`         | логи frontend                          |
+| `bun run api:up`           | backend в Docker (с PostgreSQL)        |
+| `bun run api:down`         | остановить контейнер с backend         |
+| `bun run api:logs`         | логи backend                           |
+| `bun run docker:up`        | весь стек в Docker                     |
+| `bun run docker:down`      | остановить и удалить контейнеры        |
 
 Перед коммитом: `bun run format:web`, затем `bun run typecheck:web` и
 `bun run lint:web` — типы и линтер должны проходить чисто, проверка

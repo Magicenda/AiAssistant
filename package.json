@@ -24,6 +24,9 @@
     "api:up": "docker compose up -d --build api",
     "api:down": "docker compose stop api",
     "api:logs": "docker compose logs -f api",
+    "web:up": "docker compose up -d --build web",
+    "web:down": "docker compose stop web",
+    "web:logs": "docker compose logs -f web",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down"
   }
