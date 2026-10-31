@@ -14,6 +14,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -21,6 +22,11 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
     event.preventDefault();
     if (pending) return;
     setError("");
+    // Повтор пароля проверяем до запроса: backend его не получает.
+    if (mode === "sign-up" && password !== confirmPassword) {
+      setError("Пароли не совпадают.");
+      return;
+    }
     setPending(true);
     try {
       if (mode === "sign-up") await register(username.trim(), password);
@@ -53,6 +59,17 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
         value={password}
         onChange={event => setPassword(event.target.value)}
       />
+      {mode === "sign-up" && (
+        <Input
+          required
+          type="password"
+          autoComplete="new-password"
+          aria-label="Повторите пароль"
+          placeholder="Повторите пароль"
+          value={confirmPassword}
+          onChange={event => setConfirmPassword(event.target.value)}
+        />
+      )}
       {error && (
         <p role="alert" className="text-destructive text-xs">
           {error}
