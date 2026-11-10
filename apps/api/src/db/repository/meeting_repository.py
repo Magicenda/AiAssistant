@@ -35,3 +35,24 @@ class MeetingRepository:
             query = query.where(Meeting.appointment >= now_moscow())
         result = await self.session.execute(query)
         return list(result.scalars().all())
+
+    async def get_meeting(self, user_id: int, meeting_id: int) -> Meeting | None:
+        result = await self.session.execute(
+            select(Meeting).where(Meeting.id == meeting_id, Meeting.user_id == user_id)
+        )
+        return result.scalars().first()
+
+    async def update_meeting(
+        self, meeting: Meeting, description: str | None = None,
+        appointment: datetime | None = None,
+    ) -> Meeting:
+        if description is not None:
+            meeting.description = description
+        if appointment is not None:
+            meeting.appointment = as_moscow(appointment)
+        await self.session.flush()
+        return meeting
+
+    async def delete_meeting(self, meeting: Meeting) -> None:
+        await self.session.delete(meeting)
+        await self.session.flush()
