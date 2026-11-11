@@ -416,8 +416,8 @@ export function Planner({ section }: PlannerProps) {
   }
 
   return (
-    <section className="mx-auto max-w-5xl space-y-5 p-2 pb-10 md:p-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
+    <section className="mx-auto w-full max-w-5xl space-y-5 pb-10">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="font-pixel text-foreground text-2xl sm:text-3xl">{titles[section]}</h1>
         </div>
