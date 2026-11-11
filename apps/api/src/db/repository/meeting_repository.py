@@ -11,11 +11,18 @@ class MeetingRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def create_meeting(self, user_id: int, description: str, appointment: datetime) -> Meeting:
+    async def create_meeting(
+        self,
+        user_id: int,
+        description: str,
+        appointment: datetime,
+        yandex_uid: str | None = None,
+    ) -> Meeting:
         meeting = Meeting(
             user_id=user_id,
             description=description,
             appointment=as_moscow(appointment),
+            yandex_uid=yandex_uid,
             created_at=now_moscow(),
         )
         self.session.add(meeting)
@@ -43,13 +50,18 @@ class MeetingRepository:
         return result.scalars().first()
 
     async def update_meeting(
-        self, meeting: Meeting, description: str | None = None,
+        self,
+        meeting: Meeting,
+        description: str | None = None,
         appointment: datetime | None = None,
+        yandex_uid: str | None = None,
     ) -> Meeting:
         if description is not None:
             meeting.description = description
         if appointment is not None:
             meeting.appointment = as_moscow(appointment)
+        if yandex_uid is not None:
+            meeting.yandex_uid = yandex_uid
         await self.session.flush()
         return meeting
 

@@ -25,6 +25,7 @@ from routes.chat_controller import router as chat_router
 from routes.llm_controller import router as llm_router
 from routes.transcribation_controller import router as audio_router
 from routes.profile_controller import router as profile_router
+from routes.calendar_controller import router as calendar_router
 from routes.auth_controller import router as auth_router
 from services.llm_client import build_llm_client
 from services.orchestrator import VoiceGenerationOrchestrator
@@ -67,6 +68,12 @@ async def _ensure_columns(conn) -> None:
                 "WHERE type = 'notify' AND deadline <= CURRENT_TIMESTAMP"
             )
         )
+
+    meeting_columns = await conn.run_sync(
+        lambda sync: {column["name"] for column in inspect(sync).get_columns("meetings")}
+    )
+    if "yandex_uid" not in meeting_columns:
+        await conn.execute(text("ALTER TABLE meetings ADD COLUMN yandex_uid VARCHAR(128)"))
 
 
 @asynccontextmanager
@@ -149,6 +156,7 @@ app.include_router(llm_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
 app.include_router(audio_router, prefix="/api")
 app.include_router(profile_router, prefix="/api")
+app.include_router(calendar_router, prefix="/api")
 
 
 @app.get("/")

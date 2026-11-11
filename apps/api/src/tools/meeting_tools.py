@@ -1,13 +1,13 @@
 from core.time import as_moscow
-from db.repository.meeting_repository import MeetingRepository
+from schemas.planner import MeetingCreate
 from schemas.tool import CreateMeetingArgs
+from services.profile_service import ProfileService
 from tools.base import Toolkit, tool
 
 
 class MeetingToolkit(Toolkit):
-    def __init__(self, repository: MeetingRepository, user_id: int):
-        self.repository = repository
-        self.user_id = user_id
+    def __init__(self, profile: ProfileService):
+        self.profile = profile
 
     @tool(
         "create_meeting",
@@ -16,7 +16,9 @@ class MeetingToolkit(Toolkit):
         CreateMeetingArgs,
     )
     async def create_meeting(self, args: CreateMeetingArgs) -> dict:
-        meeting = await self.repository.create_meeting(self.user_id, args.description, args.appointment)
+        meeting = await self.profile.create_meeting(
+            MeetingCreate(description=args.description, appointment=args.appointment)
+        )
         return {
             "id": meeting.id,
             "description": meeting.description,
