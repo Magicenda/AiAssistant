@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
-from deps import CalendarServiceDep
-from schemas.calendar import YandexCalendarStatus, YandexConnectRequest
+from deps import CalendarServiceDep, ProfileServiceDep
+from schemas.calendar import YandexCalendarStatus, YandexConnectRequest, YandexSyncResult
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
 
@@ -22,3 +22,9 @@ async def yandex_connect(
 async def yandex_disconnect(service: CalendarServiceDep) -> YandexCalendarStatus:
     await service.disconnect_yandex()
     return YandexCalendarStatus(connected=False)
+
+
+@router.post("/yandex/sync", response_model=YandexSyncResult)
+async def yandex_sync(service: ProfileServiceDep) -> YandexSyncResult:
+    meetings, reminders, failed = await service.sync_unsynced_items()
+    return YandexSyncResult(meetings=meetings, reminders=reminders, failed=failed)

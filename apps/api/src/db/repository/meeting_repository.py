@@ -48,6 +48,15 @@ class MeetingRepository:
         result = await self.session.execute(select(Meeting).where(Meeting.user_id == user_id))
         return list(result.scalars().all())
 
+    async def list_unsynced_meetings(self, user_id: int) -> list[Meeting]:
+        """Возвращает встречи пользователя, ещё не выгруженные в Яндекс.Календарь."""
+        result = await self.session.execute(
+            select(Meeting)
+            .where(Meeting.user_id == user_id, Meeting.yandex_uid.is_(None))
+            .order_by(Meeting.appointment.asc(), Meeting.id.asc())
+        )
+        return list(result.scalars().all())
+
     async def get_meeting(self, user_id: int, meeting_id: int) -> Meeting | None:
         result = await self.session.execute(
             select(Meeting).where(Meeting.id == meeting_id, Meeting.user_id == user_id)

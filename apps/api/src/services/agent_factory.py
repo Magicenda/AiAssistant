@@ -22,7 +22,7 @@ def build_agent_service(llm: LLMClient, session: AsyncSession, user_id: int) -> 
         CalendarConnectionRepository(session),
     )
     tools = ToolRegistry([
-        TaskToolkit(TaskRepository(session), user_id),
+        TaskToolkit(TaskRepository(session), user_id, profile),
         MeetingToolkit(profile),
     ])
     return AgentService(llm=llm, chat=ChatService(ChatRepository(session), user_id), tools=tools)

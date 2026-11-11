@@ -41,6 +41,7 @@ class TaskRepository:
         task: Task,
         description: str | None = None,
         deadline: datetime | None = None,
+        yandex_uid: str | None = None,
     ) -> Task:
         if description is not None:
             task.description = description
@@ -48,8 +49,35 @@ class TaskRepository:
             task.deadline = as_moscow(deadline)
             if task.type == Type.NOTIFY:
                 task.notified_at = None
+        if yandex_uid is not None:
+            task.yandex_uid = yandex_uid
         await self.session.flush()
         return task
+
+    async def list_unsynced_reminders(self, user_id: int) -> list[Task]:
+        """Возвращает напоминания, ещё не выгруженные в Яндекс.Календарь."""
+        result = await self.session.execute(
+            select(Task)
+            .where(
+                Task.user_id == user_id,
+                Task.type == Type.NOTIFY,
+                Task.deadline.is_not(None),
+                Task.yandex_uid.is_(None),
+            )
+            .order_by(Task.deadline.asc(), Task.id.asc())
+        )
+        return list(result.scalars().all())
+
+    async def list_reminder_uids(self, user_id: int) -> list[str]:
+        """Возвращает uid напоминаний пользователя, уже добавленных в календарь."""
+        result = await self.session.execute(
+            select(Task.yandex_uid).where(
+                Task.user_id == user_id,
+                Task.type == Type.NOTIFY,
+                Task.yandex_uid.is_not(None),
+            )
+        )
+        return [uid for (uid,) in result.all() if uid]
 
     async def delete_task(self, task: Task) -> None:
         await self.session.delete(task)

@@ -150,7 +150,7 @@ def get_tool_registry(
 ) -> ToolRegistry:
     profile = ProfileService(task_repo, meeting_repo, user_id, calendar_repo)
     return ToolRegistry([
-        TaskToolkit(task_repo, user_id),
+        TaskToolkit(task_repo, user_id, profile),
         MeetingToolkit(profile),
     ])
 
