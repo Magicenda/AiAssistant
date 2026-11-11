@@ -4,6 +4,8 @@ from db.repository.task_repository import TaskRepository
 from schemas.tool import (
     CreateReminderArgs,
     CreateTaskArgs,
+    CreateTasksArgs,
+    DeleteAllTasksArgs,
     DeleteTaskArgs,
     ListRemindersArgs,
     ListTasksArgs,
@@ -38,6 +40,22 @@ class TaskToolkit(Toolkit):
     async def create_task(self, args: CreateTaskArgs) -> dict:
         task = await self.repository.create_task(self.user_id, args.description, args.deadline, Type.TASK)
         return _task_to_dict(task)
+
+    @tool(
+        "create_tasks",
+        "Создаёт несколько задач за один вызов. Используй, когда пользователь просит создать "
+        "несколько задач сразу, вместо многократных вызовов create_task. У каждой задачи "
+        "обязательны описание и срок.",
+        CreateTasksArgs,
+    )
+    async def create_tasks(self, args: CreateTasksArgs) -> dict:
+        created = []
+        for draft in args.tasks:
+            task = await self.repository.create_task(
+                self.user_id, draft.description, draft.deadline, Type.TASK
+            )
+            created.append(_task_to_dict(task))
+        return {"count": len(created), "tasks": created}
 
     @tool(
         "create_reminder",
@@ -128,3 +146,15 @@ class TaskToolkit(Toolkit):
         deleted_task = _task_to_dict(task)
         await self.repository.delete_task(task)
         return {"deleted": True, "task": deleted_task}
+
+    @tool(
+        "delete_all_tasks",
+        "Удаляет все задачи и/или напоминания пользователя одним вызовом. Вызывай только "
+        "когда пользователь явно просит удалить все задачи, все напоминания или все планы. "
+        "kind=all удаляет и задачи, и напоминания.",
+        DeleteAllTasksArgs,
+    )
+    async def delete_all_tasks(self, args: DeleteAllTasksArgs) -> dict:
+        kind = None if args.kind == "all" else Type(args.kind)
+        deleted = await self.repository.delete_all_tasks(self.user_id, kind)
+        return {"deleted": deleted, "kind": args.kind}

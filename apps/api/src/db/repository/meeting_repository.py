@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.time import as_moscow, now_moscow
@@ -56,3 +56,13 @@ class MeetingRepository:
     async def delete_meeting(self, meeting: Meeting) -> None:
         await self.session.delete(meeting)
         await self.session.flush()
+
+    async def delete_all_meetings(self, user_id: int) -> int:
+        """Удаляет все встречи пользователя и возвращает их число."""
+        result = await self.session.execute(
+            delete(Meeting)
+            .where(Meeting.user_id == user_id)
+            .execution_options(synchronize_session=False)
+        )
+        await self.session.flush()
+        return result.rowcount or 0

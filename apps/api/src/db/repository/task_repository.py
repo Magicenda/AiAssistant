@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.time import as_moscow, now_moscow
@@ -54,6 +54,15 @@ class TaskRepository:
     async def delete_task(self, task: Task) -> None:
         await self.session.delete(task)
         await self.session.flush()
+
+    async def delete_all_tasks(self, user_id: int, kind: Type | None = None) -> int:
+        """Удаляет все задачи и/или напоминания пользователя и возвращает их число."""
+        query = delete(Task).where(Task.user_id == user_id)
+        if kind is not None:
+            query = query.where(Task.type == kind)
+        result = await self.session.execute(query.execution_options(synchronize_session=False))
+        await self.session.flush()
+        return result.rowcount or 0
 
     async def claim_due_reminders(self, user_id: int, limit: int = 20) -> list[Task]:
         """Атомарно выдаёт напоминания за 30 минут до срока текущему пользователю."""

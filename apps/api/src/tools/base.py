@@ -7,26 +7,36 @@ from pydantic import BaseModel
 _ALLOWED_SCHEMA_KEYS = {"type", "description", "enum", "items", "properties", "required"}
 
 
-def to_gigachat_schema(schema: dict) -> dict:
+def to_gigachat_schema(schema: dict, defs: dict | None = None) -> dict:
     """Приводит JSON Schema из Pydantic к виду, который принимает GigaChat.
 
     GigaChat требует простой `type` у каждого свойства, поэтому `X | None` (anyOf с null)
     сворачивается в X, а служебные ключи (title, default, format, minimum...) отбрасываются.
+    Ссылки `$ref` на вложенные модели раскрываются по `$defs`.
     Реальную проверку аргументов всё равно делает Pydantic.
     """
+    if defs is None:
+        defs = schema.get("$defs") or schema.get("definitions") or {}
+
+    if "$ref" in schema:
+        name = str(schema["$ref"]).rsplit("/", 1)[-1]
+        target = defs.get(name, {})
+        merged = {**target, **{k: v for k, v in schema.items() if k != "$ref"}}
+        return to_gigachat_schema(merged, defs)
+
     if "anyOf" in schema:
         options = [o for o in schema["anyOf"] if o.get("type") != "null"]
         merged = {**options[0], **{k: v for k, v in schema.items() if k != "anyOf"}} if options else {}
-        return to_gigachat_schema(merged)
+        return to_gigachat_schema(merged, defs)
 
     result = {}
     for key, value in schema.items():
         if key not in _ALLOWED_SCHEMA_KEYS:
             continue
         if key == "properties":
-            value = {name: to_gigachat_schema(prop) for name, prop in value.items()}
+            value = {name: to_gigachat_schema(prop, defs) for name, prop in value.items()}
         elif key == "items":
-            value = to_gigachat_schema(value)
+            value = to_gigachat_schema(value, defs)
         result[key] = value
     return result
 
