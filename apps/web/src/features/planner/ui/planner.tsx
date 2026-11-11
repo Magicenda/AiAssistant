@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   Bell,
@@ -9,15 +8,26 @@ import {
   ChevronLeft,
   ChevronRight,
   List,
-  RefreshCw,
+  Pencil,
+  Plus,
   Search,
-  Sparkles,
+  Trash2,
+  X,
 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { ApiError } from "@/shared/api";
 import { cn } from "@/shared/lib/cn";
-import { fetchEntries, type Entry, type EntryKind } from "../model/entries";
+import {
+  createEntry,
+  deleteEntry,
+  fetchEntries,
+  updateEntry,
+  type Entry,
+  type EntryDraft,
+  type EntryKind,
+} from "../model/entries";
+import { EntryForm } from "./entry-form";
 
 type Section = "plans" | "tasks" | "meetings" | "reminders" | "search";
 
@@ -134,12 +144,32 @@ interface EntryCardProps {
   entry: Entry;
   /** Текущее время для подсветки просроченных записей. */
   now: Date;
+  /** Показывать кнопки изменения и удаления. */
+  editable: boolean;
+  /** Открывает форму редактирования записи. */
+  onEdit: () => void;
+  /** Удаляет запись; родитель показывает ошибку, если она возникла. */
+  onDelete: () => Promise<void>;
 }
 
-/** Карточка записи: тип, срок и отметка просрочки. */
-function EntryCard({ entry, now }: EntryCardProps) {
+/** Карточка записи: тип, срок, отметка просрочки и действия пользователя. */
+function EntryCard({ entry, now, editable, onEdit, onDelete }: EntryCardProps) {
   const Icon = kindIcons[entry.kind];
   const overdue = entry.date !== null && new Date(entry.date) < now;
+  const [confirming, setConfirming] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
+  async function remove() {
+    setRemoving(true);
+    try {
+      await onDelete();
+    } catch {
+      // Текст ошибки уже показан планировщиком рядом с заголовком.
+    } finally {
+      setRemoving(false);
+      setConfirming(false);
+    }
+  }
 
   return (
     <article className="pixel-panel flex items-start gap-3 p-4">
@@ -151,11 +181,50 @@ function EntryCard({ entry, now }: EntryCardProps) {
         <p className="text-muted-foreground mt-1 font-mono text-[0.7rem] tracking-wider uppercase">
           {kinds[entry.kind]} · {entry.date ? formatEntryDate(entry.date, now) : "Без срока"}
         </p>
+        {overdue && (
+          <span className="text-destructive border-destructive/40 mt-2 inline-block border px-2 py-1 font-mono text-[0.6rem] tracking-wider uppercase">
+            Просрочено
+          </span>
+        )}
       </div>
-      {overdue && (
-        <span className="text-destructive border-destructive/40 shrink-0 border px-2 py-1 font-mono text-[0.6rem] tracking-wider uppercase">
-          Просрочено
-        </span>
+      {editable && (
+        <div className="flex shrink-0 items-center gap-1">
+          {confirming ? (
+            <>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => void remove()}
+                disabled={removing}
+              >
+                {removing ? "Удаляем…" : "Удалить"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Отменить удаление"
+                onClick={() => setConfirming(false)}
+                disabled={removing}
+              >
+                <X className="size-4" />
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" size="icon" aria-label="Изменить запись" onClick={onEdit}>
+                <Pencil className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Удалить запись"
+                onClick={() => setConfirming(true)}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </>
+          )}
+        </div>
       )}
     </article>
   );
@@ -177,7 +246,6 @@ interface PlannerProps {
 export function Planner({ section }: PlannerProps) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [ready, setReady] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [now, setNow] = useState<Date | null>(null);
   const [month, setMonth] = useState<Date | null>(null);
@@ -187,6 +255,9 @@ export function Planner({ section }: PlannerProps) {
   const [kind, setKind] = useState<"all" | EntryKind>("all");
   const [period, setPeriod] = useState("all");
   const [query, setQuery] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [planCreateKind, setPlanCreateKind] = useState<EntryKind>("task");
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -197,7 +268,6 @@ export function Planner({ section }: PlannerProps) {
       setError(cause instanceof ApiError ? cause.message : "Не удалось загрузить записи.");
     } finally {
       setReady(true);
-      setRefreshing(false);
     }
   }, []);
 
@@ -220,11 +290,6 @@ export function Planner({ section }: PlannerProps) {
       window.clearInterval(timer);
     };
   }, [load]);
-
-  function refresh() {
-    setRefreshing(true);
-    void load();
-  }
 
   if (!ready || !now || !month) {
     return <p className="text-muted-foreground p-8">Загрузка…</p>;
@@ -249,6 +314,9 @@ export function Planner({ section }: PlannerProps) {
         : section === "reminders"
           ? "reminder"
           : undefined;
+  const createKind = kindForSection ?? (section === "plans" ? planCreateKind : undefined);
+  const canCreate = section === "plans" || Boolean(kindForSection);
+  const editable = section !== "search";
   const kindFilter: EntryKind | undefined = kindForSection ?? (kind === "all" ? undefined : kind);
   const calendarEntries = kindFilter ? entries.filter(entry => entry.kind === kindFilter) : entries;
   const filtered = entries
@@ -293,32 +361,108 @@ export function Planner({ section }: PlannerProps) {
         ? dayFormat.format(new Date(`${selected}T12:00`))
         : "Записи";
 
+  /** Создаёт запись и перечитывает список; ошибку показывает форма. */
+  async function saveNew(draft: EntryDraft) {
+    if (!createKind) return;
+    await createEntry(createKind, draft);
+    setCreating(false);
+    await load();
+  }
+
+  /** Сохраняет изменения и перечитывает список; ошибку показывает форма. */
+  async function saveEdit(entry: Entry, draft: EntryDraft) {
+    await updateEntry(entry, draft);
+    setEditingId(null);
+    await load();
+  }
+
+  /** Удаляет запись; ошибку показывает планировщик, а карточка — только индикатор. */
+  async function removeEntry(entry: Entry) {
+    try {
+      await deleteEntry(entry);
+      setEditingId(current => (current === entry.id ? null : current));
+      await load();
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "Не удалось удалить запись.");
+      throw cause;
+    }
+  }
+
+  /** Рендерит список записей, подменяя редактируемую карточку формой. */
+  function renderEntries(items: Entry[]) {
+    return items.map(item =>
+      editingId === item.id ? (
+        <EntryForm
+          key={item.id}
+          kind={item.kind}
+          initial={item}
+          onCancel={() => setEditingId(null)}
+          onSubmit={draft => saveEdit(item, draft)}
+        />
+      ) : (
+        <EntryCard
+          key={item.id}
+          entry={item}
+          now={currentNow}
+          editable={editable}
+          onEdit={() => {
+            setCreating(false);
+            setEditingId(item.id);
+          }}
+          onDelete={() => removeEntry(item)}
+        />
+      ),
+    );
+  }
+
   return (
     <section className="mx-auto max-w-5xl space-y-5 p-2 pb-10 md:p-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="font-pixel text-foreground text-2xl sm:text-3xl">{titles[section]}</h1>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing}>
-            <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
-            Обновить
-          </Button>
-          {section !== "search" && (
-            <Button size="sm" asChild>
-              <Link href="/chat">
-                <Sparkles className="size-4" />
-                Создать в чате
-              </Link>
+        {canCreate && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant={creating ? "outline" : "default"}
+              aria-pressed={creating}
+              onClick={() => {
+                setEditingId(null);
+                setCreating(current => !current);
+              }}
+            >
+              <Plus className={cn("size-4", creating && "rotate-45")} />
+              Добавить
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </header>
 
       {error && (
         <p role="alert" className="text-destructive font-mono text-sm">
           {error}
         </p>
+      )}
+
+      {section === "plans" && creating && (
+        <div className="flex flex-wrap gap-2" aria-label="Тип новой записи">
+          {(["task", "meeting", "reminder"] as const).map(value => (
+            <Button
+              key={value}
+              size="sm"
+              aria-pressed={planCreateKind === value}
+              variant={planCreateKind === value ? "default" : "outline"}
+              onClick={() => setPlanCreateKind(value)}
+            >
+              {kinds[value]}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {creating && createKind && (
+        <EntryForm kind={createKind} onCancel={() => setCreating(false)} onSubmit={saveNew} />
       )}
 
       {section === "search" && (
@@ -504,11 +648,7 @@ export function Planner({ section }: PlannerProps) {
                   {group.items.length}
                 </span>
               </div>
-              <div className="space-y-2">
-                {group.items.map(item => (
-                  <EntryCard key={item.id} entry={item} now={now} />
-                ))}
-              </div>
+              <div className="space-y-2">{renderEntries(group.items)}</div>
             </section>
           ))
         ) : filtered.length === 0 ? (
@@ -528,16 +668,10 @@ export function Planner({ section }: PlannerProps) {
                 ? "Попробуйте другое слово из названия."
                 : section === "plans" && entries.length > 0
                   ? "Смените период или тип записи."
-                  : "Попросите ассистента создать задачу, встречу или напоминание."}
+                  : createKind
+                    ? "Нажмите «Добавить», чтобы создать запись."
+                    : "Создайте запись в разделе задач, напоминаний или встреч."}
             </p>
-            {section !== "search" && (
-              <Button size="sm" className="mt-4" asChild>
-                <Link href="/chat">
-                  <Sparkles className="size-4" />
-                  Создать в чате
-                </Link>
-              </Button>
-            )}
           </div>
         ) : (
           <>
@@ -554,11 +688,7 @@ export function Planner({ section }: PlannerProps) {
               </h2>
               <span className="text-muted-foreground font-mono text-xs">{filtered.length}</span>
             </div>
-            <div className="space-y-2">
-              {filtered.map(item => (
-                <EntryCard key={item.id} entry={item} now={now} />
-              ))}
-            </div>
+            <div className="space-y-2">{renderEntries(filtered)}</div>
           </>
         )}
       </div>
