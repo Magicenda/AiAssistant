@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, KeyRound, ServerCog } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
+import { YandexCalendarCard } from "@/features/calendar-integration";
 import { ModelForm } from "@/features/model-settings";
 import { VoiceSettingsForm } from "@/features/voice-playback";
 
@@ -40,6 +41,8 @@ export function SettingsView() {
       </div>
 
       <ModelForm />
+
+      <YandexCalendarCard />
 
       <VoiceSettingsForm />
 
