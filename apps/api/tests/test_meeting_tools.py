@@ -4,6 +4,7 @@ from datetime import datetime
 from core.time import MOSCOW_TZ
 from db.models import Meeting
 from schemas.tool import DeleteAllMeetingsArgs, DeleteMeetingArgs, ListMeetingsArgs
+from services.profile_service import ProfileService
 from tools.meeting_tools import MeetingToolkit
 
 
@@ -18,6 +19,9 @@ class FakeMeetingRepository:
         self.list_values = (user_id, limit, only_upcoming)
         own = [meeting for meeting in self.meetings if meeting.user_id == user_id]
         return own[:limit]
+
+    async def list_all_meetings(self, user_id):
+        return [meeting for meeting in self.meetings if meeting.user_id == user_id]
 
     async def get_meeting(self, user_id, meeting_id):
         for meeting in self.meetings:
@@ -46,8 +50,12 @@ def make_meeting(meeting_id: int, user_id: int, description: str) -> Meeting:
     )
 
 
+def make_toolkit(repository: FakeMeetingRepository) -> MeetingToolkit:
+    return MeetingToolkit(ProfileService(None, repository, 42))
+
+
 def test_meeting_toolkit_exposes_list_and_delete_tools():
-    names = {tool.name for tool in MeetingToolkit(FakeMeetingRepository([]), 42).tools()}
+    names = {tool.name for tool in make_toolkit(FakeMeetingRepository([])).tools()}
 
     assert {
         "create_meeting",
@@ -62,7 +70,7 @@ def test_list_meetings_returns_only_users_meetings():
         make_meeting(1, 42, "Планёрка"),
         make_meeting(2, 7, "Чужая встреча"),
     ])
-    toolkit = MeetingToolkit(repository, user_id=42)
+    toolkit = make_toolkit(repository)
 
     result = asyncio.run(toolkit.list_meetings(ListMeetingsArgs(limit=10, only_upcoming=True)))
 
@@ -82,7 +90,7 @@ def test_list_meetings_returns_only_users_meetings():
 def test_delete_meeting_removes_only_users_meeting():
     own = make_meeting(1, 42, "Планёрка")
     repository = FakeMeetingRepository([own, make_meeting(2, 7, "Чужая встреча")])
-    toolkit = MeetingToolkit(repository, user_id=42)
+    toolkit = make_toolkit(repository)
 
     result = asyncio.run(toolkit.delete_meeting(DeleteMeetingArgs(meeting_id=1)))
 
@@ -99,7 +107,7 @@ def test_delete_meeting_removes_only_users_meeting():
 
 def test_delete_meeting_refuses_another_users_meeting():
     repository = FakeMeetingRepository([make_meeting(2, 7, "Чужая встреча")])
-    toolkit = MeetingToolkit(repository, user_id=42)
+    toolkit = make_toolkit(repository)
 
     result = asyncio.run(toolkit.delete_meeting(DeleteMeetingArgs(meeting_id=2)))
 
@@ -112,7 +120,7 @@ def test_delete_all_meetings_removes_only_users_meetings():
         make_meeting(2, 42, "Созвон"),
         make_meeting(3, 7, "Чужая встреча"),
     ])
-    toolkit = MeetingToolkit(repository, user_id=42)
+    toolkit = make_toolkit(repository)
 
     result = asyncio.run(toolkit.delete_all_meetings(DeleteAllMeetingsArgs()))
 

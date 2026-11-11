@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.security import decode_access_token
 from db.models import User
+from db.repository.calendar_connection_repository import CalendarConnectionRepository
 from db.repository.chat_repository import ChatRepository
 from db.repository.meeting_repository import MeetingRepository
 from db.repository.task_repository import TaskRepository
@@ -16,6 +17,7 @@ from db.session import get_session
 from schemas.model_settings import ModelSettings
 from services.agent_service import AgentService
 from services.auth_service import AuthService
+from services.calendar_service import CalendarService
 from services.chat_service import ChatService
 from services.llm_client import LLMClient
 from services.profile_service import ProfileService
@@ -110,21 +112,46 @@ def get_meeting_repository(session: SessionDep) -> MeetingRepository:
 MeetingRepositoryDep = Annotated[MeetingRepository, Depends(get_meeting_repository)]
 
 
+def get_calendar_connection_repository(session: SessionDep) -> CalendarConnectionRepository:
+    return CalendarConnectionRepository(session)
+
+
+CalendarConnectionRepositoryDep = Annotated[
+    CalendarConnectionRepository, Depends(get_calendar_connection_repository)
+]
+
+
 def get_profile_service(
-    task_repo: TaskRepositoryDep, meeting_repo: MeetingRepositoryDep, user_id: CurrentUserIdDep
+    task_repo: TaskRepositoryDep,
+    meeting_repo: MeetingRepositoryDep,
+    calendar_repo: CalendarConnectionRepositoryDep,
+    user_id: CurrentUserIdDep,
 ) -> ProfileService:
-    return ProfileService(task_repo, meeting_repo, user_id)
+    return ProfileService(task_repo, meeting_repo, user_id, calendar_repo)
 
 
 ProfileServiceDep = Annotated[ProfileService, Depends(get_profile_service)]
 
 
+def get_calendar_service(
+    calendar_repo: CalendarConnectionRepositoryDep, user_id: CurrentUserIdDep
+) -> CalendarService:
+    return CalendarService(calendar_repo, user_id)
+
+
+CalendarServiceDep = Annotated[CalendarService, Depends(get_calendar_service)]
+
+
 def get_tool_registry(
-    task_repo: TaskRepositoryDep, meeting_repo: MeetingRepositoryDep, user_id: CurrentUserIdDep
+    task_repo: TaskRepositoryDep,
+    meeting_repo: MeetingRepositoryDep,
+    calendar_repo: CalendarConnectionRepositoryDep,
+    user_id: CurrentUserIdDep,
 ) -> ToolRegistry:
+    profile = ProfileService(task_repo, meeting_repo, user_id, calendar_repo)
     return ToolRegistry([
         TaskToolkit(task_repo, user_id),
-        MeetingToolkit(meeting_repo, user_id),
+        MeetingToolkit(profile),
     ])
 
 

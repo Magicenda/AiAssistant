@@ -1,4 +1,14 @@
-from .models import BaseModel, Type, MessageRole, User, Task, Meeting, Chat, Message
+from .models import (
+    BaseModel,
+    Type,
+    MessageRole,
+    User,
+    Task,
+    Meeting,
+    CalendarConnection,
+    Chat,
+    Message,
+)
 
 __all__ = [
     "BaseModel",
@@ -7,6 +17,7 @@ __all__ = [
     "User",
     "Task",
     "Meeting",
+    "CalendarConnection",
     "Chat",
     "Message",
 ]

@@ -45,6 +45,7 @@ class Meeting(BaseModel):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     description: Mapped[str] = mapped_column(String(255))
     appointment: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    yandex_uid: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=now_moscow,
@@ -55,6 +56,32 @@ class Meeting(BaseModel):
         return (
             f"Meeting(id={self.id!r}, appointment={self.appointment!r}, "
             f"description={self.description!r}, created_at={self.created_at!r})"
+        )
+
+
+class CalendarConnection(BaseModel):
+    """Per-user подключение к внешнему календарю (сейчас — Яндекс CalDAV)."""
+
+    __tablename__ = "calendar_connections"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(32), default="yandex", server_default="yandex")
+    login: Mapped[str] = mapped_column(String(255))
+    app_password_encrypted: Mapped[str] = mapped_column(String(512))
+    calendar_path: Mapped[str] = mapped_column(String(512))
+    connected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=now_moscow,
+        server_default=func.now(),
+    )
+
+    def __repr__(self):
+        return (
+            f"CalendarConnection(id={self.id!r}, user_id={self.user_id!r}, "
+            f"provider={self.provider!r}, login={self.login!r})"
         )
 
 

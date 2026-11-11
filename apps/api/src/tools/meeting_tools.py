@@ -1,12 +1,13 @@
 from core.time import as_moscow
 from db.models import Meeting
-from db.repository.meeting_repository import MeetingRepository
+from schemas.planner import MeetingCreate
 from schemas.tool import (
     CreateMeetingArgs,
     DeleteAllMeetingsArgs,
     DeleteMeetingArgs,
     ListMeetingsArgs,
 )
+from services.profile_service import ProfileService
 from tools.base import Toolkit, tool
 
 
@@ -19,9 +20,8 @@ def _meeting_to_dict(meeting: Meeting) -> dict:
 
 
 class MeetingToolkit(Toolkit):
-    def __init__(self, repository: MeetingRepository, user_id: int):
-        self.repository = repository
-        self.user_id = user_id
+    def __init__(self, profile: ProfileService):
+        self.profile = profile
 
     @tool(
         "create_meeting",
@@ -30,8 +30,8 @@ class MeetingToolkit(Toolkit):
         CreateMeetingArgs,
     )
     async def create_meeting(self, args: CreateMeetingArgs) -> dict:
-        meeting = await self.repository.create_meeting(
-            self.user_id, args.description, args.appointment
+        meeting = await self.profile.create_meeting(
+            MeetingCreate(description=args.description, appointment=args.appointment)
         )
         return _meeting_to_dict(meeting)
 
@@ -43,11 +43,7 @@ class MeetingToolkit(Toolkit):
         ListMeetingsArgs,
     )
     async def list_meetings(self, args: ListMeetingsArgs) -> dict:
-        meetings = await self.repository.list_meetings(
-            self.user_id,
-            args.limit,
-            args.only_upcoming,
-        )
+        meetings = await self.profile.get_meetings(args.limit, args.only_upcoming)
         return {
             "count": len(meetings),
             "meetings": [_meeting_to_dict(meeting) for meeting in meetings],
@@ -60,12 +56,12 @@ class MeetingToolkit(Toolkit):
         DeleteMeetingArgs,
     )
     async def delete_meeting(self, args: DeleteMeetingArgs) -> dict:
-        meeting = await self.repository.get_meeting(self.user_id, args.meeting_id)
+        meeting = await self.profile.find_meeting(args.meeting_id)
         if meeting is None:
             return {"error": f"Встреча с id {args.meeting_id} не найдена"}
 
         deleted_meeting = _meeting_to_dict(meeting)
-        await self.repository.delete_meeting(meeting)
+        await self.profile.delete_meeting(args.meeting_id)
         return {"deleted": True, "meeting": deleted_meeting}
 
     @tool(
@@ -75,5 +71,5 @@ class MeetingToolkit(Toolkit):
         DeleteAllMeetingsArgs,
     )
     async def delete_all_meetings(self, args: DeleteAllMeetingsArgs) -> dict:
-        deleted = await self.repository.delete_all_meetings(self.user_id)
+        deleted = await self.profile.delete_all_meetings()
         return {"deleted": deleted}
