@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.time import as_moscow, now_moscow
@@ -43,6 +43,20 @@ class MeetingRepository:
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
+    async def list_all_meetings(self, user_id: int) -> list[Meeting]:
+        """Возвращает все встречи пользователя без ограничения по количеству."""
+        result = await self.session.execute(select(Meeting).where(Meeting.user_id == user_id))
+        return list(result.scalars().all())
+
+    async def list_unsynced_meetings(self, user_id: int) -> list[Meeting]:
+        """Возвращает встречи пользователя, ещё не выгруженные в Яндекс.Календарь."""
+        result = await self.session.execute(
+            select(Meeting)
+            .where(Meeting.user_id == user_id, Meeting.yandex_uid.is_(None))
+            .order_by(Meeting.appointment.asc(), Meeting.id.asc())
+        )
+        return list(result.scalars().all())
+
     async def get_meeting(self, user_id: int, meeting_id: int) -> Meeting | None:
         result = await self.session.execute(
             select(Meeting).where(Meeting.id == meeting_id, Meeting.user_id == user_id)
@@ -68,3 +82,13 @@ class MeetingRepository:
     async def delete_meeting(self, meeting: Meeting) -> None:
         await self.session.delete(meeting)
         await self.session.flush()
+
+    async def delete_all_meetings(self, user_id: int) -> int:
+        """Удаляет все встречи пользователя и возвращает их число."""
+        result = await self.session.execute(
+            delete(Meeting)
+            .where(Meeting.user_id == user_id)
+            .execution_options(synchronize_session=False)
+        )
+        await self.session.flush()
+        return result.rowcount or 0

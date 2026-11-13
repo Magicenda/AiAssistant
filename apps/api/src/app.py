@@ -68,6 +68,8 @@ async def _ensure_columns(conn) -> None:
                 "WHERE type = 'notify' AND deadline <= CURRENT_TIMESTAMP"
             )
         )
+    if "yandex_uid" not in task_columns:
+        await conn.execute(text("ALTER TABLE tasks ADD COLUMN yandex_uid VARCHAR(128)"))
 
     meeting_columns = await conn.run_sync(
         lambda sync: {column["name"] for column in inspect(sync).get_columns("meetings")}

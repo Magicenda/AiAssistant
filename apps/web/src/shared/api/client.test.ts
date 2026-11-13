@@ -114,6 +114,13 @@ describe("apiRequest", () => {
     expect(parsed.searchParams.get("content")).toBe("Привет");
   });
 
+  it("returns null for 204 responses without a body", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(apiRequest("/api/profile/tasks/1", { method: "DELETE" })).resolves.toBeNull();
+  });
+
   it("throws ApiError for non-2xx responses", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ detail: "Чат не найден" }, 404));
     vi.stubGlobal("fetch", fetchMock);

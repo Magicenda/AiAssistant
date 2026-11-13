@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     )
 
     database_url: str
-    agent_max_steps: int = 5
+    agent_max_steps: int = 15
     history_limit: int = 20
     # секрет для подписи токенов: openssl rand -hex 32
     jwt_secret: str = Field(min_length=32)

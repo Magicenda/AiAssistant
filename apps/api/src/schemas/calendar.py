@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class YandexAuthorizeResponse(BaseModel):
@@ -13,3 +13,9 @@ class YandexCalendarStatus(BaseModel):
     connected: bool
     login: str | None = None
     connected_at: datetime | None = None
+
+
+class YandexSyncResult(BaseModel):
+    meetings: int = Field(description="Сколько встреч добавлено в календарь")
+    reminders: int = Field(description="Сколько напоминаний добавлено в календарь")
+    failed: int = Field(description="Сколько записей не удалось добавить")

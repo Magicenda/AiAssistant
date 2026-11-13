@@ -1,6 +1,7 @@
 import { isIsoDate } from "@/shared/lib/date";
 import type { MeetingItemDto, TaskItemDto } from "./types";
 
+/** Проверяет, что backend вернул задачу или напоминание в ожидаемом формате. */
 export function isTaskItemDto(value: unknown): value is TaskItemDto {
   if (!value || typeof value !== "object") return false;
   const item = value as Record<string, unknown>;
@@ -13,6 +14,7 @@ export function isTaskItemDto(value: unknown): value is TaskItemDto {
   );
 }
 
+/** Проверяет, что backend вернул встречу в ожидаемом формате. */
 export function isMeetingItemDto(value: unknown): value is MeetingItemDto {
   if (!value || typeof value !== "object") return false;
   const item = value as Record<string, unknown>;

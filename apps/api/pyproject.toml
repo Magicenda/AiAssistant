@@ -19,6 +19,7 @@ dependencies = [
     "pydantic>=2.14.1",
     "pyjwt>=2.15.1",
     "sqlalchemy[asyncio]>=2.1.5",
+    "tzdata>=2026.6",
 ]
 
 [project.scripts]

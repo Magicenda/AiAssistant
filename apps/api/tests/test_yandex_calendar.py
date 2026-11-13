@@ -8,11 +8,11 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from core.crypto import decrypt_secret, encrypt_secret
 from core.time import now_moscow
-from db.models import BaseModel, CalendarConnection, User
+from db.models import BaseModel, Type, User
 from db.repository.calendar_connection_repository import CalendarConnectionRepository
 from db.repository.meeting_repository import MeetingRepository
 from db.repository.task_repository import TaskRepository
-from schemas.planner import MeetingCreate, MeetingPatch
+from schemas.planner import MeetingCreate, MeetingPatch, TaskCreate, TaskPatch
 from services.calendar_service import CalendarService
 from services.profile_service import ProfileService
 from services.yandex_calendar_client import (
@@ -171,6 +171,74 @@ def test_profile_create_without_connection_skips_sync():
                 MeetingCreate(description="Локально", appointment=when)
             )
             assert meeting.yandex_uid is None
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_profile_syncs_reminders_and_unsynced_items():
+    async def scenario():
+        engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+        async with engine.begin() as conn:
+            await conn.run_sync(BaseModel.metadata.create_all)
+        factory = async_sessionmaker(engine, expire_on_commit=False)
+        async with factory() as session:
+            session.add(User(id=1, username="owner", hashed_password="hash"))
+            await session.flush()
+            calendars = CalendarConnectionRepository(session)
+            await calendars.upsert_yandex(
+                1,
+                login="user@yandex.ru",
+                access_token_encrypted=encrypt_secret("y0_token"),
+                refresh_token_encrypted=None,
+                token_expires_at=None,
+                calendar_path="/calendars/user@yandex.ru/events-default/",
+            )
+            tasks = TaskRepository(session)
+            meetings = MeetingRepository(session)
+            service = ProfileService(tasks, meetings, 1, calendars)
+            when = now_moscow() + timedelta(days=1)
+            put_mock = AsyncMock()
+            delete_mock = AsyncMock()
+
+            class FakeClient:
+                def __init__(self, *args, **kwargs):
+                    assert kwargs.get("access_token") == "y0_token"
+
+                async def __aenter__(self):
+                    return self
+
+                async def __aexit__(self, *args):
+                    return None
+
+                upsert_event = put_mock
+                delete_event = delete_mock
+
+            with patch("services.profile_service.YandexCalendarClient", FakeClient):
+                reminder = await service.create_task(
+                    TaskCreate(description="Напоминание", deadline=when), Type.NOTIFY
+                )
+                assert reminder.yandex_uid
+                assert put_mock.await_args.kwargs["summary"] == "Напоминание"
+
+                task = await service.create_task(
+                    TaskCreate(description="Задача", deadline=when), Type.TASK
+                )
+                assert task.yandex_uid is None
+
+                await service.update_task(
+                    reminder.id, Type.NOTIFY, TaskPatch(description="Новое напоминание")
+                )
+                assert put_mock.await_count == 2
+                uid = reminder.yandex_uid
+                await service.delete_task(reminder.id, Type.NOTIFY)
+                delete_mock.assert_awaited_once_with(uid)
+
+                await meetings.create_meeting(1, "Старая встреча", when)
+                await tasks.create_task(1, "Старое напоминание", when, Type.NOTIFY)
+                result = await service.sync_unsynced_items()
+                assert result == (1, 1, 0)
+                assert put_mock.await_count == 4
         await engine.dispose()
 
     asyncio.run(scenario())

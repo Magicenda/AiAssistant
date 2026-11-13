@@ -7,6 +7,7 @@ export const apiConfig = {
     llmQuery: 120_000,
     transcribe: 30_000,
     audioUpload: 60_000,
+    calendarSync: 60_000,
     jobStatus: 10_000,
   },
   limits: {

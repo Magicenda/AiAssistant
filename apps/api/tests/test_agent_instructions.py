@@ -1,6 +1,6 @@
 from pydantic import ValidationError
 
-from schemas.tool import CreateTaskArgs
+from schemas.tool import CreateTaskArgs, CreateTasksArgs
 from services.agent_service import SYSTEM_PROMPT
 from tools.base import to_gigachat_schema
 
@@ -28,3 +28,11 @@ def test_create_task_rejects_missing_deadline():
         assert error.errors()[0]["loc"] == ("deadline",)
     else:
         raise AssertionError("CreateTaskArgs принял задачу без обязательного срока")
+
+def test_create_tasks_schema_expands_nested_task_items():
+    schema = to_gigachat_schema(CreateTasksArgs.model_json_schema())
+    items = schema["properties"]["tasks"]["items"]
+
+    assert items["type"] == "object"
+    assert set(items["required"]) == {"description", "deadline"}
+    assert items["properties"]["deadline"]["type"] == "string"

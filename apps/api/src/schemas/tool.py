@@ -41,6 +41,16 @@ class CreateTaskArgs(BaseModel):
     )
 
 
+class CreateTasksArgs(BaseModel):
+    tasks: list[CreateTaskArgs] = Field(
+        min_length=1,
+        description=(
+            "Список задач для создания за один вызов. У каждой задачи обязательны "
+            "description и deadline"
+        ),
+    )
+
+
 class CreateReminderArgs(BaseModel):
     description: str = Field(description="О чём напомнить")
     remind_at: AwareDatetime = Field(
@@ -87,6 +97,43 @@ class CreateMeetingArgs(BaseModel):
             "например 2026-10-25T15:00:00+03:00"
         ),
     )
+
+
+class ListMeetingsArgs(BaseModel):
+    only_upcoming: bool = Field(
+        default=False,
+        description="true — вернуть только встречи с датой в будущем",
+    )
+    limit: int = Field(
+        default=20,
+        ge=1,
+        le=50,
+        description="Сколько встреч вернуть, не больше 50",
+    )
+
+
+class DeleteMeetingArgs(BaseModel):
+    meeting_id: int = Field(
+        ge=1,
+        description=(
+            "Номер встречи. Если пользователь его не назвал, сначала вызови "
+            "list_meetings и найди id"
+        ),
+    )
+
+
+class DeleteAllTasksArgs(BaseModel):
+    kind: Literal["task", "notify", "all"] = Field(
+        default="all",
+        description=(
+            "Что удалить: task — только задачи, notify — только напоминания, "
+            "all — задачи и напоминания вместе"
+        ),
+    )
+
+
+class DeleteAllMeetingsArgs(BaseModel):
+    pass
 
 
 class UpdateTaskArgs(BaseModel):

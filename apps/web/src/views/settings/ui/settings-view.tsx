@@ -2,13 +2,14 @@ import Link from "next/link";
 import { ArrowRight, KeyRound, ServerCog } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
+import { YandexCalendarCard } from "@/features/calendar-integration";
 import { ModelForm } from "@/features/model-settings";
 import { VoiceSettingsForm } from "@/features/voice-playback";
 
 /** Экран настроек: форма модели и пояснения, как настройки применяются. */
 export function SettingsView() {
   return (
-    <section className="mx-auto max-w-3xl space-y-6 p-2 pb-12 md:p-6">
+    <section className="mx-auto w-full max-w-3xl space-y-6 pb-12">
       <header className="space-y-3">
         <p className="text-primary font-mono text-xs tracking-[0.2em] uppercase">Модель</p>
         <h1 className="font-pixel text-foreground text-2xl sm:text-3xl">Настройки ассистента</h1>
@@ -40,6 +41,8 @@ export function SettingsView() {
       </div>
 
       <ModelForm />
+
+      <YandexCalendarCard />
 
       <VoiceSettingsForm />
 

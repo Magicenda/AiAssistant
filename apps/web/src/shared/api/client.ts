@@ -110,7 +110,10 @@ export async function apiRequest(path: string, options: ApiRequestOptions = {}):
       throw await readError(res);
     }
     if (!res.ok) throw await readError(res);
-    return await res.json();
+    // DELETE в API отвечает 204 без тела, поэтому пустой ответ не пытаемся парсить.
+    if (res.status === 204) return null;
+    const text = await res.text();
+    return text ? (JSON.parse(text) as unknown) : null;
   } catch (cause) {
     throw toTransportError(cause, prepared.method, path, prepared.timedOut());
   } finally {

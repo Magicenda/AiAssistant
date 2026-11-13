@@ -1,9 +1,12 @@
 from core.time import as_moscow
 from db.models import Task, Type
 from db.repository.task_repository import TaskRepository
+from services.profile_service import ProfileService
 from schemas.tool import (
     CreateReminderArgs,
     CreateTaskArgs,
+    CreateTasksArgs,
+    DeleteAllTasksArgs,
     DeleteTaskArgs,
     ListRemindersArgs,
     ListTasksArgs,
@@ -23,9 +26,15 @@ def _task_to_dict(task: Task) -> dict:
 
 
 class TaskToolkit(Toolkit):
-    def __init__(self, repository: TaskRepository, user_id: int):
+    def __init__(
+        self,
+        repository: TaskRepository,
+        user_id: int,
+        profile: ProfileService | None = None,
+    ):
         self.repository = repository
         self.user_id = user_id
+        self.profile = profile
 
     @tool(
         "create_task",
@@ -40,6 +49,22 @@ class TaskToolkit(Toolkit):
         return _task_to_dict(task)
 
     @tool(
+        "create_tasks",
+        "Создаёт несколько задач за один вызов. Используй, когда пользователь просит создать "
+        "несколько задач сразу, вместо многократных вызовов create_task. У каждой задачи "
+        "обязательны описание и срок.",
+        CreateTasksArgs,
+    )
+    async def create_tasks(self, args: CreateTasksArgs) -> dict:
+        created = []
+        for draft in args.tasks:
+            task = await self.repository.create_task(
+                self.user_id, draft.description, draft.deadline, Type.TASK
+            )
+            created.append(_task_to_dict(task))
+        return {"count": len(created), "tasks": created}
+
+    @tool(
         "create_reminder",
         "Создаёт напоминание на конкретное время. Вызывай, когда пользователь просит "
         "напомнить о чём-то. Время обязательно.",
@@ -47,6 +72,8 @@ class TaskToolkit(Toolkit):
     )
     async def create_reminder(self, args: CreateReminderArgs) -> dict:
         task = await self.repository.create_task(self.user_id, args.description, args.remind_at, Type.NOTIFY)
+        if self.profile is not None:
+            await self.profile.sync_reminder(task)
         return _task_to_dict(task)
 
     @tool(
@@ -112,6 +139,8 @@ class TaskToolkit(Toolkit):
             args.description,
             args.remind_at,
         )
+        if self.profile is not None:
+            await self.profile.sync_reminder(reminder)
         return _task_to_dict(reminder)
 
     @tool(
@@ -126,5 +155,26 @@ class TaskToolkit(Toolkit):
             return {"error": f"Задача с id {args.task_id} не найдена"}
 
         deleted_task = _task_to_dict(task)
+        yandex_uid = task.yandex_uid if task.type == Type.NOTIFY else None
         await self.repository.delete_task(task)
+        if yandex_uid and self.profile is not None:
+            await self.profile.delete_reminder_event(yandex_uid)
         return {"deleted": True, "task": deleted_task}
+
+    @tool(
+        "delete_all_tasks",
+        "Удаляет все задачи и/или напоминания пользователя одним вызовом. Вызывай только "
+        "когда пользователь явно просит удалить все задачи, все напоминания или все планы. "
+        "kind=all удаляет и задачи, и напоминания.",
+        DeleteAllTasksArgs,
+    )
+    async def delete_all_tasks(self, args: DeleteAllTasksArgs) -> dict:
+        kind = None if args.kind == "all" else Type(args.kind)
+        reminder_uids = []
+        if self.profile is not None and kind in (None, Type.NOTIFY):
+            reminder_uids = await self.repository.list_reminder_uids(self.user_id)
+        deleted = await self.repository.delete_all_tasks(self.user_id, kind)
+        if self.profile is not None:
+            for yandex_uid in reminder_uids:
+                await self.profile.delete_reminder_event(yandex_uid)
+        return {"deleted": deleted, "kind": args.kind}
