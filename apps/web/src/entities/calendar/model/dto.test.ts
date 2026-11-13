@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isYandexCalendarStatusDto, isYandexSyncResultDto } from "./dto";
+import {
+  isYandexAuthorizeResponseDto,
+  isYandexCalendarStatusDto,
+  isYandexSyncResultDto,
+} from "./dto";
 
 describe("calendar DTO guards", () => {
   it("accepts a connected calendar", () => {
@@ -23,6 +27,16 @@ describe("calendar DTO guards", () => {
     expect(isYandexCalendarStatusDto({ connected: true, login: "x", connected_at: "nope" })).toBe(
       false,
     );
+  });
+
+  it("validates the authorize response", () => {
+    expect(
+      isYandexAuthorizeResponseDto({
+        authorize_url: "https://oauth.yandex.ru/authorize?client_id=1",
+      }),
+    ).toBe(true);
+    expect(isYandexAuthorizeResponseDto({ authorize_url: "" })).toBe(false);
+    expect(isYandexAuthorizeResponseDto({})).toBe(false);
   });
 
   it("validates the sync result", () => {

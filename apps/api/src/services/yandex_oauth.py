@@ -23,6 +23,16 @@ class YandexOAuthError(Exception):
         self.status_code = status_code
 
 
+def create_yandex_http_client(timeout: float = 30.0) -> httpx.AsyncClient:
+    """Клиент к API Яндекса.
+
+    На части сетей IPv6 до oauth/login.yandex.ru обрывается на TLS,
+    поэтому исходящие соединения идут с IPv4 (`local_address=0.0.0.0`).
+    """
+    transport = httpx.AsyncHTTPTransport(local_address="0.0.0.0")
+    return httpx.AsyncClient(timeout=timeout, transport=transport)
+
+
 def oauth_configured() -> bool:
     return bool(settings.yandex_oauth_client_id and settings.yandex_oauth_client_secret)
 
@@ -71,19 +81,24 @@ def build_authorize_url(state: str) -> str:
 
 
 async def exchange_code(code: str, *, client: httpx.AsyncClient | None = None) -> dict[str, Any]:
-    http = client or httpx.AsyncClient(timeout=30.0)
+    http = client or create_yandex_http_client()
     owns = client is None
     try:
-        response = await http.post(
-            TOKEN_URL,
-            data={
-                "grant_type": "authorization_code",
-                "code": code,
-                "client_id": settings.yandex_oauth_client_id,
-                "client_secret": settings.yandex_oauth_client_secret,
-                "redirect_uri": settings.yandex_oauth_redirect_uri,
-            },
-        )
+        try:
+            response = await http.post(
+                TOKEN_URL,
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "client_id": settings.yandex_oauth_client_id,
+                    "client_secret": settings.yandex_oauth_client_secret,
+                    "redirect_uri": settings.yandex_oauth_redirect_uri,
+                },
+            )
+        except httpx.RequestError as exc:
+            raise YandexOAuthError(
+                f"Не удалось связаться с Яндекс OAuth при обмене code: {exc or type(exc).__name__}"
+            ) from exc
     finally:
         if owns:
             await http.aclose()
@@ -102,18 +117,23 @@ async def exchange_code(code: str, *, client: httpx.AsyncClient | None = None) -
 async def refresh_access_token(
     refresh_token: str, *, client: httpx.AsyncClient | None = None
 ) -> dict[str, Any]:
-    http = client or httpx.AsyncClient(timeout=30.0)
+    http = client or create_yandex_http_client()
     owns = client is None
     try:
-        response = await http.post(
-            TOKEN_URL,
-            data={
-                "grant_type": "refresh_token",
-                "refresh_token": refresh_token,
-                "client_id": settings.yandex_oauth_client_id,
-                "client_secret": settings.yandex_oauth_client_secret,
-            },
-        )
+        try:
+            response = await http.post(
+                TOKEN_URL,
+                data={
+                    "grant_type": "refresh_token",
+                    "refresh_token": refresh_token,
+                    "client_id": settings.yandex_oauth_client_id,
+                    "client_secret": settings.yandex_oauth_client_secret,
+                },
+            )
+        except httpx.RequestError as exc:
+            raise YandexOAuthError(
+                f"Не удалось связаться с Яндекс OAuth при refresh: {exc or type(exc).__name__}"
+            ) from exc
     finally:
         if owns:
             await http.aclose()
@@ -130,14 +150,19 @@ async def refresh_access_token(
 
 
 async def fetch_user_login(access_token: str, *, client: httpx.AsyncClient | None = None) -> str:
-    http = client or httpx.AsyncClient(timeout=30.0)
+    http = client or create_yandex_http_client()
     owns = client is None
     try:
-        response = await http.get(
-            INFO_URL,
-            params={"format": "json"},
-            headers={"Authorization": f"OAuth {access_token}"},
-        )
+        try:
+            response = await http.get(
+                INFO_URL,
+                params={"format": "json"},
+                headers={"Authorization": f"OAuth {access_token}"},
+            )
+        except httpx.RequestError as exc:
+            raise YandexOAuthError(
+                f"Не удалось связаться с Яндекс ID: {exc or type(exc).__name__}"
+            ) from exc
     finally:
         if owns:
             await http.aclose()

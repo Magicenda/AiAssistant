@@ -1,12 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   CalendarDays,
   CircleAlert,
   CircleCheck,
-  Eye,
-  EyeOff,
   Link2,
   LoaderCircle,
   RefreshCw,
@@ -17,16 +15,13 @@ import type { YandexCalendarStatusDto } from "@/entities/calendar";
 import { ApiError } from "@/shared/api";
 import { cn } from "@/shared/lib/cn";
 import { Button } from "@/shared/ui/button";
-import { Input } from "@/shared/ui/input";
 import {
-  connectYandexCalendar,
+  authorizeYandexCalendar,
   disconnectYandexCalendar,
   getYandexCalendarStatus,
   syncYandexCalendar,
 } from "../api";
 
-const labelClass =
-  "block space-y-2 font-mono text-xs uppercase tracking-wider text-muted-foreground";
 const connectedAtFormat = new Intl.DateTimeFormat("ru-RU", {
   day: "numeric",
   month: "long",
@@ -34,6 +29,9 @@ const connectedAtFormat = new Intl.DateTimeFormat("ru-RU", {
   hour: "2-digit",
   minute: "2-digit",
 });
+
+const OAUTH_POLL_MS = 1500;
+const OAUTH_TIMEOUT_MS = 5 * 60 * 1000;
 
 /** Итог действия с календарём — строка для блока со статусом. */
 interface Feedback {
@@ -48,19 +46,51 @@ function errorText(cause: unknown, fallback: string): string {
   return cause instanceof ApiError ? cause.message : fallback;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => window.setTimeout(resolve, ms));
+}
+
 /**
- * Карточка подключения Яндекс.Календаря через CalDAV ('use client': статус
- * загружается с backend, форма отправляет логин и пароль приложения).
+ * Ждёт, пока popup OAuth закроется или статус станет «подключено».
  *
- * @returns Секцию настроек со статусом подключения и формой авторизации.
+ * @param popup - окно Яндекс OAuth.
+ * @returns Актуальный статус или `null`, если пользователь закрыл окно без разрешения.
+ */
+async function waitForOAuthConnection(popup: Window): Promise<YandexCalendarStatusDto | null> {
+  const deadline = Date.now() + OAUTH_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    try {
+      const status = await getYandexCalendarStatus();
+      if (status.connected) {
+        if (!popup.closed) popup.close();
+        return status;
+      }
+    } catch {
+      // Пока пользователь на стороне Яндекса, временные сетевые сбои игнорируем.
+    }
+    if (popup.closed) {
+      try {
+        const status = await getYandexCalendarStatus();
+        return status.connected ? status : null;
+      } catch {
+        return null;
+      }
+    }
+    await sleep(OAUTH_POLL_MS);
+  }
+  return null;
+}
+
+/**
+ * Карточка подключения Яндекс.Календаря через OAuth ('use client': статус
+ * с backend, кнопка открывает окно Яндекса).
+ *
+ * @returns Секцию настроек со статусом подключения и кнопкой OAuth.
  */
 export function YandexCalendarCard() {
   const [status, setStatus] = useState<YandexCalendarStatusDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [login, setLogin] = useState("");
-  const [appPassword, setAppPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -90,18 +120,30 @@ export function YandexCalendarCard() {
     void fetchStatus();
   }
 
-  async function handleConnect(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleConnect() {
     setBusy(true);
     setFeedback(null);
     try {
-      const next = await connectYandexCalendar({
-        login: login.trim(),
-        app_password: appPassword,
-      });
+      const { authorize_url: authorizeUrl } = await authorizeYandexCalendar();
+      const popup = window.open(
+        authorizeUrl,
+        "yandex-calendar-oauth",
+        "popup=yes,width=520,height=720",
+      );
+      if (!popup) {
+        // Блокировщик попапов: уходим в той же вкладке на Яндекс.
+        window.location.assign(authorizeUrl);
+        return;
+      }
+      const next = await waitForOAuthConnection(popup);
+      if (!next) {
+        setFeedback({
+          tone: "error",
+          text: "Подключение не завершено. Разрешите доступ в окне Яндекса и попробуйте снова.",
+        });
+        return;
+      }
       setStatus(next);
-      setLogin("");
-      setAppPassword("");
       setFeedback({
         tone: "ok",
         text: "Календарь подключён: встречи и напоминания синхронизируются.",
@@ -267,71 +309,26 @@ export function YandexCalendarCard() {
           </p>
         </div>
       ) : (
-        <form className="space-y-4" onSubmit={handleConnect}>
+        <div className="space-y-4">
           <p className="text-muted-foreground font-mono text-[0.7rem] leading-relaxed">
-            Встречи и напоминания из планировщика будут создаваться в календаре Яндекса. Нужен
-            отдельный пароль приложения «Календарь»: основной пароль аккаунта не подойдёт.
+            Встречи и напоминания из планировщика будут создаваться в календаре Яндекса. Нажмите
+            «Подключить» — откроется окно Яндекса, где нужно разрешить доступ к календарю.
           </p>
 
-          <label className={labelClass}>
-            Логин Яндекса
-            <Input
-              required
-              type="email"
-              autoComplete="username"
-              spellCheck={false}
-              placeholder="you@yandex.ru"
-              value={login}
-              onChange={event => {
-                setLogin(event.target.value);
-                setFeedback(null);
-              }}
-            />
-          </label>
-
-          <label className={labelClass}>
-            Пароль приложения
-            <div className="relative">
-              <Input
-                required
-                type={showPassword ? "text" : "password"}
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="•••• •••• •••• ••••"
-                value={appPassword}
-                onChange={event => {
-                  setAppPassword(event.target.value);
-                  setFeedback(null);
-                }}
-                className="pr-11"
-              />
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className="absolute top-0 right-0 size-10"
-                aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
-                onClick={() => setShowPassword(value => !value)}
-              >
-                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </Button>
-            </div>
-          </label>
-
           <div className="flex flex-wrap items-center gap-3">
-            <Button type="submit" disabled={busy || !login.trim() || !appPassword}>
+            <Button type="button" disabled={busy} onClick={() => void handleConnect()}>
               {busy ? (
                 <LoaderCircle className="size-4 animate-spin" />
               ) : (
                 <Link2 className="size-4" />
               )}
-              Подключить
+              {busy ? "Ждём разрешение…" : "Подключить"}
             </Button>
             <span className="text-muted-foreground font-mono text-[0.7rem] leading-relaxed">
-              Пароль приложения создаётся в Яндекс ID → Безопасность → Пароли приложений.
+              Вход через Яндекс ID, без пароля приложения.
             </span>
           </div>
-        </form>
+        </div>
       )}
     </section>
   );

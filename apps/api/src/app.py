@@ -100,6 +100,11 @@ async def _ensure_columns(conn) -> None:
                     "ALTER TABLE calendar_connections ADD COLUMN token_expires_at TIMESTAMP WITH TIME ZONE"
                 )
             )
+        # Старый CalDAV с паролем приложения: колонка NOT NULL ломает INSERT OAuth-токенов.
+        if "app_password_encrypted" in calendar_columns:
+            await conn.execute(
+                text("ALTER TABLE calendar_connections DROP COLUMN app_password_encrypted")
+            )
 
 
 @asynccontextmanager

@@ -1,5 +1,9 @@
 import { isIsoDate } from "@/shared/lib/date";
-import type { YandexCalendarStatusDto, YandexSyncResultDto } from "./types";
+import type {
+  YandexAuthorizeResponseDto,
+  YandexCalendarStatusDto,
+  YandexSyncResultDto,
+} from "./types";
 
 /** Проверяет, что backend вернул статус Яндекс.Календаря в ожидаемом формате. */
 export function isYandexCalendarStatusDto(value: unknown): value is YandexCalendarStatusDto {
@@ -10,6 +14,13 @@ export function isYandexCalendarStatusDto(value: unknown): value is YandexCalend
     (status.login === null || typeof status.login === "string") &&
     (status.connected_at === null || isIsoDate(status.connected_at))
   );
+}
+
+/** Проверяет ответ authorize: нужен URL окна OAuth. */
+export function isYandexAuthorizeResponseDto(value: unknown): value is YandexAuthorizeResponseDto {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.authorize_url === "string" && row.authorize_url.length > 0;
 }
 
 /** Проверяет, что backend вернул итог синхронизации календаря в ожидаемом формате. */

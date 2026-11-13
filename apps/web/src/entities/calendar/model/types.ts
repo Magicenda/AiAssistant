@@ -8,12 +8,10 @@ export interface YandexCalendarStatusDto {
   connected_at: string | null;
 }
 
-/** Данные для подключения Яндекс.Календаря. */
-export interface YandexConnectInputDto {
-  /** Email Яндекса. */
-  login: string;
-  /** Пароль приложения «Календарь», а не основной пароль аккаунта. */
-  app_password: string;
+/** Ответ backend с URL окна Яндекс OAuth. */
+export interface YandexAuthorizeResponseDto {
+  /** URL страницы согласия Яндекс ID. */
+  authorize_url: string;
 }
 
 /** Итог выгрузки существующих записей в Яндекс.Календарь. */

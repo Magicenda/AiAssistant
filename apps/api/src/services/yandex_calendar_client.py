@@ -8,6 +8,8 @@ from xml.etree import ElementTree as ET
 
 import httpx
 
+from services.yandex_oauth import create_yandex_http_client
+
 CALDAV_BASE = "https://caldav.yandex.ru"
 DEFAULT_EVENT_DURATION = timedelta(hours=1)
 
@@ -95,7 +97,7 @@ class YandexCalendarClient:
 
     async def __aenter__(self) -> YandexCalendarClient:
         if self._client is None:
-            self._client = httpx.AsyncClient(timeout=30.0)
+            self._client = create_yandex_http_client()
         return self
 
     async def __aexit__(self, *args: Any) -> None:
@@ -117,17 +119,22 @@ class YandexCalendarClient:
     async def verify(self) -> None:
         """Проверяет OAuth-токен через PROPFIND к календарю по умолчанию."""
         url = f"{CALDAV_BASE}{self.calendar_path.rstrip('/')}/"
-        response = await self._http().request(
-            "PROPFIND",
-            url,
-            content=_PROPFIND_BODY,
-            headers=self._auth_headers(
-                {
-                    "Content-Type": "application/xml; charset=utf-8",
-                    "Depth": "0",
-                }
-            ),
-        )
+        try:
+            response = await self._http().request(
+                "PROPFIND",
+                url,
+                content=_PROPFIND_BODY,
+                headers=self._auth_headers(
+                    {
+                        "Content-Type": "application/xml; charset=utf-8",
+                        "Depth": "0",
+                    }
+                ),
+            )
+        except httpx.RequestError as exc:
+            raise YandexCalendarError(
+                f"Не удалось связаться с Яндекс Календарём: {exc or type(exc).__name__}"
+            ) from exc
         if response.status_code not in (207, 200):
             detail = response.text[:200] if response.text else ""
             raise YandexCalendarError(
@@ -149,11 +156,16 @@ class YandexCalendarClient:
     ) -> None:
         body = build_event_ics(uid=uid, summary=summary, start=start, duration=duration)
         url = event_url(self.login, uid, self.calendar_path)
-        response = await self._http().put(
-            url,
-            content=body.encode("utf-8"),
-            headers=self._auth_headers({"Content-Type": "text/calendar; charset=utf-8"}),
-        )
+        try:
+            response = await self._http().put(
+                url,
+                content=body.encode("utf-8"),
+                headers=self._auth_headers({"Content-Type": "text/calendar; charset=utf-8"}),
+            )
+        except httpx.RequestError as exc:
+            raise YandexCalendarError(
+                f"Не удалось связаться с Яндекс Календарём: {exc or type(exc).__name__}"
+            ) from exc
         if response.status_code not in (200, 201, 204):
             detail = response.text[:300] if response.text else ""
             raise YandexCalendarError(
@@ -163,7 +175,12 @@ class YandexCalendarClient:
 
     async def delete_event(self, uid: str) -> None:
         url = event_url(self.login, uid, self.calendar_path)
-        response = await self._http().delete(url, headers=self._auth_headers())
+        try:
+            response = await self._http().delete(url, headers=self._auth_headers())
+        except httpx.RequestError as exc:
+            raise YandexCalendarError(
+                f"Не удалось связаться с Яндекс Календарём: {exc or type(exc).__name__}"
+            ) from exc
         if response.status_code not in (200, 204, 404):
             detail = response.text[:300] if response.text else ""
             raise YandexCalendarError(

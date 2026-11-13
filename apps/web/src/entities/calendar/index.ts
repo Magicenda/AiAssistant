@@ -1,6 +1,10 @@
 export type {
+  YandexAuthorizeResponseDto,
   YandexCalendarStatusDto,
-  YandexConnectInputDto,
   YandexSyncResultDto,
 } from "./model/types";
-export { isYandexCalendarStatusDto, isYandexSyncResultDto } from "./model/dto";
+export {
+  isYandexAuthorizeResponseDto,
+  isYandexCalendarStatusDto,
+  isYandexSyncResultDto,
+} from "./model/dto";

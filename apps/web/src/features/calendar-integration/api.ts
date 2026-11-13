@@ -1,8 +1,9 @@
 import {
+  isYandexAuthorizeResponseDto,
   isYandexCalendarStatusDto,
   isYandexSyncResultDto,
+  type YandexAuthorizeResponseDto,
   type YandexCalendarStatusDto,
-  type YandexConnectInputDto,
   type YandexSyncResultDto,
 } from "@/entities/calendar";
 import { apiRequest, parseData } from "@/shared/api";
@@ -13,13 +14,11 @@ export async function getYandexCalendarStatus(): Promise<YandexCalendarStatusDto
   return parseData(await apiRequest("/api/calendar/yandex/status"), isYandexCalendarStatusDto);
 }
 
-/** Подключает Яндекс.Календарь по логину и паролю приложения. */
-export async function connectYandexCalendar(
-  input: YandexConnectInputDto,
-): Promise<YandexCalendarStatusDto> {
+/** Возвращает URL окна Яндекс OAuth для подключения календаря. */
+export async function authorizeYandexCalendar(): Promise<YandexAuthorizeResponseDto> {
   return parseData(
-    await apiRequest("/api/calendar/yandex/connect", { method: "POST", body: input }),
-    isYandexCalendarStatusDto,
+    await apiRequest("/api/calendar/yandex/authorize"),
+    isYandexAuthorizeResponseDto,
   );
 }
 
