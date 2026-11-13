@@ -32,9 +32,14 @@ def test_audio_service_uses_fast_local_whisper_profile():
     _, options = model_factory.return_value.transcribe.call_args
     assert options["beam_size"] == 1
     assert options["best_of"] == 1
+    assert options["temperature"] == 0.0
     assert options["vad_filter"] is True
-    assert options["vad_parameters"] == {"min_silence_duration_ms": 500}
+    assert options["vad_parameters"] == {
+        "min_silence_duration_ms": 500,
+        "speech_pad_ms": 400,
+    }
     assert options["condition_on_previous_text"] is False
     assert options["without_timestamps"] is True
+    assert "русском" in options["initial_prompt"].lower()
     assert result.status is True
     assert result.text == "тестовая фраза"

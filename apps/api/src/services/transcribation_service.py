@@ -36,15 +36,25 @@ class AudioService:
         )
 
     def _transcribe(self, audio_bytes: bytes) -> str:
+        # initial_prompt и beam>1 заметно лучше держат русский на шумном микрофоне;
+        # temperature=0 — детерминированный разбор коротких реплик.
         segments, _info = self.model.transcribe(
             io.BytesIO(audio_bytes),
             language=self.language,
             beam_size=self.beam_size,
-            best_of=1,
+            best_of=self.beam_size,
+            temperature=0.0,
             vad_filter=True,
-            vad_parameters={"min_silence_duration_ms": self.vad_min_silence_ms},
+            vad_parameters={
+                "min_silence_duration_ms": self.vad_min_silence_ms,
+                "speech_pad_ms": 400,
+            },
             condition_on_previous_text=False,
             without_timestamps=True,
+            initial_prompt=(
+                "Диалог с голосовым ассистентом на русском языке. "
+                "Задачи, встречи, напоминания, календарь."
+            ),
         )
         return "".join(segment.text for segment in segments).strip()
 

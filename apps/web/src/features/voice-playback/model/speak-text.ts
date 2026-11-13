@@ -1,6 +1,7 @@
 import { createSpeechStream } from "@/features/assistant";
 import { readVoiceSettings } from "@/entities/voice";
 import { plainText } from "@/shared/lib/plain-text";
+import { getSharedAudioElement, unlockAudioPlayback } from "./audio-unlock";
 
 /** Фаза подготовки и проигрывания речи. */
 export type SpeakPhase = "loading" | "playing";
@@ -52,7 +53,11 @@ function play(url: string, signal: AbortSignal, onPlaying: () => void) {
       reject(abortError());
       return;
     }
-    const audio = new Audio(url);
+    // Тот же элемент, что разблокировали жестом — иначе Safari/Chrome режут autoplay.
+    const audio = getSharedAudioElement();
+    audio.pause();
+    audio.src = url;
+    audio.volume = 1;
     const cleanup = () => {
       audio.onplaying = null;
       audio.onended = null;
@@ -81,7 +86,11 @@ function play(url: string, signal: AbortSignal, onPlaying: () => void) {
     };
     void audio.play().catch(cause => {
       cleanup();
-      reject(cause);
+      reject(
+        cause instanceof DOMException && cause.name === "NotAllowedError"
+          ? new DOMException("Браузер заблокировал звук. Нажмите «Повторить».", "NotAllowedError")
+          : cause,
+      );
     });
   });
 }
@@ -168,6 +177,10 @@ export async function speakText(text: string, options: SpeakOptions = {}) {
   if (!clean) return;
 
   const signal = options.signal ?? new AbortController().signal;
+  if (signal.aborted) throw abortError();
+
+  // На «Повторить» снова разблокируем — жест пользователя актуален.
+  await unlockAudioPlayback();
   if (signal.aborted) throw abortError();
 
   options.onPhase?.("loading");
