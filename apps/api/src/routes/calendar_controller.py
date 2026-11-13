@@ -1,7 +1,14 @@
 from fastapi import APIRouter, Query
 
 from deps import CalendarCallbackServiceDep, CalendarServiceDep, ProfileServiceDep
-from schemas.calendar import YandexAuthorizeResponse, YandexCalendarStatus, YandexSyncResult
+from schemas.calendar import (
+    AppleCalendarConnectRequest,
+    AppleCalendarStatus,
+    AppleSyncResult,
+    YandexAuthorizeResponse,
+    YandexCalendarStatus,
+    YandexSyncResult,
+)
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
 
@@ -35,5 +42,30 @@ async def yandex_disconnect(service: CalendarServiceDep) -> YandexCalendarStatus
 
 @router.post("/yandex/sync", response_model=YandexSyncResult)
 async def yandex_sync(service: ProfileServiceDep) -> YandexSyncResult:
-    meetings, reminders, failed = await service.sync_unsynced_items()
+    meetings, reminders, failed = await service.sync_unsynced_items("yandex")
     return YandexSyncResult(meetings=meetings, reminders=reminders, failed=failed)
+
+
+@router.post("/apple/connect", response_model=AppleCalendarStatus)
+async def apple_connect(
+    body: AppleCalendarConnectRequest, service: CalendarServiceDep
+) -> AppleCalendarStatus:
+    """Подключает iCloud Календарь по Apple ID и паролю приложения."""
+    return await service.apple_connect(body)
+
+
+@router.get("/apple/status", response_model=AppleCalendarStatus)
+async def apple_status(service: CalendarServiceDep) -> AppleCalendarStatus:
+    return await service.apple_status()
+
+
+@router.delete("/apple/disconnect", response_model=AppleCalendarStatus)
+async def apple_disconnect(service: CalendarServiceDep) -> AppleCalendarStatus:
+    await service.disconnect_apple()
+    return AppleCalendarStatus(connected=False)
+
+
+@router.post("/apple/sync", response_model=AppleSyncResult)
+async def apple_sync(service: ProfileServiceDep) -> AppleSyncResult:
+    meetings, reminders, failed = await service.sync_unsynced_items("apple")
+    return AppleSyncResult(meetings=meetings, reminders=reminders, failed=failed)

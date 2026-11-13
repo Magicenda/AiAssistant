@@ -1,7 +1,17 @@
 from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import Boolean, String, DateTime, Integer, Enum as SQLEnum, Text, func, ForeignKey
+from sqlalchemy import (
+    Boolean,
+    String,
+    DateTime,
+    Integer,
+    Enum as SQLEnum,
+    Text,
+    UniqueConstraint,
+    func,
+    ForeignKey,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase
 
 from core.time import now_moscow
@@ -46,6 +56,7 @@ class Meeting(BaseModel):
     description: Mapped[str] = mapped_column(String(255))
     appointment: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     yandex_uid: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    apple_uid: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=now_moscow,
@@ -60,13 +71,16 @@ class Meeting(BaseModel):
 
 
 class CalendarConnection(BaseModel):
-    """Per-user подключение к внешнему календарю через OAuth (Яндекс CalDAV)."""
+    """Подключение пользователя к внешнему календарю (Яндекс OAuth или Apple CalDAV)."""
 
     __tablename__ = "calendar_connections"
+    __table_args__ = (
+        UniqueConstraint("user_id", "provider", name="uq_calendar_connections_user_provider"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     provider: Mapped[str] = mapped_column(String(32), default="yandex", server_default="yandex")
     login: Mapped[str] = mapped_column(String(255))
@@ -97,6 +111,7 @@ class Task(BaseModel):
             DateTime(timezone=True))
     notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     yandex_uid: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    apple_uid: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=now_moscow,

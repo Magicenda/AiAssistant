@@ -115,6 +115,8 @@ export async function apiRequest(path: string, options: ApiRequestOptions = {}):
     const text = await res.text();
     return text ? (JSON.parse(text) as unknown) : null;
   } catch (cause) {
+    // readError уже вернул ApiError — не маскируем HTTP-ошибки под «сеть недоступна».
+    if (cause instanceof ApiError) throw cause;
     throw toTransportError(cause, prepared.method, path, prepared.timedOut());
   } finally {
     prepared.cleanup();

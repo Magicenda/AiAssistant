@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight, KeyRound, ServerCog } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
-import { YandexCalendarCard } from "@/features/calendar-integration";
+import { AppleCalendarCard, YandexCalendarCard } from "@/features/calendar-integration";
 import { ModelForm } from "@/features/model-settings";
 import { VoiceSettingsForm } from "@/features/voice-playback";
 
@@ -42,7 +42,11 @@ export function SettingsView() {
 
       <ModelForm />
 
-      <YandexCalendarCard />
+      <div className="space-y-3">
+        <p className="text-primary font-mono text-xs tracking-[0.2em] uppercase">Календари</p>
+        <YandexCalendarCard />
+        <AppleCalendarCard />
+      </div>
 
       <VoiceSettingsForm />
 

@@ -1,7 +1,11 @@
 import {
+  isAppleCalendarStatusDto,
+  isAppleSyncResultDto,
   isYandexAuthorizeResponseDto,
   isYandexCalendarStatusDto,
   isYandexSyncResultDto,
+  type AppleCalendarStatusDto,
+  type AppleSyncResultDto,
   type YandexAuthorizeResponseDto,
   type YandexCalendarStatusDto,
   type YandexSyncResultDto,
@@ -38,5 +42,43 @@ export async function syncYandexCalendar(): Promise<YandexSyncResultDto> {
       timeoutMs: apiConfig.timeoutsMs.calendarSync,
     }),
     isYandexSyncResultDto,
+  );
+}
+
+/** Получает статус подключения Apple Календаря. */
+export async function getAppleCalendarStatus(): Promise<AppleCalendarStatusDto> {
+  return parseData(await apiRequest("/api/calendar/apple/status"), isAppleCalendarStatusDto);
+}
+
+/** Подключает iCloud Календарь по Apple ID и паролю приложения. */
+export async function connectAppleCalendar(
+  appleId: string,
+  appPassword: string,
+): Promise<AppleCalendarStatusDto> {
+  return parseData(
+    await apiRequest("/api/calendar/apple/connect", {
+      method: "POST",
+      body: { apple_id: appleId, app_password: appPassword },
+    }),
+    isAppleCalendarStatusDto,
+  );
+}
+
+/** Отключает Apple Календарь от профиля пользователя. */
+export async function disconnectAppleCalendar(): Promise<AppleCalendarStatusDto> {
+  return parseData(
+    await apiRequest("/api/calendar/apple/disconnect", { method: "DELETE" }),
+    isAppleCalendarStatusDto,
+  );
+}
+
+/** Выгружает в Apple Календарь встречи и напоминания без apple_uid. */
+export async function syncAppleCalendar(): Promise<AppleSyncResultDto> {
+  return parseData(
+    await apiRequest("/api/calendar/apple/sync", {
+      method: "POST",
+      timeoutMs: apiConfig.timeoutsMs.calendarSync,
+    }),
+    isAppleSyncResultDto,
   );
 }

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  isAppleCalendarStatusDto,
+  isAppleSyncResultDto,
   isYandexAuthorizeResponseDto,
   isYandexCalendarStatusDto,
   isYandexSyncResultDto,
@@ -42,5 +44,20 @@ describe("calendar DTO guards", () => {
   it("validates the sync result", () => {
     expect(isYandexSyncResultDto({ meetings: 2, reminders: 3, failed: 0 })).toBe(true);
     expect(isYandexSyncResultDto({ meetings: 2, reminders: 3 })).toBe(false);
+  });
+
+  it("accepts Apple calendar status and sync result", () => {
+    expect(
+      isAppleCalendarStatusDto({
+        connected: true,
+        login: "user@icloud.com",
+        connected_at: "2026-11-13T12:00:00+00:00",
+      }),
+    ).toBe(true);
+    expect(isAppleCalendarStatusDto({ connected: false, login: null, connected_at: null })).toBe(
+      true,
+    );
+    expect(isAppleSyncResultDto({ meetings: 1, reminders: 0, failed: 0 })).toBe(true);
+    expect(isAppleSyncResultDto({ meetings: 1 })).toBe(false);
   });
 });

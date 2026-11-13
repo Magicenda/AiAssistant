@@ -7,7 +7,13 @@ from core.config import settings
 from core.crypto import decrypt_secret, encrypt_secret
 from db.models import CalendarConnection
 from db.repository.calendar_connection_repository import CalendarConnectionRepository
-from schemas.calendar import YandexAuthorizeResponse, YandexCalendarStatus
+from schemas.calendar import (
+    AppleCalendarConnectRequest,
+    AppleCalendarStatus,
+    YandexAuthorizeResponse,
+    YandexCalendarStatus,
+)
+from services.apple_calendar_client import AppleCalendarClient, AppleCalendarError
 from services.yandex_calendar_client import (
     YandexCalendarClient,
     YandexCalendarError,
@@ -84,7 +90,7 @@ class CalendarService:
         )
 
     async def yandex_status(self) -> YandexCalendarStatus:
-        connection = await self.connections.get_for_user(self._require_user())
+        connection = await self.connections.get_for_user(self._require_user(), "yandex")
         if connection is None:
             return YandexCalendarStatus(connected=False)
         return YandexCalendarStatus(
@@ -94,9 +100,47 @@ class CalendarService:
         )
 
     async def disconnect_yandex(self) -> None:
-        deleted = await self.connections.delete_for_user(self._require_user())
+        deleted = await self.connections.delete_for_user(self._require_user(), "yandex")
         if not deleted:
             raise HTTPException(status_code=404, detail="Яндекс Календарь не подключён")
+
+    async def apple_connect(self, request: AppleCalendarConnectRequest) -> AppleCalendarStatus:
+        user_id = self._require_user()
+        try:
+            async with AppleCalendarClient(
+                request.apple_id, app_password=request.app_password
+            ) as client:
+                path = await client.verify()
+        except AppleCalendarError as exc:
+            status = 401 if exc.status_code in (401, 403) else 502
+            raise HTTPException(status_code=status, detail=str(exc)) from exc
+
+        connection = await self.connections.upsert_apple(
+            user_id,
+            login=request.apple_id,
+            app_password_encrypted=encrypt_secret(request.app_password),
+            calendar_path=path,
+        )
+        return AppleCalendarStatus(
+            connected=True,
+            login=connection.login,
+            connected_at=connection.connected_at,
+        )
+
+    async def apple_status(self) -> AppleCalendarStatus:
+        connection = await self.connections.get_for_user(self._require_user(), "apple")
+        if connection is None:
+            return AppleCalendarStatus(connected=False)
+        return AppleCalendarStatus(
+            connected=True,
+            login=connection.login,
+            connected_at=connection.connected_at,
+        )
+
+    async def disconnect_apple(self) -> None:
+        deleted = await self.connections.delete_for_user(self._require_user(), "apple")
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Apple Календарь не подключён")
 
     async def resolve_access_token(self, connection: CalendarConnection) -> str:
         """Возвращает действующий access_token, при необходимости обновляя его."""

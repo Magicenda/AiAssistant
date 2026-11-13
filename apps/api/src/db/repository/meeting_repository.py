@@ -49,13 +49,8 @@ class MeetingRepository:
         return list(result.scalars().all())
 
     async def list_unsynced_meetings(self, user_id: int) -> list[Meeting]:
-        """Возвращает встречи пользователя, ещё не выгруженные в Яндекс.Календарь."""
-        result = await self.session.execute(
-            select(Meeting)
-            .where(Meeting.user_id == user_id, Meeting.yandex_uid.is_(None))
-            .order_by(Meeting.appointment.asc(), Meeting.id.asc())
-        )
-        return list(result.scalars().all())
+        """Встречи без yandex_uid (обратная совместимость)."""
+        return await self.list_unsynced_meetings_for_provider(user_id, "yandex")
 
     async def get_meeting(self, user_id: int, meeting_id: int) -> Meeting | None:
         result = await self.session.execute(
@@ -63,12 +58,23 @@ class MeetingRepository:
         )
         return result.scalars().first()
 
+    async def list_unsynced_meetings_for_provider(self, user_id: int, provider: str) -> list[Meeting]:
+        """Встречи без UID выбранного провайдера (yandex | apple)."""
+        uid_column = Meeting.apple_uid if provider == "apple" else Meeting.yandex_uid
+        result = await self.session.execute(
+            select(Meeting)
+            .where(Meeting.user_id == user_id, uid_column.is_(None))
+            .order_by(Meeting.appointment.asc(), Meeting.id.asc())
+        )
+        return list(result.scalars().all())
+
     async def update_meeting(
         self,
         meeting: Meeting,
         description: str | None = None,
         appointment: datetime | None = None,
         yandex_uid: str | None = None,
+        apple_uid: str | None = None,
     ) -> Meeting:
         if description is not None:
             meeting.description = description
@@ -76,6 +82,8 @@ class MeetingRepository:
             meeting.appointment = as_moscow(appointment)
         if yandex_uid is not None:
             meeting.yandex_uid = yandex_uid
+        if apple_uid is not None:
+            meeting.apple_uid = apple_uid
         await self.session.flush()
         return meeting
 

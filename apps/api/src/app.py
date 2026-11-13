@@ -70,12 +70,16 @@ async def _ensure_columns(conn) -> None:
         )
     if "yandex_uid" not in task_columns:
         await conn.execute(text("ALTER TABLE tasks ADD COLUMN yandex_uid VARCHAR(128)"))
+    if "apple_uid" not in task_columns:
+        await conn.execute(text("ALTER TABLE tasks ADD COLUMN apple_uid VARCHAR(128)"))
 
     meeting_columns = await conn.run_sync(
         lambda sync: {column["name"] for column in inspect(sync).get_columns("meetings")}
     )
     if "yandex_uid" not in meeting_columns:
         await conn.execute(text("ALTER TABLE meetings ADD COLUMN yandex_uid VARCHAR(128)"))
+    if "apple_uid" not in meeting_columns:
+        await conn.execute(text("ALTER TABLE meetings ADD COLUMN apple_uid VARCHAR(128)"))
 
     table_names = await conn.run_sync(lambda sync: set(inspect(sync).get_table_names()))
     if "calendar_connections" in table_names:
@@ -104,6 +108,37 @@ async def _ensure_columns(conn) -> None:
         if "app_password_encrypted" in calendar_columns:
             await conn.execute(
                 text("ALTER TABLE calendar_connections DROP COLUMN app_password_encrypted")
+            )
+        # Несколько провайдеров на пользователя: (user_id, provider) вместо unique user_id.
+        # Старый unique=True на user_id мог оставить и CONSTRAINT, и UNIQUE INDEX
+        # (ix_calendar_connections_user_id) — оба мешают второй строке (Apple рядом с Яндексом).
+        dialect = conn.dialect.name
+        if dialect == "postgresql":
+            await conn.execute(
+                text(
+                    "ALTER TABLE calendar_connections "
+                    "DROP CONSTRAINT IF EXISTS calendar_connections_user_id_key"
+                )
+            )
+            await conn.execute(text("DROP INDEX IF EXISTS ix_calendar_connections_user_id"))
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_calendar_connections_user_id "
+                    "ON calendar_connections (user_id)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_calendar_connections_user_provider "
+                    "ON calendar_connections (user_id, provider)"
+                )
+            )
+        elif dialect == "sqlite":
+            await conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_calendar_connections_user_provider "
+                    "ON calendar_connections (user_id, provider)"
+                )
             )
 
 

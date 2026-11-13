@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.time import as_moscow, now_moscow
@@ -42,6 +42,7 @@ class TaskRepository:
         description: str | None = None,
         deadline: datetime | None = None,
         yandex_uid: str | None = None,
+        apple_uid: str | None = None,
     ) -> Task:
         if description is not None:
             task.description = description
@@ -51,33 +52,47 @@ class TaskRepository:
                 task.notified_at = None
         if yandex_uid is not None:
             task.yandex_uid = yandex_uid
+        if apple_uid is not None:
+            task.apple_uid = apple_uid
         await self.session.flush()
         return task
 
-    async def list_unsynced_reminders(self, user_id: int) -> list[Task]:
-        """Возвращает напоминания, ещё не выгруженные в Яндекс.Календарь."""
+    async def list_unsynced_reminders_for_provider(self, user_id: int, provider: str) -> list[Task]:
+        """Напоминания без UID выбранного провайдера (yandex | apple)."""
+        uid_column = Task.apple_uid if provider == "apple" else Task.yandex_uid
         result = await self.session.execute(
             select(Task)
             .where(
                 Task.user_id == user_id,
                 Task.type == Type.NOTIFY,
                 Task.deadline.is_not(None),
-                Task.yandex_uid.is_(None),
+                uid_column.is_(None),
             )
             .order_by(Task.deadline.asc(), Task.id.asc())
         )
         return list(result.scalars().all())
 
+    async def list_unsynced_reminders(self, user_id: int) -> list[Task]:
+        """Напоминания без yandex_uid (обратная совместимость)."""
+        return await self.list_unsynced_reminders_for_provider(user_id, "yandex")
+
     async def list_reminder_uids(self, user_id: int) -> list[str]:
-        """Возвращает uid напоминаний пользователя, уже добавленных в календарь."""
+        """Возвращает yandex_uid напоминаний (обратная совместимость)."""
+        pairs = await self.list_reminder_calendar_uids(user_id)
+        return [yandex_uid for yandex_uid, _ in pairs if yandex_uid]
+
+    async def list_reminder_calendar_uids(
+        self, user_id: int
+    ) -> list[tuple[str | None, str | None]]:
+        """Возвращает (yandex_uid, apple_uid) напоминаний с хотя бы одним UID."""
         result = await self.session.execute(
-            select(Task.yandex_uid).where(
+            select(Task.yandex_uid, Task.apple_uid).where(
                 Task.user_id == user_id,
                 Task.type == Type.NOTIFY,
-                Task.yandex_uid.is_not(None),
+                or_(Task.yandex_uid.is_not(None), Task.apple_uid.is_not(None)),
             )
         )
-        return [uid for (uid,) in result.all() if uid]
+        return [(yandex_uid, apple_uid) for yandex_uid, apple_uid in result.all()]
 
     async def delete_task(self, task: Task) -> None:
         await self.session.delete(task)

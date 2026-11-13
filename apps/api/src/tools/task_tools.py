@@ -156,9 +156,10 @@ class TaskToolkit(Toolkit):
 
         deleted_task = _task_to_dict(task)
         yandex_uid = task.yandex_uid if task.type == Type.NOTIFY else None
+        apple_uid = task.apple_uid if task.type == Type.NOTIFY else None
         await self.repository.delete_task(task)
-        if yandex_uid and self.profile is not None:
-            await self.profile.delete_reminder_event(yandex_uid)
+        if (yandex_uid or apple_uid) and self.profile is not None:
+            await self.profile.delete_reminder_event(yandex_uid=yandex_uid, apple_uid=apple_uid)
         return {"deleted": True, "task": deleted_task}
 
     @tool(
@@ -170,11 +171,11 @@ class TaskToolkit(Toolkit):
     )
     async def delete_all_tasks(self, args: DeleteAllTasksArgs) -> dict:
         kind = None if args.kind == "all" else Type(args.kind)
-        reminder_uids = []
+        reminder_uids: list[tuple[str | None, str | None]] = []
         if self.profile is not None and kind in (None, Type.NOTIFY):
-            reminder_uids = await self.repository.list_reminder_uids(self.user_id)
+            reminder_uids = await self.repository.list_reminder_calendar_uids(self.user_id)
         deleted = await self.repository.delete_all_tasks(self.user_id, kind)
         if self.profile is not None:
-            for yandex_uid in reminder_uids:
-                await self.profile.delete_reminder_event(yandex_uid)
+            for yandex_uid, apple_uid in reminder_uids:
+                await self.profile.delete_reminder_event(yandex_uid=yandex_uid, apple_uid=apple_uid)
         return {"deleted": deleted, "kind": args.kind}

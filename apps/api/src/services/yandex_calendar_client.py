@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any
 from xml.etree import ElementTree as ET
 
 import httpx
 
+from services.caldav_ics import DEFAULT_EVENT_DURATION, build_event_ics
 from services.yandex_oauth import create_yandex_http_client
 
+# Реэкспорт для тестов и старых импортов.
+from services.caldav_ics import escape_ics_text, format_ics_datetime  # noqa: F401
+
 CALDAV_BASE = "https://caldav.yandex.ru"
-DEFAULT_EVENT_DURATION = timedelta(hours=1)
 
 _PROPFIND_BODY = (
     '<?xml version="1.0" encoding="utf-8"?>'
@@ -28,50 +31,6 @@ def default_calendar_path(login: str) -> str:
 def event_url(login: str, uid: str, calendar_path: str | None = None) -> str:
     path = (calendar_path or default_calendar_path(login)).rstrip("/")
     return f"{CALDAV_BASE}{path}/{uid}.ics"
-
-
-def escape_ics_text(value: str) -> str:
-    return (
-        value.replace("\\", "\\\\")
-        .replace(";", "\\;")
-        .replace(",", "\\,")
-        .replace("\n", "\\n")
-        .replace("\r", "")
-    )
-
-
-def format_ics_datetime(value: datetime) -> str:
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-
-
-def build_event_ics(
-    *,
-    uid: str,
-    summary: str,
-    start: datetime,
-    duration: timedelta = DEFAULT_EVENT_DURATION,
-) -> str:
-    end = start + duration
-    stamp = format_ics_datetime(datetime.now(timezone.utc))
-    return "\r\n".join(
-        [
-            "BEGIN:VCALENDAR",
-            "VERSION:2.0",
-            "PRODID:-//AiAssistant//EN",
-            "CALSCALE:GREGORIAN",
-            "BEGIN:VEVENT",
-            f"UID:{uid}",
-            f"DTSTAMP:{stamp}",
-            f"DTSTART:{format_ics_datetime(start)}",
-            f"DTEND:{format_ics_datetime(end)}",
-            f"SUMMARY:{escape_ics_text(summary)}",
-            "END:VEVENT",
-            "END:VCALENDAR",
-            "",
-        ]
-    )
 
 
 class YandexCalendarError(Exception):

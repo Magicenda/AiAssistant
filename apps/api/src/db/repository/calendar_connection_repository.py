@@ -20,6 +20,12 @@ class CalendarConnectionRepository:
         )
         return result.scalars().first()
 
+    async def list_for_user(self, user_id: int) -> list[CalendarConnection]:
+        result = await self.session.execute(
+            select(CalendarConnection).where(CalendarConnection.user_id == user_id)
+        )
+        return list(result.scalars().all())
+
     async def upsert_yandex(
         self,
         user_id: int,
@@ -48,6 +54,38 @@ class CalendarConnectionRepository:
             existing.access_token_encrypted = access_token_encrypted
             existing.refresh_token_encrypted = refresh_token_encrypted
             existing.token_expires_at = token_expires_at
+            existing.calendar_path = calendar_path
+            existing.connected_at = now_moscow()
+        await self.session.flush()
+        return existing
+
+    async def upsert_apple(
+        self,
+        user_id: int,
+        *,
+        login: str,
+        app_password_encrypted: str,
+        calendar_path: str,
+    ) -> CalendarConnection:
+        """Сохраняет Apple ID + пароль приложения (в колонке access_token_encrypted)."""
+        existing = await self.get_for_user(user_id, "apple")
+        if existing is None:
+            existing = CalendarConnection(
+                user_id=user_id,
+                provider="apple",
+                login=login,
+                access_token_encrypted=app_password_encrypted,
+                refresh_token_encrypted=None,
+                token_expires_at=None,
+                calendar_path=calendar_path,
+                connected_at=now_moscow(),
+            )
+            self.session.add(existing)
+        else:
+            existing.login = login
+            existing.access_token_encrypted = app_password_encrypted
+            existing.refresh_token_encrypted = None
+            existing.token_expires_at = None
             existing.calendar_path = calendar_path
             existing.connected_at = now_moscow()
         await self.session.flush()
