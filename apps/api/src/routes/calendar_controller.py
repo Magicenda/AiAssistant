@@ -1,21 +1,30 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
-from deps import CalendarServiceDep
-from schemas.calendar import YandexCalendarStatus, YandexConnectRequest
+from deps import CalendarCallbackServiceDep, CalendarServiceDep
+from schemas.calendar import YandexAuthorizeResponse, YandexCalendarStatus
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
+
+
+@router.get("/yandex/authorize", response_model=YandexAuthorizeResponse)
+async def yandex_authorize(service: CalendarServiceDep) -> YandexAuthorizeResponse:
+    """Возвращает URL окна Яндекс OAuth. Откройте его в браузере / popup."""
+    return await service.yandex_authorize()
+
+
+@router.get("/yandex/callback")
+async def yandex_callback(
+    service: CalendarCallbackServiceDep,
+    code: str | None = Query(None),
+    state: str | None = Query(None),
+):
+    """Redirect URI для Яндекс OAuth (без JWT — user_id берётся из state)."""
+    return await service.yandex_callback(code, state)
 
 
 @router.get("/yandex/status", response_model=YandexCalendarStatus)
 async def yandex_status(service: CalendarServiceDep) -> YandexCalendarStatus:
     return await service.yandex_status()
-
-
-@router.post("/yandex/connect", response_model=YandexCalendarStatus)
-async def yandex_connect(
-    request: YandexConnectRequest, service: CalendarServiceDep
-) -> YandexCalendarStatus:
-    return await service.connect_yandex(request)
 
 
 @router.delete("/yandex/disconnect", response_model=YandexCalendarStatus)

@@ -142,6 +142,16 @@ def get_calendar_service(
 CalendarServiceDep = Annotated[CalendarService, Depends(get_calendar_service)]
 
 
+def get_calendar_callback_service(
+    calendar_repo: CalendarConnectionRepositoryDep,
+) -> CalendarService:
+    """Callback OAuth без JWT: user_id извлекается из state."""
+    return CalendarService(calendar_repo, user_id=None)
+
+
+CalendarCallbackServiceDep = Annotated[CalendarService, Depends(get_calendar_callback_service)]
+
+
 def get_tool_registry(
     task_repo: TaskRepositoryDep,
     meeting_repo: MeetingRepositoryDep,

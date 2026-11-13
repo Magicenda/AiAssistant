@@ -75,6 +75,30 @@ async def _ensure_columns(conn) -> None:
     if "yandex_uid" not in meeting_columns:
         await conn.execute(text("ALTER TABLE meetings ADD COLUMN yandex_uid VARCHAR(128)"))
 
+    table_names = await conn.run_sync(lambda sync: set(inspect(sync).get_table_names()))
+    if "calendar_connections" in table_names:
+        calendar_columns = await conn.run_sync(
+            lambda sync: {
+                column["name"] for column in inspect(sync).get_columns("calendar_connections")
+            }
+        )
+        if "access_token_encrypted" not in calendar_columns:
+            await conn.execute(
+                text("ALTER TABLE calendar_connections ADD COLUMN access_token_encrypted VARCHAR(2048)")
+            )
+        if "refresh_token_encrypted" not in calendar_columns:
+            await conn.execute(
+                text(
+                    "ALTER TABLE calendar_connections ADD COLUMN refresh_token_encrypted VARCHAR(2048)"
+                )
+            )
+        if "token_expires_at" not in calendar_columns:
+            await conn.execute(
+                text(
+                    "ALTER TABLE calendar_connections ADD COLUMN token_expires_at TIMESTAMP WITH TIME ZONE"
+                )
+            )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

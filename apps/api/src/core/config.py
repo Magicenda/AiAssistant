@@ -61,5 +61,13 @@ class Settings(BaseSettings):
     whisper_max_concurrent: int = Field(default=1, ge=1, le=4)
     whisper_vad_min_silence_ms: int = Field(default=500, ge=100, le=5000)
 
+    # Яндекс OAuth для Календаря (CalDAV с Authorization: OAuth).
+    yandex_oauth_client_id: str = ""
+    yandex_oauth_client_secret: str = ""
+    yandex_oauth_redirect_uri: str = "http://localhost:8000/api/calendar/yandex/callback"
+    # Куда отправить браузер после успешного callback (опционально).
+    yandex_oauth_success_redirect: str = ""
+    yandex_oauth_scopes: str = "calendar:all login:info login:email"
+
 
 settings = Settings()

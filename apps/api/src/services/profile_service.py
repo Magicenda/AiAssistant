@@ -3,14 +3,15 @@ import uuid
 
 from fastapi import HTTPException
 
-from core.crypto import decrypt_secret
 from schemas.planner import TaskCreate, TaskPatch, MeetingCreate, MeetingPatch
 
 from db.models import Meeting, Task, Type
 from db.repository.calendar_connection_repository import CalendarConnectionRepository
 from db.repository.meeting_repository import MeetingRepository
 from db.repository.task_repository import TaskRepository
+from services.calendar_service import CalendarService
 from services.yandex_calendar_client import YandexCalendarClient, YandexCalendarError
+from services.yandex_oauth import YandexOAuthError
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +91,15 @@ class ProfileService:
             return None
         return await self.calendar_connections.get_for_user(self.user_id)
 
+    async def _open_yandex_client(self, connection):
+        calendar = CalendarService(self.calendar_connections, self.user_id)
+        access_token = await calendar.resolve_access_token(connection)
+        return YandexCalendarClient(
+            connection.login,
+            access_token=access_token,
+            calendar_path=connection.calendar_path,
+        )
+
     async def _sync_meeting_upsert(self, meeting: Meeting) -> None:
         connection = await self._get_yandex_connection()
         if connection is None:
@@ -97,18 +107,13 @@ class ProfileService:
 
         uid = meeting.yandex_uid or str(uuid.uuid4())
         try:
-            password = decrypt_secret(connection.app_password_encrypted)
-            async with YandexCalendarClient(
-                connection.login,
-                password,
-                calendar_path=connection.calendar_path,
-            ) as client:
+            async with await self._open_yandex_client(connection) as client:
                 await client.upsert_event(
                     uid=uid,
                     summary=meeting.description,
                     start=meeting.appointment,
                 )
-        except (YandexCalendarError, ValueError) as exc:
+        except (YandexCalendarError, YandexOAuthError, ValueError) as exc:
             logger.warning(
                 "Не удалось синхронизировать встречу %s с Яндекс Календарём: %s",
                 meeting.id,
@@ -124,14 +129,9 @@ class ProfileService:
             return
 
         try:
-            password = decrypt_secret(connection.app_password_encrypted)
-            async with YandexCalendarClient(
-                connection.login,
-                password,
-                calendar_path=connection.calendar_path,
-            ) as client:
+            async with await self._open_yandex_client(connection) as client:
                 await client.delete_event(yandex_uid)
-        except (YandexCalendarError, ValueError) as exc:
+        except (YandexCalendarError, YandexOAuthError, ValueError) as exc:
             logger.warning(
                 "Не удалось удалить событие %s в Яндекс Календаре: %s",
                 yandex_uid,

@@ -1,4 +1,4 @@
-"""Минимальный async-клиент Яндекс Календаря по CalDAV."""
+"""Минимальный async-клиент Яндекс Календаря по CalDAV (OAuth)."""
 
 from __future__ import annotations
 
@@ -82,13 +82,13 @@ class YandexCalendarClient:
     def __init__(
         self,
         login: str,
-        app_password: str,
         *,
+        access_token: str,
         calendar_path: str | None = None,
         client: httpx.AsyncClient | None = None,
     ):
         self.login = login.strip()
-        self.app_password = app_password
+        self.access_token = access_token
         self.calendar_path = calendar_path or default_calendar_path(self.login)
         self._client = client
         self._owns_client = client is None
@@ -103,8 +103,11 @@ class YandexCalendarClient:
             await self._client.aclose()
             self._client = None
 
-    def _auth(self) -> httpx.BasicAuth:
-        return httpx.BasicAuth(self.login, self.app_password)
+    def _auth_headers(self, extra: dict[str, str] | None = None) -> dict[str, str]:
+        headers = {"Authorization": f"OAuth {self.access_token}"}
+        if extra:
+            headers.update(extra)
+        return headers
 
     def _http(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -112,17 +115,18 @@ class YandexCalendarClient:
         return self._client
 
     async def verify(self) -> None:
-        """Проверяет логин/пароль через PROPFIND к календарю по умолчанию."""
+        """Проверяет OAuth-токен через PROPFIND к календарю по умолчанию."""
         url = f"{CALDAV_BASE}{self.calendar_path.rstrip('/')}/"
         response = await self._http().request(
             "PROPFIND",
             url,
             content=_PROPFIND_BODY,
-            headers={
-                "Content-Type": "application/xml; charset=utf-8",
-                "Depth": "0",
-            },
-            auth=self._auth(),
+            headers=self._auth_headers(
+                {
+                    "Content-Type": "application/xml; charset=utf-8",
+                    "Depth": "0",
+                }
+            ),
         )
         if response.status_code not in (207, 200):
             detail = response.text[:200] if response.text else ""
@@ -130,7 +134,6 @@ class YandexCalendarClient:
                 f"Не удалось подключиться к Яндекс Календарю ({response.status_code}): {detail}",
                 status_code=response.status_code,
             )
-        # Ответ должен быть XML multi-status; пустой/HTML — тоже ошибка.
         try:
             ET.fromstring(response.text)
         except ET.ParseError as exc:
@@ -149,8 +152,7 @@ class YandexCalendarClient:
         response = await self._http().put(
             url,
             content=body.encode("utf-8"),
-            headers={"Content-Type": "text/calendar; charset=utf-8"},
-            auth=self._auth(),
+            headers=self._auth_headers({"Content-Type": "text/calendar; charset=utf-8"}),
         )
         if response.status_code not in (200, 201, 204):
             detail = response.text[:300] if response.text else ""
@@ -161,8 +163,7 @@ class YandexCalendarClient:
 
     async def delete_event(self, uid: str) -> None:
         url = event_url(self.login, uid, self.calendar_path)
-        response = await self._http().delete(url, auth=self._auth())
-        # 404 — уже удалено на стороне Яндекса, для нас это успех.
+        response = await self._http().delete(url, headers=self._auth_headers())
         if response.status_code not in (200, 204, 404):
             detail = response.text[:300] if response.text else ""
             raise YandexCalendarError(

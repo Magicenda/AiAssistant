@@ -1,11 +1,10 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
-class YandexConnectRequest(BaseModel):
-    login: str = Field(min_length=3, max_length=255, description="Email Яндекса")
-    app_password: str = Field(min_length=4, max_length=128, description="Пароль приложения «Календарь»")
+class YandexAuthorizeResponse(BaseModel):
+    authorize_url: str
 
 
 class YandexCalendarStatus(BaseModel):

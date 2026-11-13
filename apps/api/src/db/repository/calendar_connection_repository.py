@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,7 +25,9 @@ class CalendarConnectionRepository:
         user_id: int,
         *,
         login: str,
-        app_password_encrypted: str,
+        access_token_encrypted: str,
+        refresh_token_encrypted: str | None,
+        token_expires_at: datetime | None,
         calendar_path: str,
     ) -> CalendarConnection:
         existing = await self.get_for_user(user_id, "yandex")
@@ -32,18 +36,37 @@ class CalendarConnectionRepository:
                 user_id=user_id,
                 provider="yandex",
                 login=login,
-                app_password_encrypted=app_password_encrypted,
+                access_token_encrypted=access_token_encrypted,
+                refresh_token_encrypted=refresh_token_encrypted,
+                token_expires_at=token_expires_at,
                 calendar_path=calendar_path,
                 connected_at=now_moscow(),
             )
             self.session.add(existing)
         else:
             existing.login = login
-            existing.app_password_encrypted = app_password_encrypted
+            existing.access_token_encrypted = access_token_encrypted
+            existing.refresh_token_encrypted = refresh_token_encrypted
+            existing.token_expires_at = token_expires_at
             existing.calendar_path = calendar_path
             existing.connected_at = now_moscow()
         await self.session.flush()
         return existing
+
+    async def update_tokens(
+        self,
+        connection: CalendarConnection,
+        *,
+        access_token_encrypted: str,
+        refresh_token_encrypted: str | None,
+        token_expires_at: datetime | None,
+    ) -> CalendarConnection:
+        connection.access_token_encrypted = access_token_encrypted
+        if refresh_token_encrypted is not None:
+            connection.refresh_token_encrypted = refresh_token_encrypted
+        connection.token_expires_at = token_expires_at
+        await self.session.flush()
+        return connection
 
     async def delete_for_user(self, user_id: int, provider: str = "yandex") -> bool:
         existing = await self.get_for_user(user_id, provider)

@@ -60,7 +60,7 @@ class Meeting(BaseModel):
 
 
 class CalendarConnection(BaseModel):
-    """Per-user подключение к внешнему календарю (сейчас — Яндекс CalDAV)."""
+    """Per-user подключение к внешнему календарю через OAuth (Яндекс CalDAV)."""
 
     __tablename__ = "calendar_connections"
 
@@ -70,7 +70,9 @@ class CalendarConnection(BaseModel):
     )
     provider: Mapped[str] = mapped_column(String(32), default="yandex", server_default="yandex")
     login: Mapped[str] = mapped_column(String(255))
-    app_password_encrypted: Mapped[str] = mapped_column(String(512))
+    access_token_encrypted: Mapped[str] = mapped_column(String(2048))
+    refresh_token_encrypted: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     calendar_path: Mapped[str] = mapped_column(String(512))
     connected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
